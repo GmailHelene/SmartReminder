@@ -1,0 +1,62 @@
+{
+  "name": "Smart Påminner Pro",
+  "short_name": "Påminner",
+  "description": "Smart påminnelser med deling og e-post notifikasjoner",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#007bff",
+  "orientation": "portrait-primary",
+  "scope": "/",
+  "lang": "no",
+  "categories": ["productivity", "utilities"],
+  "icons": [
+    {
+      "src": "/static/images/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable any"
+    },
+    {
+      "src": "/static/images/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable any"
+    },
+    {
+      "src": "/static/images/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "/static/images/screenshot-desktop.png",
+      "sizes": "1280x720",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "Dashboard på desktop"
+    },
+    {
+      "src": "/static/images/screenshot-mobile.png",
+      "sizes": "375x667",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Mobil visning"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Ny påminnelse",
+      "short_name": "Ny",
+      "description": "Opprett ny påminnelse raskt",
+      "url": "/dashboard#new-reminder",
+      "icons": [
+        {
+          "src": "/static/images/icon-192x192.png",
+          "sizes": "192x192"
+        }
+      ]
+    }
+  ]
+}

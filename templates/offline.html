@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+
+{% block title %}Offline - Smart Påminner Pro{% endblock %}
+
+{% block content %}
+<div class="text-center mt-5">
+    <div class="mb-4">
+        <i class="fas fa-wifi text-muted" style="font-size: 4rem; opacity: 0.3;"></i>
+    </div>
+    
+    <h1 class="display-4">Du er offline</h1>
+    <p class="lead">Ingen internettforbindelse funnet.</p>
+    
+    <div class="mt-4">
+        <p>Du kan fortsatt:</p>
+        <ul class="list-unstyled">
+            <li><i class="fas fa-check text-success"></i> Se dine sist lastede påminnelser</li>
+            <li><i class="fas fa-check text-success"></i> Opprette nye påminnelser (synkroniseres senere)</li>
+            <li><i class="fas fa-check text-success"></i> Bruke appen normalt</li>
+        </ul>
+    </div>
+    
+    <button class="btn btn-primary mt-3" onclick="window.location.reload()">
+        <i class="fas fa-sync"></i> Prøv igjen
+    </button>
+</div>
+{% endblock %}

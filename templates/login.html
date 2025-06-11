@@ -1,0 +1,129 @@
+{% extends "base.html" %}
+
+{% block title %}Logg inn - Smart Påminner Pro{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6 col-lg-4">
+        <div class="card shadow-lg border-0">
+            <div class="card-header bg-primary text-white text-center py-4">
+                <div class="mb-3">
+                    <i class="fas fa-bell fa-3x"></i>
+                </div>
+                <h4 class="mb-0">Smart Påminner Pro</h4>
+                <small>Din personlige påminnelsesassistent</small>
+            </div>
+            
+            <div class="card-body p-4">
+                <!-- Login Form -->
+                <form method="POST" action="{{ url_for('login') }}" class="needs-validation" novalidate>
+                    {{ form.hidden_tag() }}
+                    
+                    <div class="mb-3">
+                        <label for="username" class="form-label">
+                            <i class="fas fa-envelope"></i> E-post adresse
+                        </label>
+                        {{ form.username(class="form-control form-control-lg", placeholder="din.epost@example.com") }}
+                        <div class="invalid-feedback">
+                            Vennligst oppgi en gyldig e-post adresse.
+                        </div>
+                    </div>
+                    
+                    <div class="mb-4">
+                        <label for="password" class="form-label">
+                            <i class="fas fa-lock"></i> Passord
+                        </label>
+                        {{ form.password(class="form-control form-control-lg", placeholder="Ditt passord") }}
+                        <div class="invalid-feedback">
+                            Passord er påkrevd.
+                        </div>
+                    </div>
+                    
+                    <div class="d-grid">
+                        {{ form.submit(class="btn btn-primary btn-lg") }}
+                    </div>
+                </form>
+                
+                <hr class="my-4">
+                
+                <!-- Register Form -->
+                <div class="text-center">
+                    <p class="text-muted mb-3">Har du ikke konto ennå?</p>
+                    
+                    <form method="POST" action="{{ url_for('register') }}" class="needs-validation" novalidate>
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                        
+                        <div class="mb-3">
+                            <input type="email" class="form-control" name="username" 
+                                   placeholder="Din e-post for ny konto" required>
+                            <div class="invalid-feedback">
+                                Gyldig e-post adresse kreves.
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <input type="password" class="form-control" name="password" 
+                                   placeholder="Velg et sikkert passord" minlength="6" required>
+                            <div class="invalid-feedback">
+                                Passord må være minst 6 tegn langt.
+                            </div>
+                        </div>
+                        
+                        <button type="submit" class="btn btn-outline-primary">
+                            <i class="fas fa-user-plus"></i> Opprett konto
+                        </button>
+                    </form>
+                </div>
+            </div>
+            
+            <div class="card-footer text-center text-muted py-3">
+                <small>
+                    <i class="fas fa-shield-alt"></i> Sikker innlogging med kryptering
+                </small>
+            </div>
+        </div>
+        
+        <!-- PWA Info -->
+        <div class="text-center mt-4">
+            <p class="text-muted">
+                <i class="fas fa-mobile-alt"></i> 
+                Kan installeres som app på telefonen din!
+            </p>
+        </div>
+    </div>
+</div>
+
+<!-- Demo Info -->
+<div class="row mt-5">
+    <div class="col-12">
+        <div class="card bg-light">
+            <div class="card-body text-center">
+                <h5><i class="fas fa-info-circle text-info"></i> Demo</h5>
+                <p class="mb-2">Test appen med disse demo-kontoene:</p>
+                <div class="row">
+                    <div class="col-md-6">
+                        <strong>Bruker 1:</strong><br>
+                        <code>demo1@test.com</code> / <code>123456</code>
+                    </div>
+                    <div class="col-md-6">
+                        <strong>Bruker 2:</strong><br>
+                        <code>demo2@test.com</code> / <code>123456</code>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Auto-focus på første input
+document.addEventListener('DOMContentLoaded', function() {
+    const firstInput = document.querySelector('input[name="username"]');
+    if (firstInput) {
+        firstInput.focus();
+    }
+});
+</script>
+{% endblock %}

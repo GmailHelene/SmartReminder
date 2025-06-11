@@ -1,0 +1,128 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Smart Påminner Pro{% endblock %}
+
+{% block content %}
+<!-- Velkommen-header -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="welcome-header">
+            <h1 class="display-6 mb-2">
+                <i class="fas fa-sun text-warning"></i> 
+                Hei, {{ current_user.username }}! 
+            </h1>
+            <p class="lead text-muted">
+                {% set hour = current_time.hour %}
+                {% if hour < 12 %}
+                    God morgen! Klar for en produktiv dag?
+                {% elif hour < 18 %}
+                    God dag! Hvordan går det med dagens oppgaver?
+                {% else %}
+                    God kveld! Tid for å planlegge i morgen?
+                {% endif %}
+            </p>
+        </div>
+    </div>
+</div>
+
+<!-- Statistikk Cards -->
+<div class="row mb-4">
+    <div class="col-md-3 col-6 mb-3">
+        <div class="stat-card stat-card-primary">
+            <div class="stat-icon">
+                <i class="fas fa-list"></i>
+            </div>
+            <div class="stat-content">
+                <h3 id="my-count">{{ stats.total }}</h3>
+                <p>Mine påminnelser</p>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3 col-6 mb-3">
+        <div class="stat-card stat-card-info">
+            <div class="stat-icon">
+                <i class="fas fa-share-alt"></i>
+            </div>
+            <div class="stat-content">
+                <h3 id="shared-count">{{ stats.shared_count }}</h3>
+                <p>Delt med meg</p>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3 col-6 mb-3">
+        <div class="stat-card stat-card-success">
+            <div class="stat-icon">
+                <i class="fas fa-check-circle"></i>
+            </div>
+            <div class="stat-content">
+                <h3 id="completed-count">{{ stats.completed }}</h3>
+                <p>Fullførte</p>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3 col-6 mb-3">
+        <div class="stat-card stat-card-warning">
+            <div class="stat-icon">
+                <i class="fas fa-percentage"></i>
+            </div>
+            <div class="stat-content">
+                <h3>{{ "%.0f"|format(stats.completion_rate) }}%</h3>
+                <p>Fullføringsrate</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Hovedinnhold -->
+<div class="row">
+    <!-- Ny påminnelse -->
+    <div class="col-lg-4 mb-4">
+        <div class="card h-100 border-0 shadow-sm">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">
+                    <i class="fas fa-plus-circle"></i> Ny påminnelse
+                </h5>
+            </div>
+            
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('add_reminder') }}" class="needs-validation" novalidate>
+                    {{ form.hidden_tag() }}
+                    
+                    <!-- Tittel -->
+                    <div class="mb-3">
+                        <label class="form-label">
+                            <i class="fas fa-heading"></i> Tittel *
+                        </label>
+                        {{ form.title(class="form-control", placeholder="Hva skal huskes?") }}
+                        <div class="invalid-feedback">Tittel er påkrevd.</div>
+                    </div>
+                    
+                    <!-- Beskrivelse -->
+                    <div class="mb-3">
+                        <label class="form-label">
+                            <i class="fas fa-align-left"></i> Beskrivelse
+                        </label>
+                        {{ form.description(class="form-control", rows="3", placeholder="Detaljer...") }}
+                    </div>
+                    
+                    <!-- Dato og tid -->
+                    <div class="row mb-3">
+                        <div class="col-6">
+                            <label class="form-label">
+                                <i class="fas fa-calendar"></i> Dato *
+                            </label>
+                            {{ form.date(class="form-control") }}
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label">
+                                <i class="fas fa-clock"></i> Tid *
+                            </label>
+                            {{ form.time(class="form-control") }}
+                        </div>
+                    </div>
+                    
+                    <!-- Prioritet og kategori -->
+                    <div cla

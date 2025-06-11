@@ -1,0 +1,515 @@
+from flask import Flask, render_template, request, redirect, url_for, flash, jsonify
+from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
+from flask_mail import Mail, Message
+from flask_wtf import FlaskForm
+from flask_wtf.csrf import CSRFProtect
+from wtforms import StringField, TextAreaField, SelectField, DateField, TimeField, PasswordField, SubmitField
+from wtforms.validators import DataRequired, Email, Length
+from wtforms.widgets import CheckboxInput, ListWidget
+from werkzeug.security import generate_password_hash, check_password_hash
+from datetime import datetime, timedelta
+from apscheduler.schedulers.background import BackgroundScheduler
+import json
+import hashlib
+import uuid
+import os
+import logging
+from pathlib import Path
+from config import config
+
+# Logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# Flask App
+app = Flask(__name__)
+
+# Konfigurasjon
+config_name = os.environ.get('FLASK_ENV', 'development')
+app.config.from_object(config[config_name])
+
+# Extensions
+csrf = CSRFProtect(app)
+mail = Mail(app)
+login_manager = LoginManager(app)
+login_manager.login_view = 'login'
+login_manager.login_message = 'Vennligst logg inn for å få tilgang til denne siden.'
+login_manager.login_message_category = 'info'
+
+# Scheduler for e-post notifikasjoner
+scheduler = BackgroundScheduler()
+scheduler.start()
+
+# 📊 Data Manager (forbedret)
+class DataManager:
+    def __init__(self):
+        self.data_dir = Path('data')
+        self.data_dir.mkdir(exist_ok=True)
+        self._ensure_data_files()
+    
+    def _ensure_data_files(self):
+        """Sørg for at alle data-filer eksisterer"""
+        files = ['users', 'reminders', 'shared_reminders', 'notifications', 'email_log']
+        for filename in files:
+            filepath = self.data_dir / f"{filename}.json"
+            if not filepath.exists():
+                initial_data = [] if filename in ['reminders', 'shared_reminders', 'notifications', 'email_log'] else {}
+                self.save_data(filename, initial_data)
+    
+    def load_data(self, filename):
+        """Last inn data fra JSON-fil med error handling"""
+        filepath = self.data_dir / f"{filename}.json"
+        try:
+            with open(filepath, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except (FileNotFoundError, json.JSONDecodeError) as e:
+            logger.error(f"Feil ved lasting av {filename}: {e}")
+            return [] if filename in ['reminders', 'shared_reminders', 'notifications', 'email_log'] else {}
+    
+    def save_data(self, filename, data):
+        """Lagre data til JSON-fil med backup"""
+        filepath = self.data_dir / f"{filename}.json"
+        backup_path = self.data_dir / f"{filename}.backup.json"
+        
+        try:
+            # Opprett backup
+            if filepath.exists():
+                import shutil
+                shutil.copy2(filepath, backup_path)
+            
+            # Lagre ny data
+            with open(filepath, 'w', encoding='utf-8') as f:
+                json.dump(data, f, ensure_ascii=False, indent=2)
+                
+        except Exception as e:
+            logger.error(f"Feil ved lagring av {filename}: {e}")
+            # Gjenopprett fra backup
+            if backup_path.exists():
+                import shutil
+                shutil.copy2(backup_path, filepath)
+            raise
+
+# Global data manager
+dm = DataManager()
+
+# 📝 WTForms
+class LoginForm(FlaskForm):
+    username = StringField('Brukernavn/E-post', validators=[DataRequired(), Email()])
+    password = PasswordField('Passord', validators=[DataRequired()])
+    submit = SubmitField('Logg inn')
+
+class RegisterForm(FlaskForm):
+    username = StringField('Brukernavn/E-post', validators=[DataRequired(), Email()])
+    password = PasswordField('Passord', validators=[DataRequired(), Length(min=6)])
+    submit = SubmitField('Registrer deg')
+
+class ReminderForm(FlaskForm):
+    title = StringField('Tittel', validators=[DataRequired()])
+    description = TextAreaField('Beskrivelse')
+    date = DateField('Dato', validators=[DataRequired()], default=datetime.now().date())
+    time = TimeField('Tid', validators=[DataRequired()], default=datetime.now().time())
+    priority = SelectField('Prioritet', choices=[('Lav', 'Lav'), ('Medium', 'Medium'), ('Høy', 'Høy')])
+    category = SelectField('Kategori', choices=[
+        ('Jobb', 'Jobb'), ('Privat', 'Privat'), ('Helse', 'Helse'), 
+        ('Familie', 'Familie'), ('Annet', 'Annet')
+    ])
+    submit = SubmitField('Opprett påminnelse')
+
+# 👤 User Class (forbedret)
+class User(UserMixin):
+    def __init__(self, user_id, username, email, password_hash=None):
+        self.id = user_id
+        self.username = username
+        self.email = email
+        self.password_hash = password_hash
+    
+    def check_password(self, password):
+        return check_password_hash(self.password_hash, password)
+    
+    @staticmethod
+    def get(user_id):
+        users = dm.load_data('users')
+        if user_id in users:
+            user_data = users[user_id]
+            return User(user_id, user_data['username'], user_data['email'], user_data.get('password_hash'))
+        return None
+    
+    @staticmethod
+    def get_by_email(email):
+        users = dm.load_data('users')
+        for user_id, user_data in users.items():
+            if user_data['email'] == email:
+                return User(user_id, user_data['username'], user_data['email'], user_data.get('password_hash'))
+        return None
+
+@login_manager.user_loader
+def load_user(user_id):
+    return User.get(user_id)
+
+# 📧 E-post funksjoner
+def send_email(to, subject, template, **kwargs):
+    """Send e-post med template"""
+    try:
+        msg = Message(
+            subject=subject,
+            recipients=[to] if isinstance(to, str) else to,
+            html=render_template(template, **kwargs),
+            sender=app.config['MAIL_DEFAULT_SENDER']
+        )
+        mail.send(msg)
+        
+        # Logg e-post
+        email_log = dm.load_data('email_log')
+        email_log.append({
+            'to': to,
+            'subject': subject,
+            'sent_at': datetime.now().isoformat(),
+            'status': 'sent'
+        })
+        dm.save_data('email_log', email_log)
+        
+        logger.info(f"E-post sendt til {to}: {subject}")
+        return True
+        
+    except Exception as e:
+        logger.error(f"Feil ved sending av e-post til {to}: {e}")
+        
+        # Logg feil
+        email_log = dm.load_data('email_log')
+        email_log.append({
+            'to': to,
+            'subject': subject,
+            'sent_at': datetime.now().isoformat(),
+            'status': 'failed',
+            'error': str(e)
+        })
+        dm.save_data('email_log', email_log)
+        
+        return False
+
+def send_reminder_notification(reminder, recipient_email):
+    """Send påminnelse-notifikasjon via e-post"""
+    subject = f"🔔 Påminnelse: {reminder['title']}"
+    
+    send_email(
+        to=recipient_email,
+        subject=subject,
+        template='emails/reminder_notification.html',
+        reminder=reminder,
+        recipient=recipient_email
+    )
+
+def send_shared_reminder_notification(reminder, shared_by, recipient_email):
+    """Send notifikasjon om delt påminnelse"""
+    subject = f"👥 Ny delt påminnelse fra {shared_by}: {reminder['title']}"
+    
+    send_email(
+        to=recipient_email,
+        subject=subject,
+        template='emails/shared_reminder.html',
+        reminder=reminder,
+        shared_by=shared_by,
+        recipient=recipient_email
+    )
+
+def check_reminders_for_notifications():
+    """Sjekk påminnelser og send notifikasjoner"""
+    try:
+        now = datetime.now()
+        notification_time = now + timedelta(minutes=app.config['NOTIFICATION_ADVANCE_MINUTES'])
+        
+        # Sjekk alle påminnelser
+        reminders = dm.load_data('reminders')
+        shared_reminders = dm.load_data('shared_reminders')
+        notifications = dm.load_data('notifications')
+        
+        sent_notifications = {n['reminder_id'] for n in notifications}
+        
+        all_reminders = []
+        
+        # Forbered mine påminnelser
+        for reminder in reminders:
+            if not reminder['completed'] and reminder['id'] not in sent_notifications:
+                reminder_dt = datetime.fromisoformat(reminder['datetime'].replace(' ', 'T'))
+                if now <= reminder_dt <= notification_time:
+                    all_reminders.append((reminder, reminder['user_id']))
+        
+        # Forbered delte påminnelser
+        for reminder in shared_reminders:
+            if not reminder['completed'] and reminder['id'] not in sent_notifications:
+                reminder_dt = datetime.fromisoformat(reminder['datetime'].replace(' ', 'T'))
+                if now <= reminder_dt <= notification_time:
+                    all_reminders.append((reminder, reminder['shared_with']))
+        
+        # Send notifikasjoner
+        for reminder, recipient_email in all_reminders:
+            if send_reminder_notification(reminder, recipient_email):
+                # Logg notifikasjon
+                notifications.append({
+                    'reminder_id': reminder['id'],
+                    'recipient': recipient_email,
+                    'sent_at': now.isoformat(),
+                    'type': 'reminder_notification'
+                })
+        
+        # Lagre oppdaterte notifikasjoner
+        if all_reminders:
+            dm.save_data('notifications', notifications)
+            logger.info(f"Sendt {len(all_reminders)} påminnelse-notifikasjoner")
+            
+    except Exception as e:
+        logger.error(f"Feil ved sjekking av påminnelser: {e}")
+
+# Planlegg automatisk sjekking av påminnelser
+scheduler.add_job(
+    func=check_reminders_for_notifications,
+    trigger="interval",
+    seconds=app.config['REMINDER_CHECK_INTERVAL'],
+    id='reminder_check'
+)
+
+# 🌐 Routes
+@app.route('/')
+def index():
+    if current_user.is_authenticated:
+        return redirect(url_for('dashboard'))
+    return redirect(url_for('login'))
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    form = LoginForm()
+    
+    if form.validate_on_submit():
+        user = User.get_by_email(form.username.data)
+        
+        if user and user.check_password(form.password.data):
+            login_user(user, remember=True)
+            next_page = request.args.get('next')
+            flash(f'Velkommen tilbake, {user.username}!', 'success')
+            return redirect(next_page) if next_page else redirect(url_for('dashboard'))
+        else:
+            flash('Feil e-post eller passord!', 'error')
+    
+    return render_template('login.html', form=form)
+
+@app.route('/register', methods=['GET', 'POST'])
+def register():
+    form = RegisterForm()
+    
+    if form.validate_on_submit():
+        # Sjekk om bruker eksisterer
+        if User.get_by_email(form.username.data):
+            flash('E-post er allerede registrert!', 'error')
+            return render_template('login.html', form=LoginForm(), register_form=form)
+        
+        # Opprett ny bruker
+        user_id = str(uuid.uuid4())
+        password_hash = generate_password_hash(form.password.data)
+        
+        users = dm.load_data('users')
+        users[user_id] = {
+            'username': form.username.data,
+            'email': form.username.data,
+            'password_hash': password_hash,
+            'created': datetime.now().isoformat()
+        }
+        dm.save_data('users', users)
+        
+        # Logg inn bruker
+        user = User(user_id, form.username.data, form.username.data, password_hash)
+        login_user(user, remember=True)
+        
+        flash(f'Velkommen, {user.username}! Din konto er opprettet.', 'success')
+        return redirect(url_for('dashboard'))
+    
+    return redirect(url_for('login'))
+
+@app.route('/logout')
+@login_required
+def logout():
+    logout_user()
+    flash('Du er nå logget ut.', 'info')
+    return redirect(url_for('login'))
+
+@app.route('/dashboard')
+@login_required
+def dashboard():
+    # Hent data
+    reminders = dm.load_data('reminders')
+    shared_reminders = dm.load_data('shared_reminders')
+    users = dm.load_data('users')
+    
+    # Filtrer påminnelser
+    my_reminders = [r for r in reminders if r['user_id'] == current_user.email and not r['completed']]
+    shared_with_me = [r for r in shared_reminders if r['shared_with'] == current_user.email and not r['completed']]
+    
+    # Sorter etter dato
+    my_reminders.sort(key=lambda x: x['datetime'])
+    shared_with_me.sort(key=lambda x: x['datetime'])
+    
+    # Statistikk
+    total_my = len([r for r in reminders if r['user_id'] == current_user.email])
+    completed_my = len([r for r in reminders if r['user_id'] == current_user.email and r['completed']])
+    completion_rate = (completed_my / total_my * 100) if total_my > 0 else 0
+    
+    # Tilgjengelige brukere for deling
+    available_users = [user_data['email'] for user_data in users.values() 
+                      if user_data['email'] != current_user.email]
+    
+    # Former
+    form = ReminderForm()
+    
+    return render_template('dashboard.html', 
+                         form=form,
+                         my_reminders=my_reminders,
+                         shared_reminders=shared_with_me,
+                         stats={
+                             'total': total_my,
+                             'completed': completed_my,
+                             'completion_rate': completion_rate,
+                             'shared_count': len(shared_with_me)
+                         },
+                         available_users=available_users,
+                         current_time=datetime.now())
+
+@app.route('/add_reminder', methods=['POST'])
+@login_required
+def add_reminder():
+    form = ReminderForm()
+    
+    if form.validate_on_submit():
+        # Hent deling-data fra request
+        share_with = request.form.getlist('share_with')
+        
+        # Opprett påminnelse
+        reminder_id = str(uuid.uuid4())
+        new_reminder = {
+            'id': reminder_id,
+            'user_id': current_user.email,
+            'title': form.title.data,
+            'description': form.description.data,
+            'datetime': f"{form.date.data} {form.time.data}",
+            'priority': form.priority.data,
+            'category': form.category.data,
+            'completed': False,
+            'created': datetime.now().isoformat(),
+            'shared_with': share_with
+        }
+        
+        # Lagre påminnelse
+        reminders = dm.load_data('reminders')
+        reminders.append(new_reminder)
+        dm.save_data('reminders', reminders)
+        
+        # Opprett delte påminnelser og send notifikasjoner
+        if share_with:
+            shared_reminders = dm.load_data('shared_reminders')
+            
+            for recipient in share_with:
+                shared_reminder = {
+                    'id': str(uuid.uuid4()),
+                    'original_id': reminder_id,
+                    'shared_by': current_user.email,
+                    'shared_with': recipient,
+                    'title': form.title.data,
+                    'description': form.description.data,
+                    'datetime': f"{form.date.data} {form.time.data}",
+                    'priority': form.priority.data,
+                    'category': form.category.data,
+                    'completed': False,
+                    'created': datetime.now().isoformat(),
+                    'is_shared': True
+                }
+                shared_reminders.append(shared_reminder)
+                
+                # Send e-post notifikasjon om delt påminnelse
+                send_shared_reminder_notification(shared_reminder, current_user.email, recipient)
+            
+            dm.save_data('shared_reminders', shared_reminders)
+            flash(f'Påminnelse "{form.title.data}" opprettet og delt med {len(share_with)} personer!', 'success')
+        else:
+            flash(f'Påminnelse "{form.title.data}" opprettet!', 'success')
+            
+    else:
+        flash('Feil i skjema. Sjekk alle felt.', 'error')
+    
+    return redirect(url_for('dashboard'))
+
+@app.route('/complete_reminder/<reminder_id>')
+@login_required
+def complete_reminder(reminder_id):
+    # Sjekk mine påminnelser
+    reminders = dm.load_data('reminders')
+    for reminder in reminders:
+        if reminder['id'] == reminder_id and reminder['user_id'] == current_user.email:
+            reminder['completed'] = True
+            reminder['completed_at'] = datetime.now().isoformat()
+            dm.save_data('reminders', reminders)
+            flash('Påminnelse fullført!', 'success')
+            return redirect(url_for('dashboard'))
+    
+    # Sjekk delte påminnelser
+    shared_reminders = dm.load_data('shared_reminders')
+    for reminder in shared_reminders:
+        if reminder['id'] == reminder_id and reminder['shared_with'] == current_user.email:
+            reminder['completed'] = True
+            reminder['completed_at'] = datetime.now().isoformat()
+            dm.save_data('shared_reminders', shared_reminders)
+            flash('Delt påminnelse fullført!', 'success')
+            return redirect(url_for('dashboard'))
+    
+    flash('Påminnelse ikke funnet!', 'error')
+    return redirect(url_for('dashboard'))
+
+@app.route('/delete_reminder/<reminder_id>')
+@login_required
+def delete_reminder(reminder_id):
+    reminders = dm.load_data('reminders')
+    original_count = len(reminders)
+    
+    reminders = [r for r in reminders if not (r['id'] == reminder_id and r['user_id'] == current_user.email)]
+    
+    if len(reminders) < original_count:
+        dm.save_data('reminders', reminders)
+        flash('Påminnelse slettet!', 'success')
+    else:
+        flash('Påminnelse ikke funnet eller tilhører ikke deg!', 'error')
+    
+    return redirect(url_for('dashboard'))
+
+@app.route('/health')
+def health_check():
+    """Health check endpoint for produksjon"""
+    return jsonify({
+        'status': 'healthy',
+        'timestamp': datetime.now().isoformat(),
+        'version': '1.0.0'
+    })
+
+# 🚨 Error Handlers
+@app.errorhandler(404)
+def not_found_error(error):
+    return render_template('errors/404.html'), 404
+
+@app.errorhandler(500)
+def internal_error(error):
+    logger.error(f"Internal error: {error}")
+    return render_template('errors/500.html'), 500
+
+@app.errorhandler(403)
+def forbidden_error(error):
+    return render_template('errors/403.html'), 403
+
+# Template filters
+@app.template_filter('as_datetime')
+def as_datetime(date_string):
+    try:
+        return datetime.fromisoformat(date_string.replace(' ', 'T'))
+    except:
+        return datetime.now()
+
+if __name__ == '__main__':
+    port = int(os.environ.get('PORT', 5000))
+    debug = os.environ.get('FLASK_ENV') == 'development'
+    
+    app.run(host='0.0.0.0', port=port, debug=debug)
