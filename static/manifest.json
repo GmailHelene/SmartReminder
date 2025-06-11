@@ -1,6 +1,6 @@
 {
-  "name": "Smart Påminner Pro",
-  "short_name": "Påminner",
+  "name": "Smart Reminder Pro",
+  "short_name": "SmartRemind",
   "description": "Smart påminnelser med deling og e-post notifikasjoner",
   "start_url": "https://smartreminder-production.up.railway.app/login",
   "display": "standalone",
