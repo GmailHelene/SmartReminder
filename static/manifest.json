@@ -2,7 +2,7 @@
   "name": "Smart Påminner Pro",
   "short_name": "Påminner",
   "description": "Smart påminnelser med deling og e-post notifikasjoner",
-  "start_url": "/",
+  "start_url": "https://smartreminder-production.up.railway.app/login",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#007bff",
