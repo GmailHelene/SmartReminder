@@ -1,3 +1,4 @@
+<!-- templates/dashboard.html -->
 {% extends "base.html" %}
 
 {% block title %}Dashboard - Smart Påminner Pro{% endblock %}
@@ -11,7 +12,7 @@
                 <i class="fas fa-sun text-warning"></i> 
                 Hei, {{ current_user.username }}! 
             </h1>
-            <p class="lead text-muted">
+            <p class="lead">
                 {% set hour = current_time.hour %}
                 {% if hour < 12 %}
                     God morgen! Klar for en produktiv dag?
@@ -33,7 +34,7 @@
                 <i class="fas fa-list"></i>
             </div>
             <div class="stat-content">
-                <h3 id="my-count">{{ stats.total }}</h3>
+                <h3>{{ stats.total }}</h3>
                 <p>Mine påminnelser</p>
             </div>
         </div>
@@ -45,7 +46,7 @@
                 <i class="fas fa-share-alt"></i>
             </div>
             <div class="stat-content">
-                <h3 id="shared-count">{{ stats.shared_count }}</h3>
+                <h3>{{ stats.shared_count }}</h3>
                 <p>Delt med meg</p>
             </div>
         </div>
@@ -57,7 +58,7 @@
                 <i class="fas fa-check-circle"></i>
             </div>
             <div class="stat-content">
-                <h3 id="completed-count">{{ stats.completed }}</h3>
+                <h3>{{ stats.completed }}</h3>
                 <p>Fullførte</p>
             </div>
         </div>
@@ -79,7 +80,7 @@
 <!-- Hovedinnhold -->
 <div class="row">
     <!-- Ny påminnelse -->
-    <div class="col-lg-4 mb-4">
+    <div class="col-lg-6 mb-4">
         <div class="card h-100 border-0 shadow-sm">
             <div class="card-header bg-primary text-white">
                 <h5 class="mb-0">
@@ -88,7 +89,7 @@
             </div>
             
             <div class="card-body">
-                <form method="POST" action="{{ url_for('add_reminder') }}" class="needs-validation" novalidate>
+                <form method="POST" action="{{ url_for('add_reminder') }}">
                     {{ form.hidden_tag() }}
                     
                     <!-- Tittel -->
@@ -97,7 +98,6 @@
                             <i class="fas fa-heading"></i> Tittel *
                         </label>
                         {{ form.title(class="form-control", placeholder="Hva skal huskes?") }}
-                        <div class="invalid-feedback">Tittel er påkrevd.</div>
                     </div>
                     
                     <!-- Beskrivelse -->
@@ -125,4 +125,114 @@
                     </div>
                     
                     <!-- Prioritet og kategori -->
-                    <div cla
+                    <div class="row mb-3">
+                        <div class="col-6">
+                            <label class="form-label">Prioritet</label>
+                            {{ form.priority(class="form-select") }}
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label">Kategori</label>
+                            {{ form.category(class="form-select") }}
+                        </div>
+                    </div>
+                    
+                    <!-- Del med andre -->
+                    {% if available_users %}
+                    <div class="mb-3">
+                        <label class="form-label">Del med andre</label>
+                        <select name="share_with" class="form-select" multiple>
+                            {% for user in available_users %}
+                            <option value="{{ user }}">{{ user }}</option>
+                            {% endfor %}
+                        </select>
+                        <small class="form-text text-muted">Hold Ctrl/Cmd for å velge flere</small>
+                    </div>
+                    {% endif %}
+                    
+                    {{ form.submit(class="btn btn-primary") }}
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Mine påminnelser -->
+    <div class="col-lg-6 mb-4">
+        <div class="card h-100 border-0 shadow-sm">
+            <div class="card-header bg-success text-white">
+                <h5 class="mb-0">
+                    <i class="fas fa-list"></i> Mine påminnelser
+                </h5>
+            </div>
+            
+            <div class="card-body">
+                {% if my_reminders %}
+                    {% for reminder in my_reminders %}
+                    <div class="alert alert-light border-start border-{{ 'danger' if reminder.priority == 'Høy' else 'warning' if reminder.priority == 'Medium' else 'info' }} border-3">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div>
+                                <h6 class="mb-1">{{ reminder.title }}</h6>
+                                <p class="mb-1 text-muted small">{{ reminder.description }}</p>
+                                <small class="text-muted">
+                                    <i class="fas fa-clock"></i> {{ reminder.datetime }}
+                                    <span class="badge bg-{{ 'danger' if reminder.priority == 'Høy' else 'warning' if reminder.priority == 'Medium' else 'info' }}">
+                                        {{ reminder.priority }}
+                                    </span>
+                                </small>
+                            </div>
+                            <div class="btn-group btn-group-sm">
+                                <a href="{{ url_for('complete_reminder', reminder_id=reminder.id) }}" 
+                                   class="btn btn-success btn-sm" title="Fullfør">
+                                    <i class="fas fa-check"></i>
+                                </a>
+                                <a href="{{ url_for('delete_reminder', reminder_id=reminder.id) }}" 
+                                   class="btn btn-danger btn-sm" title="Slett"
+                                   onclick="return confirm('Er du sikker?')">
+                                    <i class="fas fa-trash"></i>
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <p class="text-muted">Ingen påminnelser ennå.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Delte påminnelser -->
+{% if shared_reminders %}
+<div class="row">
+    <div class="col-12">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-info text-white">
+                <h5 class="mb-0">
+                    <i class="fas fa-share-alt"></i> Delt med meg
+                </h5>
+            </div>
+            <div class="card-body">
+                {% for reminder in shared_reminders %}
+                <div class="alert alert-info">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <h6 class="mb-1">{{ reminder.title }}</h6>
+                            <p class="mb-1">{{ reminder.description }}</p>
+                            <small class="text-muted">
+                                Delt av: {{ reminder.shared_by }} | 
+                                <i class="fas fa-clock"></i> {{ reminder.datetime }}
+                            </small>
+                        </div>
+                        <a href="{{ url_for('complete_reminder', reminder_id=reminder.id) }}" 
+                           class="btn btn-success btn-sm">
+                            <i class="fas fa-check"></i> Fullfør
+                        </a>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
