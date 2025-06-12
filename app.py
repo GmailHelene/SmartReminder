@@ -140,7 +140,6 @@ class ReminderForm(FlaskForm):
     ])
     submit = SubmitField('Opprett påminnelse')
 
-# 👤 User Class (forbedret)
 class User(UserMixin):
     def __init__(self, user_id, username, email, password_hash=None):
         self.id = user_id
@@ -153,19 +152,70 @@ class User(UserMixin):
     
     @staticmethod
     def get(user_id):
-        users = dm.load_data('users')
-        if user_id in users:
-            user_data = users[user_id]
-            return User(user_id, user_data['username'], user_data['email'], user_data.get('password_hash'))
+        conn = get_db_connection()
+        if not conn:
+            # Fallback til JSON
+            users = dm.load_data('users')
+            if user_id in users:
+                user_data = users[user_id]
+                return User(user_id, user_data['username'], user_data['email'], user_data.get('password_hash'))
+            return None
+        
+        cursor = conn.cursor()
+        cursor.execute('SELECT id, username, email, password_hash FROM users WHERE id = %s', (user_id,))
+        user_data = cursor.fetchone()
+        cursor.close()
+        conn.close()
+        
+        if user_data:
+            return User(user_data[0], user_data[1], user_data[2], user_data[3])
         return None
     
     @staticmethod
     def get_by_email(email):
-        users = dm.load_data('users')
-        for user_id, user_data in users.items():
-            if user_data['email'] == email:
-                return User(user_id, user_data['username'], user_data['email'], user_data.get('password_hash'))
+        conn = get_db_connection()
+        if not conn:
+            # Fallback til JSON
+            users = dm.load_data('users')
+            for user_id, user_data in users.items():
+                if user_data['email'] == email:
+                    return User(user_id, user_data['username'], user_data['email'], user_data.get('password_hash'))
+            return None
+        
+        cursor = conn.cursor()
+        cursor.execute('SELECT id, username, email, password_hash FROM users WHERE email = %s', (email,))
+        user_data = cursor.fetchone()
+        cursor.close()
+        conn.close()
+        
+        if user_data:
+            return User(user_data[0], user_data[1], user_data[2], user_data[3])
         return None
+    
+    def save(self):
+        """Lagre bruker til database"""
+        conn = get_db_connection()
+        if not conn:
+            # Fallback til JSON
+            users = dm.load_data('users')
+            users[self.id] = {
+                'username': self.username,
+                'email': self.email,
+                'password_hash': self.password_hash,
+                'created': datetime.now().isoformat()
+            }
+            dm.save_data('users', users)
+            return
+        
+        cursor = conn.cursor()
+        cursor.execute('''
+            INSERT INTO users (id, username, email, password_hash)
+            VALUES (%s, %s, %s, %s)
+            ON CONFLICT (email) DO NOTHING
+        ''', (self.id, self.username, self.email, self.password_hash))
+        conn.commit()
+        cursor.close()
+        conn.close()
 
 @login_manager.user_loader
 def load_user(user_id):
@@ -331,17 +381,10 @@ def register():
         user_id = str(uuid.uuid4())
         password_hash = generate_password_hash(form.password.data)
         
-        users = dm.load_data('users')
-        users[user_id] = {
-            'username': form.username.data,
-            'email': form.username.data,
-            'password_hash': password_hash,
-            'created': datetime.now().isoformat()
-        }
-        dm.save_data('users', users)
+        user = User(user_id, form.username.data, form.username.data, password_hash)
+        user.save()  # Bruk den nye save-metoden
         
         # Logg inn bruker
-        user = User(user_id, form.username.data, form.username.data, password_hash)
         login_user(user, remember=True)
         
         flash(f'Velkommen, {user.username}! Din konto er opprettet.', 'success')
