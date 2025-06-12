@@ -260,4 +260,84 @@
     </div>
 </div>
 {% endif %}
+{% block scripts %}
+<script>
+let selectedEmails = [];
+
+function addUserToShare(email) {
+    if (email && !selectedEmails.includes(email)) {
+        selectedEmails.push(email);
+        updateEmailDisplay();
+        document.getElementById('existing-users').value = '';
+    }
+}
+
+function addManualEmail() {
+    const emailInput = document.getElementById('manual-email');
+    const email = emailInput.value.trim();
+    
+    if (email && isValidEmail(email) && !selectedEmails.includes(email)) {
+        selectedEmails.push(email);
+        updateEmailDisplay();
+        emailInput.value = '';
+    } else if (!isValidEmail(email)) {
+        alert('Vennligst skriv inn en gyldig e-postadresse');
+    } else if (selectedEmails.includes(email)) {
+        alert('Denne e-postadressen er allerede lagt til');
+    }
+}
+
+function handleEmailKeypress(event) {
+    if (event.key === 'Enter') {
+        event.preventDefault();
+        addManualEmail();
+    }
+}
+
+function removeEmail(email) {
+    selectedEmails = selectedEmails.filter(e => e !== email);
+    updateEmailDisplay();
+}
+
+function updateEmailDisplay() {
+    const selectedDiv = document.getElementById('selected-emails');
+    const hiddenDiv = document.getElementById('hidden-emails');
+    
+    // Oppdater visning
+    selectedDiv.innerHTML = '';
+    hiddenDiv.innerHTML = '';
+    
+    selectedEmails.forEach(email => {
+        // Vis email med fjern-knapp
+        const emailBadge = document.createElement('span');
+        emailBadge.className = 'badge bg-primary me-1 mb-1';
+        emailBadge.innerHTML = `
+            ${email} 
+            <button type="button" class="btn-close btn-close-white btn-sm ms-1" 
+                    onclick="removeEmail('${email}')" aria-label="Fjern">
+            </button>
+        `;
+        selectedDiv.appendChild(emailBadge);
+        
+        // Legg til skjult input for skjemaet
+        const hiddenInput = document.createElement('input');
+        hiddenInput.type = 'hidden';
+        hiddenInput.name = 'share_with';
+        hiddenInput.value = email;
+        hiddenDiv.appendChild(hiddenInput);
+    });
+    
+    // Vis/skjul området
+    selectedDiv.style.display = selectedEmails.length > 0 ? 'block' : 'none';
+}
+
+function isValidEmail(email) {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+}
+
+// Initialiser visning
+updateEmailDisplay();
+</script>
+{% endblock %}            
 {% endblock %}
