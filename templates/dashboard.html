@@ -136,58 +136,64 @@
                         </div>
                     </div>
                     
-                    <!-- Del med andre -->
-                    <div class="mb-3">
-                        <label class="form-label">
-                            <i class="fas fa-share-alt"></i> Del med andre
-                        </label>
-                        
-                        <!-- Eksisterende brukere (hvis noen) -->
-                        {% if available_users %}
-                        <div class="mb-2">
-                            <small class="form-text text-muted">Registrerte brukere:</small>
-                            <select id="existing-users" class="form-select form-select-sm" onchange="addUserToShare(this.value)">
-                                <option value="">Velg registrert bruker...</option>
-                                {% for user in available_users %}
-                                <option value="{{ user }}">{{ user }}</option>
-                                {% endfor %}
-                            </select>
-                        </div>
-                        {% endif %}
-                        
-                        <!-- Manuell e-post input -->
-                        <div class="input-group mb-2">
-                            <input type="email" id="manual-email" class="form-control" 
-                                   placeholder="Skriv e-postadresse..." onkeypress="handleEmailKeypress(event)">
-                            <button type="button" class="btn btn-outline-secondary" onclick="addManualEmail()">
-                                <i class="fas fa-plus"></i> Legg til
-                            </button>
-                        </div>
-                        
-                        <!-- Liste over valgte e-poster -->
-                        <div id="selected-emails" class="mb-2" style="display: none;">
-                            <!-- Valgte e-poster vises her -->
-                        </div>
-                        
-                        <!-- Skjulte inputs for å sende med skjemaet -->
-                        <div id="hidden-emails">
-                            <!-- Skjulte input-felt legges til her dynamisk -->
-                        </div>
-                        
-                        <small class="form-text text-muted">
-                            <i class="fas fa-info-circle"></i> 
-                            Du kan dele påminnelser med alle e-postadresser, ikke bare registrerte brukere.
-                        </small>
-                    </div>
-                    
-                    <!-- Submit knapp -->
-                    <div class="d-grid">
-                        {{ form.submit(class="btn btn-primary btn-lg") }}
-                    </div>
-                </form>
+                   <!-- Del med andre -->
+<div class="mb-3">
+    <label class="form-label">
+        <i class="fas fa-share-alt"></i> Del med andre
+    </label>
+    
+    <!-- Eksisterende brukere (hvis noen) -->
+    {% if available_users %}
+    <div class="mb-2">
+        <small class="form-text text-muted">Registrerte brukere:</small>
+        <select id="existing-users" class="form-select form-select-sm" onchange="addUserToShare(this.value)">
+            <option value="">Velg registrert bruker...</option>
+            {% for user in available_users %}
+            <option value="{{ user }}">{{ user }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    {% endif %}
+    
+    <!-- Manuell e-post input -->
+    <div class="input-group mb-2">
+        <input type="email" id="manual-email" class="form-control" 
+               placeholder="Skriv e-postadresse..." onkeypress="handleEmailKeypress(event)">
+        <button type="button" class="btn btn-success" onclick="addManualEmail()">
+            <i class="fas fa-user-plus"></i> Legg til
+        </button>
+    </div>
+    
+    <!-- Liste over valgte e-poster -->
+    <div id="selected-emails" class="mb-2" style="display: none;">
+        <div class="border rounded p-2 bg-light">
+            <small class="text-muted d-block mb-2">
+                <i class="fas fa-users"></i> Påminnelsen vil deles med:
+            </small>
+            <div id="email-badges">
+                <!-- Email badges vises her -->
             </div>
         </div>
     </div>
+    
+    <!-- Skjulte inputs for å sende med skjemaet -->
+    <div id="hidden-emails">
+        <!-- Skjulte input-felt legges til her dynamisk -->
+    </div>
+    
+    <small class="form-text text-muted">
+        <i class="fas fa-info-circle"></i> 
+        Du kan dele påminnelser med alle e-postadresser. De vil få e-post når påminnelsen opprettes og før den forfaller.
+    </small>
+</div>
+
+<!-- Submit knapp (oppdatert tekst) -->
+<div class="d-grid">
+    <button type="submit" class="btn btn-primary btn-lg" id="submit-btn">
+        <i class="fas fa-plus-circle"></i> 
+        <span id="submit-text">Opprett påminnelse</span>
+    </button>
+</div>
     
     <!-- Mine påminnelser -->
     <div class="col-lg-6 mb-4">
@@ -280,6 +286,7 @@ function addUserToShare(email) {
         selectedEmails.push(email);
         updateEmailDisplay();
         document.getElementById('existing-users').value = '';
+        showSuccessMessage(`✓ ${email} lagt til for deling`);
     }
 }
 
@@ -287,15 +294,25 @@ function addManualEmail() {
     const emailInput = document.getElementById('manual-email');
     const email = emailInput.value.trim();
     
-    if (email && isValidEmail(email) && !selectedEmails.includes(email)) {
-        selectedEmails.push(email);
-        updateEmailDisplay();
-        emailInput.value = '';
-    } else if (!isValidEmail(email)) {
-        alert('Vennligst skriv inn en gyldig e-postadresse');
-    } else if (selectedEmails.includes(email)) {
-        alert('Denne e-postadressen er allerede lagt til');
+    if (!email) {
+        showErrorMessage('Vennligst skriv inn en e-postadresse');
+        return;
     }
+    
+    if (!isValidEmail(email)) {
+        showErrorMessage('Vennligst skriv inn en gyldig e-postadresse');
+        return;
+    }
+    
+    if (selectedEmails.includes(email)) {
+        showErrorMessage('Denne e-postadressen er allerede lagt til');
+        return;
+    }
+    
+    selectedEmails.push(email);
+    updateEmailDisplay();
+    emailInput.value = '';
+    showSuccessMessage(`✓ ${email} lagt til for deling`);
 }
 
 function handleEmailKeypress(event) {
@@ -308,27 +325,37 @@ function handleEmailKeypress(event) {
 function removeEmail(email) {
     selectedEmails = selectedEmails.filter(e => e !== email);
     updateEmailDisplay();
+    showSuccessMessage(`${email} fjernet fra deling`);
 }
 
 function updateEmailDisplay() {
     const selectedDiv = document.getElementById('selected-emails');
+    const emailBadgesDiv = document.getElementById('email-badges');
     const hiddenDiv = document.getElementById('hidden-emails');
+    const submitBtn = document.getElementById('submit-text');
     
-    // Oppdater visning
-    selectedDiv.innerHTML = '';
+    // Tøm containere
+    emailBadgesDiv.innerHTML = '';
     hiddenDiv.innerHTML = '';
+    
+    // Oppdater submit-knapp tekst
+    if (selectedEmails.length > 0) {
+        submitBtn.textContent = `Opprett og del med ${selectedEmails.length} person${selectedEmails.length > 1 ? 'er' : ''}`;
+    } else {
+        submitBtn.textContent = 'Opprett påminnelse';
+    }
     
     selectedEmails.forEach(email => {
         // Vis email med fjern-knapp
         const emailBadge = document.createElement('span');
-        emailBadge.className = 'badge bg-primary me-1 mb-1';
+        emailBadge.className = 'badge bg-primary me-1 mb-1 p-2';
         emailBadge.innerHTML = `
-            ${email} 
-            <button type="button" class="btn-close btn-close-white btn-sm ms-1" 
-                    onclick="removeEmail('${email}')" aria-label="Fjern">
+            <i class="fas fa-user"></i> ${email} 
+            <button type="button" class="btn-close btn-close-white btn-sm ms-2" 
+                    onclick="removeEmail('${email}')" aria-label="Fjern" title="Fjern ${email}">
             </button>
         `;
-        selectedDiv.appendChild(emailBadge);
+        emailBadgesDiv.appendChild(emailBadge);
         
         // Legg til skjult input for skjemaet
         const hiddenInput = document.createElement('input');
@@ -342,6 +369,41 @@ function updateEmailDisplay() {
     selectedDiv.style.display = selectedEmails.length > 0 ? 'block' : 'none';
 }
 
+function showSuccessMessage(message) {
+    showMessage(message, 'success');
+}
+
+function showErrorMessage(message) {
+    showMessage(message, 'error');
+}
+
+function showMessage(message, type) {
+    // Fjern eksisterende meldinger
+    const existingAlert = document.querySelector('.temp-alert');
+    if (existingAlert) {
+        existingAlert.remove();
+    }
+    
+    // Opprett ny melding
+    const alert = document.createElement('div');
+    alert.className = `alert alert-${type === 'success' ? 'success' : 'danger'} alert-dismissible fade show temp-alert`;
+    alert.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" onclick="this.parentElement.remove()"></button>
+    `;
+    
+    // Legg til øverst i form
+    const form = document.querySelector('form');
+    form.insertBefore(alert, form.firstChild);
+    
+    // Fjern automatisk etter 3 sekunder
+    setTimeout(() => {
+        if (alert && alert.parentElement) {
+            alert.remove();
+        }
+    }, 3000);
+}
+
 function isValidEmail(email) {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     return emailRegex.test(email);
@@ -352,4 +414,3 @@ document.addEventListener('DOMContentLoaded', function() {
     updateEmailDisplay();
 });
 </script>
-{% endblock %}
