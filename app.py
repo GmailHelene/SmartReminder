@@ -9,6 +9,8 @@ from wtforms.widgets import CheckboxInput, ListWidget
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime, timedelta
 from apscheduler.schedulers.background import BackgroundScheduler
+import psycopg2
+from urllib.parse import urlparse
 import json
 import hashlib
 import uuid
@@ -40,54 +42,77 @@ login_manager.login_message_category = 'info'
 scheduler = BackgroundScheduler()
 scheduler.start()
 
-# 📊 Data Manager (forbedret)
-class DataManager:
-    def __init__(self):
-        self.data_dir = Path('data')
-        self.data_dir.mkdir(exist_ok=True)
-        self._ensure_data_files()
+# Erstatt DataManager klassen med database funksjoner
+def get_db_connection():
+    """Få database tilkobling"""
+    database_url = os.environ.get('DATABASE_URL')
+    if database_url:
+        # Railway PostgreSQL
+        conn = psycopg2.connect(database_url)
+    else:
+        # Fallback til JSON filer for development
+        return None
+    return conn
+
+def init_database():
+    """Initialiser database tabeller"""
+    conn = get_db_connection()
+    if not conn:
+        return  # Bruk JSON filer
     
-    def _ensure_data_files(self):
-        """Sørg for at alle data-filer eksisterer"""
-        files = ['users', 'reminders', 'shared_reminders', 'notifications', 'email_log']
-        for filename in files:
-            filepath = self.data_dir / f"{filename}.json"
-            if not filepath.exists():
-                initial_data = [] if filename in ['reminders', 'shared_reminders', 'notifications', 'email_log'] else {}
-                self.save_data(filename, initial_data)
+    cursor = conn.cursor()
     
-    def load_data(self, filename):
-        """Last inn data fra JSON-fil med error handling"""
-        filepath = self.data_dir / f"{filename}.json"
-        try:
-            with open(filepath, 'r', encoding='utf-8') as f:
-                return json.load(f)
-        except (FileNotFoundError, json.JSONDecodeError) as e:
-            logger.error(f"Feil ved lasting av {filename}: {e}")
-            return [] if filename in ['reminders', 'shared_reminders', 'notifications', 'email_log'] else {}
+    # Opprett users tabell
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS users (
+            id VARCHAR(255) PRIMARY KEY,
+            username VARCHAR(255) NOT NULL,
+            email VARCHAR(255) UNIQUE NOT NULL,
+            password_hash VARCHAR(255) NOT NULL,
+            created TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
     
-    def save_data(self, filename, data):
-        """Lagre data til JSON-fil med backup"""
-        filepath = self.data_dir / f"{filename}.json"
-        backup_path = self.data_dir / f"{filename}.backup.json"
-        
-        try:
-            # Opprett backup
-            if filepath.exists():
-                import shutil
-                shutil.copy2(filepath, backup_path)
-            
-            # Lagre ny data
-            with open(filepath, 'w', encoding='utf-8') as f:
-                json.dump(data, f, ensure_ascii=False, indent=2)
-                
-        except Exception as e:
-            logger.error(f"Feil ved lagring av {filename}: {e}")
-            # Gjenopprett fra backup
-            if backup_path.exists():
-                import shutil
-                shutil.copy2(backup_path, filepath)
-            raise
+    # Opprett reminders tabell
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS reminders (
+            id VARCHAR(255) PRIMARY KEY,
+            user_id VARCHAR(255) NOT NULL,
+            title VARCHAR(255) NOT NULL,
+            description TEXT,
+            datetime VARCHAR(255) NOT NULL,
+            priority VARCHAR(50),
+            category VARCHAR(50),
+            completed BOOLEAN DEFAULT FALSE,
+            created TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            completed_at TIMESTAMP
+        )
+    ''')
+    
+    # Opprett shared_reminders tabell
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS shared_reminders (
+            id VARCHAR(255) PRIMARY KEY,
+            original_id VARCHAR(255),
+            shared_by VARCHAR(255) NOT NULL,
+            shared_with VARCHAR(255) NOT NULL,
+            title VARCHAR(255) NOT NULL,
+            description TEXT,
+            datetime VARCHAR(255) NOT NULL,
+            priority VARCHAR(50),
+            category VARCHAR(50),
+            completed BOOLEAN DEFAULT FALSE,
+            created TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            is_shared BOOLEAN DEFAULT TRUE
+        )
+    ''')
+    
+    conn.commit()
+    cursor.close()
+    conn.close()
+
+# Kall denne funksjonen når appen starter
+init_database()
 
 # Global data manager
 dm = DataManager()
