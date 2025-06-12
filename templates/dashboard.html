@@ -136,25 +136,50 @@
                         </div>
                     </div>
                     
-                    <!-- Del med andre -->
-                    {% if available_users %}
-                    <div class="mb-3">
-                        <label class="form-label">Del med andre</label>
-                        <select name="share_with" class="form-select" multiple>
-                            {% for user in available_users %}
-                            <option value="{{ user }}">{{ user }}</option>
-                            {% endfor %}
-                        </select>
-                        <small class="form-text text-muted">Hold Ctrl/Cmd for å velge flere</small>
-                    </div>
-                    {% endif %}
-                    
-                    {{ form.submit(class="btn btn-primary") }}
-                </form>
-            </div>
-        </div>
+<!-- Del med andre -->
+<div class="mb-3">
+    <label class="form-label">
+        <i class="fas fa-share-alt"></i> Del med andre
+    </label>
+    
+    <!-- Eksisterende brukere (hvis noen) -->
+    {% if available_users %}
+    <div class="mb-2">
+        <small class="form-text text-muted">Registrerte brukere:</small>
+        <select id="existing-users" class="form-select form-select-sm" onchange="addUserToShare(this.value)">
+            <option value="">Velg registrert bruker...</option>
+            {% for user in available_users %}
+            <option value="{{ user }}">{{ user }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    {% endif %}
+    
+    <!-- Manuell e-post input -->
+    <div class="input-group mb-2">
+        <input type="email" id="manual-email" class="form-control" 
+               placeholder="Skriv e-postadresse..." onkeypress="handleEmailKeypress(event)">
+        <button type="button" class="btn btn-outline-secondary" onclick="addManualEmail()">
+            <i class="fas fa-plus"></i> Legg til
+        </button>
     </div>
     
+    <!-- Liste over valgte e-poster -->
+    <div id="selected-emails" class="mb-2">
+        <!-- Valgte e-poster vises her -->
+    </div>
+    
+    <!-- Skjulte inputs for å sende med skjemaet -->
+    <div id="hidden-emails">
+        <!-- Skjulte input-felt legges til her dynamisk -->
+    </div>
+    
+    <small class="form-text text-muted">
+        <i class="fas fa-info-circle"></i> 
+        Du kan dele påminnelser med alle e-postadresser, ikke bare registrerte brukere.
+    </small>
+</div>
+                
     <!-- Mine påminnelser -->
     <div class="col-lg-6 mb-4">
         <div class="card h-100 border-0 shadow-sm">
