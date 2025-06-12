@@ -47,6 +47,31 @@
             border-radius: 15px;
             margin-bottom: 20px;
         }
+        #selected-emails {
+    max-height: 100px;
+    overflow-y: auto;
+    padding: 10px;
+    background-color: #f8f9fa;
+    border-radius: 5px;
+    border: 1px solid #dee2e6;
+}
+
+#selected-emails:empty {
+    display: none !important;
+}
+
+.badge .btn-close {
+    font-size: 0.6em;
+    opacity: 0.8;
+}
+
+.badge .btn-close:hover {
+    opacity: 1;
+}
+
+.input-group .btn {
+    white-space: nowrap;
+}
     </style>
 </head>
 <body class="bg-light">
