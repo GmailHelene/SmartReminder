@@ -113,7 +113,55 @@ def init_database():
 
 # Kall denne funksjonen når appen starter
 init_database()
-
+# 📊 Data Manager (forbedret)
+class DataManager:
+    def __init__(self):
+        self.data_dir = Path('data')
+        self.data_dir.mkdir(exist_ok=True)
+        self._ensure_data_files()
+    
+    def _ensure_data_files(self):
+        """Sørg for at alle data-filer eksisterer"""
+        files = ['users', 'reminders', 'shared_reminders', 'notifications', 'email_log']
+        for filename in files:
+            filepath = self.data_dir / f"{filename}.json"
+            if not filepath.exists():
+                initial_data = [] if filename in ['reminders', 'shared_reminders', 'notifications', 'email_log'] else {}
+                self.save_data(filename, initial_data)
+    
+    def load_data(self, filename):
+        """Last inn data fra JSON-fil med error handling"""
+        filepath = self.data_dir / f"{filename}.json"
+        try:
+            with open(filepath, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except (FileNotFoundError, json.JSONDecodeError) as e:
+            logger.error(f"Feil ved lasting av {filename}: {e}")
+            return [] if filename in ['reminders', 'shared_reminders', 'notifications', 'email_log'] else {}
+    
+    def save_data(self, filename, data):
+        """Lagre data til JSON-fil med backup"""
+        filepath = self.data_dir / f"{filename}.json"
+        backup_path = self.data_dir / f"{filename}.backup.json"
+        
+        try:
+            # Opprett backup
+            if filepath.exists():
+                import shutil
+                shutil.copy2(filepath, backup_path)
+            
+            # Lagre ny data
+            with open(filepath, 'w', encoding='utf-8') as f:
+                json.dump(data, f, ensure_ascii=False, indent=2)
+                
+        except Exception as e:
+            logger.error(f"Feil ved lagring av {filename}: {e}")
+            # Gjenopprett fra backup
+            if backup_path.exists():
+                import shutil
+                shutil.copy2(backup_path, filepath)
+            raise
+            
 # Global data manager
 dm = DataManager()
 
