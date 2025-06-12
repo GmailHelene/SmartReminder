@@ -380,6 +380,16 @@ def add_reminder():
     if form.validate_on_submit():
         # Hent deling-data fra request
         share_with = request.form.getlist('share_with')
+        # Fjern tomme verdier og duplikater
+        share_with = list(set([email.strip() for email in share_with if email.strip()]))
+        
+        # Valider e-postadresser
+        import re
+        email_pattern = re.compile(r'^[^\s@]+@[^\s@]+\.[^\s@]+$')
+        valid_emails = [email for email in share_with if email_pattern.match(email)]
+        
+        if len(valid_emails) < len(share_with):
+            flash('Noen e-postadresser var ugyldige og ble ikke lagt til.', 'warning')
         
         # Opprett påminnelse
         reminder_id = str(uuid.uuid4())
@@ -393,7 +403,7 @@ def add_reminder():
             'category': form.category.data,
             'completed': False,
             'created': datetime.now().isoformat(),
-            'shared_with': share_with
+            'shared_with': valid_emails
         }
         
         # Lagre påminnelse
@@ -402,10 +412,10 @@ def add_reminder():
         dm.save_data('reminders', reminders)
         
         # Opprett delte påminnelser og send notifikasjoner
-        if share_with:
+        if valid_emails:
             shared_reminders = dm.load_data('shared_reminders')
             
-            for recipient in share_with:
+            for recipient in valid_emails:
                 shared_reminder = {
                     'id': str(uuid.uuid4()),
                     'original_id': reminder_id,
@@ -423,10 +433,13 @@ def add_reminder():
                 shared_reminders.append(shared_reminder)
                 
                 # Send e-post notifikasjon om delt påminnelse
-                send_shared_reminder_notification(shared_reminder, current_user.email, recipient)
+                try:
+                    send_shared_reminder_notification(shared_reminder, current_user.email, recipient)
+                except Exception as e:
+                    logger.error(f"Kunne ikke sende e-post til {recipient}: {e}")
             
             dm.save_data('shared_reminders', shared_reminders)
-            flash(f'Påminnelse "{form.title.data}" opprettet og delt med {len(share_with)} personer!', 'success')
+            flash(f'Påminnelse "{form.title.data}" opprettet og delt med {len(valid_emails)} personer!', 'success')
         else:
             flash(f'Påminnelse "{form.title.data}" opprettet!', 'success')
             
@@ -434,6 +447,7 @@ def add_reminder():
         flash('Feil i skjema. Sjekk alle felt.', 'error')
     
     return redirect(url_for('dashboard'))
+
 
 @app.route('/complete_reminder/<reminder_id>')
 @login_required
