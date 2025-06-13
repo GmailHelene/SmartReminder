@@ -637,7 +637,221 @@ def as_datetime(date_string):
         return datetime.fromisoformat(date_string.replace(' ', 'T'))
     except:
         return datetime.now()
+# Legg til disse rutene i app.py
+@app.route('/shared_notes')
+@login_required
+def shared_notes():
+    """Vis oversikt over alle felles notater brukeren har tilgang til"""
+    all_notes = dm.load_data('shared_notes')
+    
+    # Filtrer notater brukeren har tilgang til
+    user_notes = []
+    for note in all_notes:
+        for member in note.get('members', []):
+            if member['email'] == current_user.email:
+                user_notes.append(note)
+                break
+    
+    return render_template('shared_notes.html', notes=user_notes)
 
+@app.route('/create_shared_note', methods=['GET', 'POST'])
+@login_required
+def create_shared_note():
+    """Opprett et nytt felles notat"""
+    if request.method == 'POST':
+        title = request.form.get('title')
+        content = request.form.get('content', '')
+        
+        if not title:
+            flash('Tittel er påkrevd', 'error')
+            return redirect(url_for('create_shared_note'))
+        
+        # Generer unik ID og tilgangskode
+        note_id = str(uuid.uuid4())
+        access_code = ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
+        
+        new_note = {
+            'id': note_id,
+            'title': title,
+            'content': content,
+            'created_by': current_user.email,
+            'created_at': datetime.now().isoformat(),
+            'updated_at': datetime.now().isoformat(),
+            'access_code': access_code,
+            'members': [
+                {
+                    'email': current_user.email,
+                    'role': 'owner',
+                    'joined_at': datetime.now().isoformat()
+                }
+            ],
+            'messages': []
+        }
+        
+        # Lagre notatet
+        notes = dm.load_data('shared_notes')
+        notes.append(new_note)
+        dm.save_data('shared_notes', notes)
+        
+        flash(f'Notat "{title}" opprettet! Tilgangskode: {access_code}', 'success')
+        return redirect(url_for('view_shared_note', note_id=note_id))
+    
+    return render_template('create_shared_note.html')
+
+@app.route('/shared_note/<note_id>')
+@login_required
+def view_shared_note(note_id):
+    """Vis et felles notat"""
+    notes = dm.load_data('shared_notes')
+    
+    # Finn notatet
+    note = None
+    for n in notes:
+        if n['id'] == note_id:
+            note = n
+            break
+    
+    if not note:
+        flash('Notatet ble ikke funnet', 'error')
+        return redirect(url_for('shared_notes'))
+    
+    # Sjekk tilgang
+    has_access = False
+    for member in note.get('members', []):
+        if member['email'] == current_user.email:
+            has_access = True
+            break
+    
+    if not has_access:
+        flash('Du har ikke tilgang til dette notatet', 'error')
+        return redirect(url_for('shared_notes'))
+    
+    return render_template('view_shared_note.html', note=note)
+
+@app.route('/update_shared_note/<note_id>', methods=['POST'])
+@login_required
+def update_shared_note(note_id):
+    """Oppdater innholdet i et felles notat"""
+    notes = dm.load_data('shared_notes')
+    
+    # Finn notatet og sjekk tilgang
+    note_index = None
+    for i, note in enumerate(notes):
+        if note['id'] == note_id:
+            has_access = False
+            for member in note.get('members', []):
+                if member['email'] == current_user.email:
+                    has_access = True
+                    break
+            
+            if has_access:
+                note_index = i
+            break
+    
+    if note_index is None:
+        flash('Notatet ble ikke funnet eller du har ikke tilgang', 'error')
+        return redirect(url_for('shared_notes'))
+    
+    # Oppdater innholdet
+    content = request.form.get('content', '')
+    notes[note_index]['content'] = content
+    notes[note_index]['updated_at'] = datetime.now().isoformat()
+    
+    # Lagre endringer
+    dm.save_data('shared_notes', notes)
+    
+    flash('Notatet ble oppdatert', 'success')
+    return redirect(url_for('view_shared_note', note_id=note_id))
+
+@app.route('/join_shared_note', methods=['GET', 'POST'])
+@login_required
+def join_shared_note():
+    """Bli med i et eksisterende notat via tilgangskode"""
+    if request.method == 'POST':
+        access_code = request.form.get('access_code')
+        
+        if not access_code:
+            flash('Tilgangskode er påkrevd', 'error')
+            return redirect(url_for('join_shared_note'))
+        
+        notes = dm.load_data('shared_notes')
+        
+        # Finn notatet med tilgangskoden
+        note_index = None
+        for i, note in enumerate(notes):
+            if note.get('access_code') == access_code:
+                note_index = i
+                break
+        
+        if note_index is None:
+            flash('Ingen notat funnet med denne tilgangskoden', 'error')
+            return redirect(url_for('join_shared_note'))
+        
+        # Sjekk om brukeren allerede er medlem
+        for member in notes[note_index].get('members', []):
+            if member['email'] == current_user.email:
+                flash('Du er allerede medlem av dette notatet', 'info')
+                return redirect(url_for('view_shared_note', note_id=notes[note_index]['id']))
+        
+        # Legg til brukeren som medlem
+        notes[note_index]['members'].append({
+            'email': current_user.email,
+            'role': 'editor',
+            'joined_at': datetime.now().isoformat()
+        })
+        
+        # Lagre endringer
+        dm.save_data('shared_notes', notes)
+        
+        flash(f'Du har blitt med i notatet "{notes[note_index]["title"]}"', 'success')
+        return redirect(url_for('view_shared_note', note_id=notes[note_index]['id']))
+    
+    return render_template('join_shared_note.html')
+
+@app.route('/add_message_to_note/<note_id>', methods=['POST'])
+@login_required
+def add_message_to_note(note_id):
+    """Legg til en chatmelding i notatet"""
+    message = request.form.get('message')
+    
+    if not message:
+        flash('Meldingen kan ikke være tom', 'error')
+        return redirect(url_for('view_shared_note', note_id=note_id))
+    
+    notes = dm.load_data('shared_notes')
+    
+    # Finn notatet og sjekk tilgang
+    note_index = None
+    for i, note in enumerate(notes):
+        if note['id'] == note_id:
+            has_access = False
+            for member in note.get('members', []):
+                if member['email'] == current_user.email:
+                    has_access = True
+                    break
+            
+            if has_access:
+                note_index = i
+            break
+    
+    if note_index is None:
+        flash('Notatet ble ikke funnet eller du har ikke tilgang', 'error')
+        return redirect(url_for('shared_notes'))
+    
+    # Legg til meldingen
+    message_id = str(uuid.uuid4())
+    notes[note_index]['messages'].append({
+        'id': message_id,
+        'sender': current_user.email,
+        'sender_name': current_user.username,
+        'content': message,
+        'timestamp': datetime.now().isoformat()
+    })
+    
+    # Lagre endringer
+    dm.save_data('shared_notes', notes)
+    
+    return redirect(url_for('view_shared_note', note_id=note_id))
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     debug = os.environ.get('FLASK_ENV') == 'development'
