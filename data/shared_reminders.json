@@ -1,1 +1,17 @@
-[]
+class DataManager:
+    def __init__(self):
+        self.data_dir = Path('data')
+        self.data_dir.mkdir(exist_ok=True)
+        self._ensure_data_files()
+    
+    def _ensure_data_files(self):
+        """Sørg for at alle data-filer eksisterer"""
+        # ENDRE DENNE LINJEN:
+        files = ['users', 'reminders', 'shared_reminders', 'notifications', 'email_log', 'shared_notes']
+        # ^--- Lagt til 'shared_notes' her
+        
+        for filename in files:
+            filepath = self.data_dir / f"{filename}.json"
+            if not filepath.exists():
+                initial_data = [] if filename in ['reminders', 'shared_reminders', 'notifications', 'email_log', 'shared_notes'] else {}
+                self.save_data(filename, initial_data)
