@@ -309,6 +309,14 @@ def send_email(to, subject, template, **kwargs):
         dm.save_data('email_log', email_log)
         
         return False
+        
+# E-post konfigurering
+app.config['MAIL_SERVER'] = 'smtp.gmail.com'
+app.config['MAIL_PORT'] = 587
+app.config['MAIL_USE_TLS'] = True
+app.config['MAIL_USERNAME'] = os.environ.get('MAIL_USERNAME')
+app.config['MAIL_PASSWORD'] = os.environ.get('MAIL_PASSWORD')
+app.config['MAIL_DEFAULT_SENDER'] = os.environ.get('MAIL_USERNAME')
 
 def send_reminder_notification(reminder, recipient_email):
     """Send påminnelse-notifikasjon via e-post"""
