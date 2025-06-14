@@ -9,8 +9,8 @@ from wtforms.widgets import CheckboxInput, ListWidget
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime, timedelta
 from apscheduler.schedulers.background import BackgroundScheduler
-import psycopg2
 from urllib.parse import urlparse
+import psycopg2
 import json
 import hashlib
 import uuid
@@ -18,7 +18,7 @@ import os
 import logging
 from pathlib import Path
 from config import config
-
+        
 # Logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -26,6 +26,88 @@ logger = logging.getLogger(__name__)
 # Flask App
 app = Flask(__name__)
 
+# Database oppsett
+DATABASE_URL = os.environ.get('DATABASE_URL')
+def get_db_connection():
+    if DATABASE_URL:
+        return psycopg2.connect(DATABASE_URL)
+    return None
+
+def init_db():
+    conn = get_db_connection()
+    if not conn:
+        print("Ingen database tilkobling - bruker JSON filer")
+        return False
+        
+    cur = conn.cursor()
+    
+    # Opprett users tabell
+    cur.execute('''
+    CREATE TABLE IF NOT EXISTS users (
+        id TEXT PRIMARY KEY,
+        username TEXT NOT NULL,
+        email TEXT UNIQUE NOT NULL,
+        password_hash TEXT NOT NULL,
+        created TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+    ''')
+    
+    # Opprett andre tabeller...
+    
+    conn.commit()
+    cur.close()
+    conn.close()
+    return True
+
+# Kall denne ved oppstart
+init_db()
+
+# Oppdater User klassen med database metoder
+class User(UserMixin):
+    # Eksisterende kode...
+    
+    @staticmethod
+    def get(user_id):
+        # Prøv database først
+        conn = get_db_connection()
+        if conn:
+            cur = conn.cursor()
+            cur.execute('SELECT id, username, email, password_hash FROM users WHERE id = %s', (user_id,))
+            user = cur.fetchone()
+            cur.close()
+            conn.close()
+            
+            if user:
+                return User(user[0], user[1], user[2], user[3])
+        
+        # Fallback til JSON
+        users = dm.load_data('users')
+        if user_id in users:
+            user_data = users[user_id]
+            return User(user_id, user_data['username'], user_data['email'], user_data.get('password_hash'))
+        return None
+    
+    @staticmethod
+    def get_by_email(email):
+        # Prøv database først
+        conn = get_db_connection()
+        if conn:
+            cur = conn.cursor()
+            cur.execute('SELECT id, username, email, password_hash FROM users WHERE email = %s', (email,))
+            user = cur.fetchone()
+            cur.close()
+            conn.close()
+            
+            if user:
+                return User(user[0], user[1], user[2], user[3])
+        
+        # Fallback til JSON
+        users = dm.load_data('users')
+        for user_id, user_data in users.items():
+            if user_data['email'] == email:
+                return User(user_id, user_data['username'], user_data['email'], user_data.get('password_hash'))
+        return None
+        
 # Konfigurasjon
 config_name = os.environ.get('FLASK_ENV', 'development')
 app.config.from_object(config[config_name])
