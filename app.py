@@ -10,14 +10,57 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime, timedelta
 from apscheduler.schedulers.background import BackgroundScheduler
 from urllib.parse import urlparse
+from pathlib import Path
+from config import config
 import psycopg2
 import json
 import hashlib
 import uuid
 import os
 import logging
-from pathlib import Path
-from config import config
+
+
+# Database setup
+def init_db():
+    DATABASE_URL = os.environ.get('DATABASE_URL')
+    if not DATABASE_URL:
+        print("ADVARSEL: Ingen DATABASE_URL funnet - bruker JSON-lagring")
+        return False
+        
+    try:
+        # Test connection
+        conn = psycopg2.connect(DATABASE_URL)
+        cur = conn.cursor()
+        
+        # Opprett users-tabell
+        cur.execute('''
+        CREATE TABLE IF NOT EXISTS users (
+            id TEXT PRIMARY KEY,
+            username TEXT NOT NULL,
+            email TEXT UNIQUE NOT NULL,
+            password_hash TEXT NOT NULL,
+            created TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+        ''')
+        
+        conn.commit()
+        cur.close()
+        conn.close()
+        print("Database tabeller initialisert!")
+        return True
+    except Exception as e:
+        print(f"Databasefeil: {e}")
+        return False
+
+# Kall denne funksjonen når appen starter
+use_db = init_db()
+
+def get_db_connection():
+    """Få databaseforbindelse"""
+    DATABASE_URL = os.environ.get('DATABASE_URL')
+    if DATABASE_URL:
+        return psycopg2.connect(DATABASE_URL)
+    return None
         
 # Logging
 logging.basicConfig(level=logging.INFO)
@@ -62,23 +105,32 @@ def init_db():
 # Kall denne ved oppstart
 init_db()
 
-# Oppdater User klassen med database metoder
-class User(UserMixin):
-    # Eksisterende kode...
+#class User(UserMixin):
+    def __init__(self, user_id, username, email, password_hash=None):
+        self.id = user_id
+        self.username = username
+        self.email = email
+        self.password_hash = password_hash
+    
+    def check_password(self, password):
+        return check_password_hash(self.password_hash, password)
     
     @staticmethod
     def get(user_id):
-        # Prøv database først
+        # Prøv database først hvis tilgjengelig
         conn = get_db_connection()
         if conn:
-            cur = conn.cursor()
-            cur.execute('SELECT id, username, email, password_hash FROM users WHERE id = %s', (user_id,))
-            user = cur.fetchone()
-            cur.close()
-            conn.close()
-            
-            if user:
-                return User(user[0], user[1], user[2], user[3])
+            try:
+                cur = conn.cursor()
+                cur.execute('SELECT id, username, email, password_hash FROM users WHERE id = %s', (user_id,))
+                user = cur.fetchone()
+                cur.close()
+                conn.close()
+                
+                if user:
+                    return User(user[0], user[1], user[2], user[3])
+            except Exception as e:
+                print(f"Database error: {e}")
         
         # Fallback til JSON
         users = dm.load_data('users')
@@ -89,17 +141,20 @@ class User(UserMixin):
     
     @staticmethod
     def get_by_email(email):
-        # Prøv database først
+        # Prøv database først hvis tilgjengelig
         conn = get_db_connection()
         if conn:
-            cur = conn.cursor()
-            cur.execute('SELECT id, username, email, password_hash FROM users WHERE email = %s', (email,))
-            user = cur.fetchone()
-            cur.close()
-            conn.close()
-            
-            if user:
-                return User(user[0], user[1], user[2], user[3])
+            try:
+                cur = conn.cursor()
+                cur.execute('SELECT id, username, email, password_hash FROM users WHERE email = %s', (email,))
+                user = cur.fetchone()
+                cur.close()
+                conn.close()
+                
+                if user:
+                    return User(user[0], user[1], user[2], user[3])
+            except Exception as e:
+                print(f"Database error: {e}")
         
         # Fallback til JSON
         users = dm.load_data('users')
@@ -107,6 +162,37 @@ class User(UserMixin):
             if user_data['email'] == email:
                 return User(user_id, user_data['username'], user_data['email'], user_data.get('password_hash'))
         return None
+
+    def save(self):
+        """Lagre bruker til database og JSON"""
+        # Lagre til database hvis tilgjengelig
+        conn = get_db_connection()
+        if conn:
+            try:
+                cur = conn.cursor()
+                cur.execute(
+                    'INSERT INTO users (id, username, email, password_hash) VALUES (%s, %s, %s, %s) ON CONFLICT (email) DO NOTHING',
+                    (self.id, self.username, self.email, self.password_hash)
+                )
+                conn.commit()
+                cur.close()
+                conn.close()
+                print(f"Bruker {self.email} lagret i database")
+                return True
+            except Exception as e:
+                print(f"Databasefeil ved lagring av bruker: {e}")
+        
+        # Alltid lagre til JSON også (backup)
+        users = dm.load_data('users')
+        users[self.id] = {
+            'username': self.username,
+            'email': self.email,
+            'password_hash': self.password_hash,
+            'created': datetime.now().isoformat()
+        }
+        dm.save_data('users', users)
+        print(f"Bruker {self.email} lagret i JSON")
+        return True
         
 # Konfigurasjon
 config_name = os.environ.get('FLASK_ENV', 'development')
@@ -520,34 +606,11 @@ def register():
         user_id = str(uuid.uuid4())
         password_hash = generate_password_hash(form.password.data)
         
-        # Prøv å lagre til database
-        conn = get_db_connection()
-        if conn:
-            try:
-                cur = conn.cursor()
-                cur.execute(
-                    'INSERT INTO users (id, username, email, password_hash) VALUES (%s, %s, %s, %s)',
-                    (user_id, form.username.data, form.username.data, password_hash)
-                )
-                conn.commit()
-                cur.close()
-                conn.close()
-            except Exception as e:
-                flash(f'Feil ved registrering: {e}', 'error')
-                return redirect(url_for('login'))
-        else:
-            # Fallback til JSON
-            users = dm.load_data('users')
-            users[user_id] = {
-                'username': form.username.data,
-                'email': form.username.data,
-                'password_hash': password_hash,
-                'created': datetime.now().isoformat()
-            }
-            dm.save_data('users', users)
+        # Opprett og lagre bruker
+        user = User(user_id, form.username.data, form.username.data, password_hash)
+        user.save()  # Nå bruker vi den forbedrede save-metoden
         
         # Logg inn bruker
-        user = User(user_id, form.username.data, form.username.data, password_hash)
         login_user(user, remember=True)
         
         flash(f'Velkommen, {user.username}! Din konto er opprettet.', 'success')
