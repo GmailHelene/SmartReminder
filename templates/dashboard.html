@@ -270,43 +270,43 @@
                 {% set my_notes = [n for n in notes if n.user_id == current_user.email][:3] %}
                 {% set shared_notes = [n for n in notes if current_user.email in n.get('shared_with', [])][:3] %}
                 
-                {% if my_notes or shared_notes %}
-                    <div class="row">
-                        {% if my_notes %}
-                            <div class="col-md-6">
-                                <h6 class="mb-3">Mine notater</h6>
-                                {% for note in my_notes %}
-                                    <div class="card mb-2">
-                                        <div class="card-body py-2 px-3">
-                                            <h6 class="card-title mb-1">{{ note.title }}</h6>
-                                            <p class="card-text small text-truncate">{{ note.content }}</p>
-                                        </div>
-                                    </div>
-                                {% endfor %}
-                            </div>
-                        {% endif %}
-                        
-                        {% if shared_notes %}
-                            <div class="col-md-6">
-                                <h6 class="mb-3">Delt med meg</h6>
-                                {% for note in shared_notes %}
-                                    <div class="card mb-2">
-                                        <div class="card-body py-2 px-3">
-                                            <h6 class="card-title mb-1">{{ note.title }}</h6>
-                                            <p class="card-text small text-truncate">{{ note.content }}</p>
-                                            <small class="text-muted">Fra: {{ note.user_id }}</small>
-                                        </div>
-                                    </div>
-                                {% endfor %}
-                            </div>
-                        {% endif %}
+              <!-- In dashboard.html, replace the complex filtering with this: -->
+{% if my_notes or shared_notes %}
+    <div class="row">
+        {% if my_notes %}
+            <div class="col-md-6">
+                <h6 class="mb-3">Mine notater</h6>
+                {% for note in my_notes %}
+                    <div class="card mb-2">
+                        <div class="card-body py-2 px-3">
+                            <h6 class="card-title mb-1">{{ note.title }}</h6>
+                            <p class="card-text small text-truncate">{{ note.content }}</p>
+                        </div>
                     </div>
-                {% else %}
-                    <p class="text-center py-3">
-                        <i class="fas fa-info-circle"></i> 
-                        Du har ingen notater ennå. <a href="{{ url_for('notes') }}">Opprett ditt første notat</a>
-                    </p>
-                {% endif %}
+                {% endfor %}
+            </div>
+        {% endif %}
+        {% if shared_notes %}
+            <div class="col-md-6">
+                <h6 class="mb-3">Delt med meg</h6>
+                {% for note in shared_notes %}
+                    <div class="card mb-2">
+                        <div class="card-body py-2 px-3">
+                            <h6 class="card-title mb-1">{{ note.title }}</h6>
+                            <p class="card-text small text-truncate">{{ note.content }}</p>
+                            <small class="text-muted">Fra: {{ note.user_id }}</small>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+    </div>
+{% else %}
+    <p class="text-center py-3">
+        <i class="fas fa-info-circle"></i> 
+        Du har ingen notater ennå. <a href="{{ url_for('notes') }}">Opprett ditt første notat</a>
+    </p>
+{% endif %}
             </div>
         </div>
     </div>
