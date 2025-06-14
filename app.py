@@ -587,6 +587,11 @@ def dashboard():
     available_users = [user_data['email'] for user_data in users.values() 
                       if user_data['email'] != current_user.email]
     
+    # Hent notater - NYTT
+    notes = dm.load_data('shared_notes')
+    my_notes = [n for n in notes if n.get('user_id') == current_user.email][:3]
+    shared_notes = [n for n in notes if current_user.email in n.get('shared_with', [])][:3]
+    
     # Former
     form = ReminderForm()
     
@@ -601,7 +606,9 @@ def dashboard():
                              'shared_count': len(shared_with_me)
                          },
                          available_users=available_users,
-                         current_time=datetime.now())
+                         current_time=datetime.now(),
+                         my_notes=my_notes,        # NYTT
+                         shared_notes=shared_notes) # NYTT
 @app.route('/notes')
 @login_required
 def notes():
