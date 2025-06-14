@@ -281,34 +281,40 @@ def init_database():
     conn.close()
 
 # Kall denne funksjonen når appen starter
-init_database()
 class DataManager:
     def __init__(self):
-        # Sørg for at data-mappen eksisterer og er skrivbar
         self.data_dir = Path('data')
-        if not self.data_dir.exists():
-            try:
-                self.data_dir.mkdir(exist_ok=True)
-            except:
-                # Fallback til temp-mappe hvis data-mappen ikke kan opprettes
-                self.data_dir = Path('/tmp/smartreminder_data')
-                self.data_dir.mkdir(exist_ok=True)
-        
-        # Sjekk at mappen er skrivbar
-        test_file = self.data_dir / 'test.txt'
+        self.data_dir.mkdir(exist_ok=True)
+        self.ensure_data_files()  # Merk: fjernet understreken
+    
+    def ensure_data_files(self):  # Merk: fjernet understreken
+        """Sørg for at alle data-filer eksisterer"""
+        files = ['users', 'reminders', 'shared_reminders', 'notifications', 'email_log', 'shared_notes']
+        for filename in files:
+            filepath = self.data_dir / f"{filename}.json"
+            if not filepath.exists():
+                initial_data = [] if filename in ['reminders', 'shared_reminders', 'notifications', 'email_log', 'shared_notes'] else {}
+                self.save_data(filename, initial_data)
+    
+    def load_data(self, filename):
+        """Last inn data fra JSON-fil med error handling"""
+        filepath = self.data_dir / f"{filename}.json"
         try:
-            test_file.write_text('test')
-            test_file.unlink()  # Slett testfilen
-        except:
-            # Fallback til temp-mappe hvis data-mappen ikke er skrivbar
-            self.data_dir = Path('/tmp/smartreminder_data')
-            self.data_dir.mkdir(exist_ok=True)
-        
-        print(f"Bruker datakatalog: {self.data_dir}")
-        self._ensure_data_files()
-            
-# Global data manager
-dm = DataManager()
+            with open(filepath, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except (FileNotFoundError, json.JSONDecodeError) as e:
+            logger.error(f"Feil ved lasting av {filename}: {e}")
+            return [] if filename in ['reminders', 'shared_reminders', 'notifications', 'email_log', 'shared_notes'] else {}
+    
+    def save_data(self, filename, data):
+        """Lagre data til JSON-fil"""
+        filepath = self.data_dir / f"{filename}.json"
+        try:
+            with open(filepath, 'w', encoding='utf-8') as f:
+                json.dump(data, f, ensure_ascii=False, indent=2)
+        except Exception as e:
+            logger.error(f"Feil ved lagring av {filename}: {e}")
+            raise
 
 # 📝 WTForms
 class LoginForm(FlaskForm):
