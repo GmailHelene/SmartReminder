@@ -357,7 +357,6 @@ class ReminderForm(FlaskForm):
     ])
     submit = SubmitField('Opprett påminnelse')
 
-# Legg til NoteForm her
 class NoteForm(FlaskForm):
     title = StringField('Tittel', validators=[DataRequired()])
     content = TextAreaField('Notat', validators=[DataRequired()])
@@ -687,6 +686,20 @@ def notes():
                           my_notes=my_notes,
                           shared_notes=shared_with_me)
 
+@app.route('/notes')
+@login_required
+def notes():
+    notes = dm.load_data('shared_notes')
+    my_notes = [n for n in notes if n.get('user_id') == current_user.email]
+    shared_with_me = [n for n in notes if current_user.email in n.get('shared_with', [])]
+    
+    form = NoteForm()
+    
+    return render_template('notes.html', 
+                          form=form,
+                          my_notes=my_notes,
+                          shared_notes=shared_with_me)
+
 @app.route('/add_note', methods=['POST'])
 @login_required
 def add_note():
@@ -718,9 +731,15 @@ def add_note():
         if share_with:
             for email in share_with:
                 try:
-                    send_note_shared_notification(new_note, current_user.email, email)
-                except:
-                    pass
+                    send_email(
+                        to=email,
+                        subject=f"Notat delt med deg: {form.title.data}",
+                        template='emails/shared_note.html',
+                        note=new_note,
+                        shared_by=current_user.email
+                    )
+                except Exception as e:
+                    print(f"Feil ved sending av e-post: {e}")
             
             flash(f'Notat opprettet og delt med {len(share_with)} personer!', 'success')
         else:
