@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Mine Notater{% endblock %}
+{% block title %}Notater - Smart Påminner Pro{% endblock %}
 
 {% block content %}
 <!-- Tilbakeknapp -->
@@ -12,12 +12,11 @@
     </div>
 </div>
 
-<!-- Nytt notat -->
 <div class="row mb-4">
     <div class="col-12">
         <div class="card border-0 shadow-sm">
             <div class="card-header bg-primary text-white">
-                <h5 class="mb-0"><i class="fas fa-plus-circle"></i> Nytt notat</h5>
+                <h5 class="mb-0"><i class="fas fa-sticky-note"></i> Nytt notat</h5>
             </div>
             <div class="card-body">
                 <form method="POST" action="{{ url_for('add_note') }}">
@@ -45,9 +44,8 @@
     </div>
 </div>
 
-<!-- Mine notater -->
 <div class="row">
-    <div class="col-md-6 mb-4">
+    <div class="col-lg-6 mb-4">
         <div class="card border-0 shadow-sm">
             <div class="card-header bg-success text-white">
                 <h5 class="mb-0"><i class="fas fa-book"></i> Mine notater</h5>
@@ -61,7 +59,7 @@
                                 <p class="card-text">{{ note.content }}</p>
                                 <p class="card-text"><small class="text-muted">Opprettet: {{ note.created }}</small></p>
                                 {% if note.shared_with %}
-                                    <p class="card-text"><small class="text-muted">Delt med: {{ note.shared_with|join(', ') }}</small></p>
+                                    <p class="card-text"><small class="text-muted">Delt med {{ note.shared_with|length }} personer</small></p>
                                 {% endif %}
                             </div>
                         </div>
@@ -73,8 +71,7 @@
         </div>
     </div>
     
-    <!-- Delte notater -->
-    <div class="col-md-6 mb-4">
+    <div class="col-lg-6 mb-4">
         <div class="card border-0 shadow-sm">
             <div class="card-header bg-info text-white">
                 <h5 class="mb-0"><i class="fas fa-share-alt"></i> Delt med meg</h5>
@@ -87,7 +84,6 @@
                                 <h5 class="card-title">{{ note.title }}</h5>
                                 <p class="card-text">{{ note.content }}</p>
                                 <p class="card-text"><small class="text-muted">Delt av: {{ note.user_id }}</small></p>
-                                <p class="card-text"><small class="text-muted">Opprettet: {{ note.created }}</small></p>
                             </div>
                         </div>
                     {% endfor %}
