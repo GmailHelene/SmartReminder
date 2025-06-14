@@ -701,19 +701,6 @@ def dashboard():
                          current_time=datetime.now(),
                          my_notes=my_notes,        # NYTT
                          shared_notes=shared_notes) # NYTT
-@app.route('/notes')
-@login_required
-def notes():
-    notes = dm.load_data('shared_notes')
-    my_notes = [n for n in notes if n['user_id'] == current_user.email]
-    shared_with_me = [n for n in notes if current_user.email in n.get('shared_with', [])]
-    
-    form = NoteForm()
-    
-    return render_template('notes.html', 
-                          form=form,
-                          my_notes=my_notes,
-                          shared_notes=shared_with_me)
 
 @app.route('/notes')
 @login_required
