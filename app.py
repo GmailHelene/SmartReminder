@@ -270,6 +270,13 @@ class ReminderForm(FlaskForm):
     ])
     submit = SubmitField('Opprett påminnelse')
 
+# Legg til NoteForm her
+class NoteForm(FlaskForm):
+    title = StringField('Tittel', validators=[DataRequired()])
+    content = TextAreaField('Notat', validators=[DataRequired()])
+    share_with = StringField('Del med (e-post)')
+    submit = SubmitField('Lagre notat')
+
 class User(UserMixin):
     def __init__(self, user_id, username, email, password_hash=None):
         self.id = user_id
