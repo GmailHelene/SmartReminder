@@ -10,14 +10,14 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime, timedelta
 from apscheduler.schedulers.background import BackgroundScheduler
 from urllib.parse import urlparse
-from pathlib import Path
 from config import config
-import psycopg2
-import json
 import hashlib
 import uuid
-import os
 import logging
+import os
+import json
+import psycopg2
+from pathlib import Path
 
 
 # Database setup
@@ -282,54 +282,30 @@ def init_database():
 
 # Kall denne funksjonen når appen starter
 init_database()
-# 📊 Data Manager (forbedret)
 class DataManager:
     def __init__(self):
+        # Sørg for at data-mappen eksisterer og er skrivbar
         self.data_dir = Path('data')
-        self.data_dir.mkdir(exist_ok=True)
-        self._ensure_data_files()
-    
-    def _ensure_data_files(self):
-        """Sørg for at alle data-filer eksisterer"""
-        files = ['users', 'reminders', 'shared_reminders', 'notifications', 'email_log', 'shared_notes']
-        for filename in files:
-            filepath = self.data_dir / f"{filename}.json"
-            if not filepath.exists():
-                initial_data = [] if filename in ['reminders', 'shared_reminders', 'notifications', 'email_log', 'shared_notes'] else {}
-                self.save_data(filename, initial_data)
-    
-    def load_data(self, filename):
-        """Last inn data fra JSON-fil med error handling"""
-        filepath = self.data_dir / f"{filename}.json"
-        try:
-            with open(filepath, 'r', encoding='utf-8') as f:
-                return json.load(f)
-        except (FileNotFoundError, json.JSONDecodeError) as e:
-            logger.error(f"Feil ved lasting av {filename}: {e}")
-            return [] if filename in ['reminders', 'shared_reminders', 'notifications', 'email_log'] else {}
-    
-    def save_data(self, filename, data):
-        """Lagre data til JSON-fil med backup"""
-        filepath = self.data_dir / f"{filename}.json"
-        backup_path = self.data_dir / f"{filename}.backup.json"
+        if not self.data_dir.exists():
+            try:
+                self.data_dir.mkdir(exist_ok=True)
+            except:
+                # Fallback til temp-mappe hvis data-mappen ikke kan opprettes
+                self.data_dir = Path('/tmp/smartreminder_data')
+                self.data_dir.mkdir(exist_ok=True)
         
+        # Sjekk at mappen er skrivbar
+        test_file = self.data_dir / 'test.txt'
         try:
-            # Opprett backup
-            if filepath.exists():
-                import shutil
-                shutil.copy2(filepath, backup_path)
-            
-            # Lagre ny data
-            with open(filepath, 'w', encoding='utf-8') as f:
-                json.dump(data, f, ensure_ascii=False, indent=2)
-                
-        except Exception as e:
-            logger.error(f"Feil ved lagring av {filename}: {e}")
-            # Gjenopprett fra backup
-            if backup_path.exists():
-                import shutil
-                shutil.copy2(backup_path, filepath)
-            raise
+            test_file.write_text('test')
+            test_file.unlink()  # Slett testfilen
+        except:
+            # Fallback til temp-mappe hvis data-mappen ikke er skrivbar
+            self.data_dir = Path('/tmp/smartreminder_data')
+            self.data_dir.mkdir(exist_ok=True)
+        
+        print(f"Bruker datakatalog: {self.data_dir}")
+        self._ensure_data_files()
             
 # Global data manager
 dm = DataManager()
@@ -357,11 +333,58 @@ class ReminderForm(FlaskForm):
     ])
     submit = SubmitField('Opprett påminnelse')
 
+# Legg til denne klassen med de andre FlaskForm-klassene
 class NoteForm(FlaskForm):
     title = StringField('Tittel', validators=[DataRequired()])
     content = TextAreaField('Notat', validators=[DataRequired()])
-    share_with = StringField('Del med (e-post)')
+    share_with = StringField('Del med (e-post, adskilt med komma)')
     submit = SubmitField('Lagre notat')
+
+# Legg til denne ruten i app.py (merk endret navn)
+@app.route('/my-notes')
+@login_required
+def my_notes():
+    notes = dm.load_data('shared_notes')
+    my_notes = [n for n in notes if n.get('user_id') == current_user.email]
+    shared_with_me = [n for n in notes if current_user.email in n.get('shared_with', [])]
+    
+    form = NoteForm()
+    
+    return render_template('notes.html', 
+                          form=form,
+                          my_notes=my_notes,
+                          shared_notes=shared_with_me)
+
+@app.route('/add-note', methods=['POST'])
+@login_required
+def add_note():
+    form = NoteForm()
+    
+    if form.validate_on_submit():
+        # Del opp e-poster
+        share_with = []
+        if form.share_with.data:
+            share_with = [email.strip() for email in form.share_with.data.split(',')]
+        
+        note_id = str(uuid.uuid4())
+        new_note = {
+            'id': note_id,
+            'user_id': current_user.email,
+            'title': form.title.data,
+            'content': form.content.data,
+            'created': datetime.now().isoformat(),
+            'updated': datetime.now().isoformat(),
+            'shared_with': share_with
+        }
+        
+        # Lagre notat
+        notes = dm.load_data('shared_notes')
+        notes.append(new_note)
+        dm.save_data('shared_notes', notes)
+        
+        flash('Notat opprettet!', 'success')
+    
+    return redirect(url_for('my_notes'))
 
 class User(UserMixin):
     def __init__(self, user_id, username, email, password_hash=None):
