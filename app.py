@@ -105,7 +105,8 @@ def init_db():
 # Kall denne ved oppstart
 init_db()
 
-#class User(UserMixin):
+#  User Class
+class User(UserMixin):
     def __init__(self, user_id, username, email, password_hash=None):
         self.id = user_id
         self.username = username
