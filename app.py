@@ -122,11 +122,11 @@ class DataManager:
     
     def _ensure_data_files(self):
         """Sørg for at alle data-filer eksisterer"""
-        files = ['users', 'reminders', 'shared_reminders', 'notifications', 'email_log']
+        files = ['users', 'reminders', 'shared_reminders', 'notifications', 'email_log', 'shared_notes']
         for filename in files:
             filepath = self.data_dir / f"{filename}.json"
             if not filepath.exists():
-                initial_data = [] if filename in ['reminders', 'shared_reminders', 'notifications', 'email_log'] else {}
+                initial_data = [] if filename in ['reminders', 'shared_reminders', 'notifications', 'email_log', 'shared_notes'] else {}
                 self.save_data(filename, initial_data)
     
     def load_data(self, filename):
