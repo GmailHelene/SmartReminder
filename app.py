@@ -355,29 +355,23 @@ def load_user(user_id):
 def send_email(to, subject, template, **kwargs):
     """Send e-post med template"""
     try:
+        if not app.config['MAIL_USERNAME'] or not app.config['MAIL_PASSWORD']:
+            logger.warning(f"E-post ble ikke sendt: Mangler MAIL_USERNAME eller MAIL_PASSWORD")
+            return False
+            
         msg = Message(
             subject=subject,
             recipients=[to] if isinstance(to, str) else to,
             html=render_template(template, **kwargs),
-            sender=app.config['MAIL_DEFAULT_SENDER']
+            sender=app.config['MAIL_DEFAULT_SENDER'] or app.config['MAIL_USERNAME']
         )
         mail.send(msg)
-        
-        # Logg e-post
-        email_log = dm.load_data('email_log')
-        email_log.append({
-            'to': to,
-            'subject': subject,
-            'sent_at': datetime.now().isoformat(),
-            'status': 'sent'
-        })
-        dm.save_data('email_log', email_log)
-        
         logger.info(f"E-post sendt til {to}: {subject}")
         return True
         
     except Exception as e:
         logger.error(f"Feil ved sending av e-post til {to}: {e}")
+        return False
         
         # Logg feil
         email_log = dm.load_data('email_log')
