@@ -970,6 +970,26 @@ def join_shared_note():
     
     return render_template('join_shared_note.html')
 
+@app.route('/test-email')
+def test_email():
+    if current_user.is_authenticated:
+        recipient = current_user.email
+    else:
+        recipient = request.args.get('email')
+        
+    if not recipient:
+        return "Mangler e-postadresse", 400
+        
+    # Test sending av e-post
+    success = send_email(
+        to=recipient,
+        subject="Test fra Smart Påminner Pro",
+        template='emails/test_email.html',
+        name=current_user.username if current_user.is_authenticated else "Test"
+    )
+    
+    return f"E-post {'sendt' if success else 'FEILET'} til {recipient}"
+        
 @app.route('/add_message_to_note/<note_id>', methods=['POST'])
 @login_required
 def add_message_to_note(note_id):
