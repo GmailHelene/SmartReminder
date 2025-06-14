@@ -519,10 +519,34 @@ def register():
         user_id = str(uuid.uuid4())
         password_hash = generate_password_hash(form.password.data)
         
-        user = User(user_id, form.username.data, form.username.data, password_hash)
-        user.save()  # Bruk den nye save-metoden
+        # Prøv å lagre til database
+        conn = get_db_connection()
+        if conn:
+            try:
+                cur = conn.cursor()
+                cur.execute(
+                    'INSERT INTO users (id, username, email, password_hash) VALUES (%s, %s, %s, %s)',
+                    (user_id, form.username.data, form.username.data, password_hash)
+                )
+                conn.commit()
+                cur.close()
+                conn.close()
+            except Exception as e:
+                flash(f'Feil ved registrering: {e}', 'error')
+                return redirect(url_for('login'))
+        else:
+            # Fallback til JSON
+            users = dm.load_data('users')
+            users[user_id] = {
+                'username': form.username.data,
+                'email': form.username.data,
+                'password_hash': password_hash,
+                'created': datetime.now().isoformat()
+            }
+            dm.save_data('users', users)
         
         # Logg inn bruker
+        user = User(user_id, form.username.data, form.username.data, password_hash)
         login_user(user, remember=True)
         
         flash(f'Velkommen, {user.username}! Din konto er opprettet.', 'success')
@@ -577,7 +601,61 @@ def dashboard():
                          },
                          available_users=available_users,
                          current_time=datetime.now())
+@app.route('/notes')
+@login_required
+def notes():
+    notes = dm.load_data('shared_notes')
+    my_notes = [n for n in notes if n['user_id'] == current_user.email]
+    shared_with_me = [n for n in notes if current_user.email in n.get('shared_with', [])]
+    
+    form = NoteForm()
+    
+    return render_template('notes.html', 
+                          form=form,
+                          my_notes=my_notes,
+                          shared_notes=shared_with_me)
 
+@app.route('/add_note', methods=['POST'])
+@login_required
+def add_note():
+    form = NoteForm()
+    
+    if form.validate_on_submit():
+        # Del opp e-poster
+        share_with = []
+        if form.share_with.data:
+            share_with = [email.strip() for email in form.share_with.data.split(',')]
+        
+        note_id = str(uuid.uuid4())
+        new_note = {
+            'id': note_id,
+            'user_id': current_user.email,
+            'title': form.title.data,
+            'content': form.content.data,
+            'created': datetime.now().isoformat(),
+            'updated': datetime.now().isoformat(),
+            'shared_with': share_with
+        }
+        
+        # Lagre notat
+        notes = dm.load_data('shared_notes')
+        notes.append(new_note)
+        dm.save_data('shared_notes', notes)
+        
+        # Send e-post hvis delt
+        if share_with:
+            for email in share_with:
+                try:
+                    send_note_shared_notification(new_note, current_user.email, email)
+                except:
+                    pass
+            
+            flash(f'Notat opprettet og delt med {len(share_with)} personer!', 'success')
+        else:
+            flash('Notat opprettet!', 'success')
+    
+    return redirect(url_for('notes'))
+        
 @app.route('/add_reminder', methods=['POST'])
 @login_required
 def add_reminder():
