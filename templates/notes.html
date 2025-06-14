@@ -3,6 +3,16 @@
 {% block title %}Notater - Smart Påminner Pro{% endblock %}
 
 {% block content %}
+<!-- Tilbakeknapp -->
+<div class="row mb-3">
+    <div class="col-12">
+        <a href="{{ url_for('dashboard') }}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left"></i> Tilbake til dashboard
+        </a>
+    </div>
+</div>
+{% endblock %}
+{% block content %}
 <div class="row mb-4">
     <div class="col-12">
         <div class="card border-0 shadow-sm">
