@@ -716,10 +716,6 @@ def notes():
                           my_notes=my_notes,
                           shared_notes=shared_with_me)
 
-@app.route('/add_note', methods=['POST'])
-@login_required
-def add_note():
-    form = NoteForm()
     
     if form.validate_on_submit():
         # Del opp e-poster
