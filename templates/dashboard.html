@@ -266,10 +266,7 @@
                 </a>
             </div>
             <div class="card-body">
-                {% set notes = dm.load_data('shared_notes') %}
-                {% set my_notes = [n for n in notes if n.user_id == current_user.email][:3] %}
-                {% set shared_notes = [n for n in notes if current_user.email in n.get('shared_with', [])][:3] %}
-                
+         
               <!-- In dashboard.html, replace the complex filtering with this: -->
 {% if my_notes or shared_notes %}
     <div class="row">
