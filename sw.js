@@ -2,8 +2,8 @@ const CACHE_NAME = 'smart-reminder-v1';
 const urlsToCache = [
   '/',
   '/manifest.json',
-  '/icons/icon-192x192.png',
-  '/icons/icon-512x512.png'
+  '/images/icon-192x192.png',
+  '/images/icon-512x512.png'
 ];
 
 self.addEventListener('install', (event) => {
