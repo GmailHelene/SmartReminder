@@ -6,7 +6,13 @@
     <title>Smart Reminder Pro</title>
      <link rel="manifest" href="/manifest.json">
     <meta name="theme-color" content="#2E86AB">
-  <meta name="theme-color" content="#000000">
+     <!-- PWA forbedringer -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="Smart Reminder">
+    <link rel="apple-touch-icon" href="/icons/icon-192x192.png">
+    <!-- Preload for bedre ytelse -->
+    <link rel="preload" as="font" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
 </head>
 <body>
     <style>
@@ -566,6 +572,13 @@
             setDefaultDateTime();
             loadReminders();
             updateStats();
+            window.addEventListener('online', () => {
+    showToast('🌐 Tilkoblet internett', 'success');
+});
+
+window.addEventListener('offline', () => {
+    showToast('📱 Arbeider offline', 'warning');
+});
             
             // Add touch feedback
             document.addEventListener('touchstart', function(e) {
@@ -857,7 +870,32 @@
         });
         
 
-        // Install prompt
+// Legg til i script-seksjonen:
+let installButton = null;
+
+window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredPrompt = e;
+    
+    // Vis install-knapp
+    showInstallPrompt();
+});
+
+function showInstallPrompt() {
+    // Du kan legge til en knapp i header eller som toast
+    showToast('📱 Installer appen for beste opplevelse!', 'info');
+}
+
+async function installApp() {
+    if (deferredPrompt) {
+        deferredPrompt.prompt();
+        const { outcome } = await deferredPrompt.userChoice;
+        if (outcome === 'accepted') {
+            showToast('🎉 App installert!', 'success');
+        }
+        deferredPrompt = null;
+    }
+}
         let deferredPrompt;
         window.addEventListener('beforeinstallprompt', (e) => {
             deferredPrompt = e;
