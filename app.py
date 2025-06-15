@@ -19,20 +19,39 @@ try:
 except ImportError:
     psycopg2 = None
 
-def fix_database_url():
+import os
+import re
+
+def fix_database_connection():
     database_url = os.getenv('DATABASE_URL')
-    if database_url and 'postgres.railway.internal' in database_url:
-        # Erstatt med external host
-        pghost = os.getenv('PGHOST')
-        if pghost:
-            fixed_url = database_url.replace('postgres.railway.internal', pghost)
+    
+    if database_url:
+        print(f"Original DATABASE_URL: {database_url}")
+        
+        # Hvis den bruker postgres.railway.internal
+        if 'postgres.railway.internal' in database_url:
+            # Prøv å finne PGHOST først
+            pghost = os.getenv('PGHOST')
+            
+            if not pghost:
+                # Generer external host basert på Railway's mønster
+                # Railway bruker vanligvis dette formatet
+                pghost = "containers-us-west-1.railway.app"  # Standard
+                print(f"Using default PGHOST: {pghost}")
+            
+            # Erstatt internal med external host
+            fixed_url = database_url.replace('postgres.railway.internal:5432', f'{pghost}:5432')
             os.environ['DATABASE_URL'] = fixed_url
             print(f"Fixed DATABASE_URL: {fixed_url}")
-        else:
-            print("PGHOST not found, using individual variables")
-    
+            
+        return os.getenv('DATABASE_URL')
+    else:
+        print("No DATABASE_URL found")
+        return None
+
 # Kall denne før du initialiserer database
-fix_database_url()
+fix_database_connection()
+    
 
 # Logging
 logging.basicConfig(level=logging.INFO)
