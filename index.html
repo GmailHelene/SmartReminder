@@ -9,7 +9,15 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="apple-mobile-web-app-title" content="SmartRemind">
-    
+    <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#000000">
+</head>
+<body>
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js');
+    }
+  </script>
     <style>
         :root {
             --primary-color: #2E86AB;
@@ -451,7 +459,7 @@
         }
     </style>
 </head>
-<body>
+<body>   
     <div class="app-container">
         <div class="header">
             <h1>📝 Smart Reminder Pro</h1>
