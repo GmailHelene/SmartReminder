@@ -12,6 +12,7 @@ import json
 import uuid
 import re
 import os
+import secrets
 import logging
 from pathlib import Path
 
@@ -19,7 +20,7 @@ try:
     import psycopg2
 except ImportError:
     psycopg2 = None
-
+    
 # Bruk DATABASE_URL direkte
 database_url = os.getenv('DATABASE_URL')
 
@@ -38,7 +39,16 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'din-hemmelighets-nøkkel-her')
 
-app = Flask(__name__)
+# Generer eller hent SECRET_KEY
+secret_key = os.environ.get('SECRET_KEY')
+if not secret_key:
+    if os.environ.get('FLASK_ENV') == 'production':
+        raise RuntimeError("SECRET_KEY must be set in production!")
+    else:
+        secret_key = secrets.token_hex(32)
+        print(f"Generated SECRET_KEY for development: {secret_key}")
+
+app.config['SECRET_KEY'] = secret_key
 
 # Serve manifest.json fra rot
 @app.route('/manifest.json')
