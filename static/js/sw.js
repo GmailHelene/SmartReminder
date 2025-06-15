@@ -123,7 +123,7 @@ self.addEventListener('push', event => {
   };
   
   event.waitUntil(
-    self.registration.showNotification('Smart Påminner Pro', options)
+    self.registration.showNotification('Smart Reminder Pro', options)
   );
 });
 
