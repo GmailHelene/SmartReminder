@@ -1,3 +1,6 @@
-const databaseUrl = process.env.NODE_ENV === 'production' 
-  ? process.env.DATABASE_URL  // Railway internal URL
-  : process.env.DATABASE_URL_EXTERNAL; // External URL for local dev
+const database_url = os.getenv('DATABASE_URL')
+if database_url and 'postgres.railway.internal' in database_url:
+    database_url = database_url.replace(
+        'postgres.railway.internal', 
+        os.getenv('PGHOST')
+    )
