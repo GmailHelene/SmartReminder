@@ -3,6 +3,7 @@
   "short_name": "SmartRemind",
   "description": "Smart påminnelser med deling og e-post notifikasjoner",
   "start_url": "https://smartreminder-production.up.railway.app/login",
+  "display_override": ["fullscreen", "minimal-ui"],
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#007bff",
@@ -15,19 +16,12 @@
       "src": "/static/images/icon-192x192.png",
       "sizes": "192x192",
       "type": "image/png",
-      "purpose": "maskable any"
     },
     {
       "src": "/static/images/icon-512x512.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "maskable any"
     },
-    {
-      "src": "/static/images/apple-touch-icon.png",
-      "sizes": "180x180",
-      "type": "image/png"
-    }
   ],
   "screenshots": [
     {
