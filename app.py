@@ -61,9 +61,9 @@ def service_worker():
     return send_from_directory('.', 'sw.js')
 
 # Serve ikoner
-@app.route('/icons/<path:filename>')
+@app.route('/images/<path:filename>')
 def serve_icons(filename):
-    return send_from_directory('static/icons', filename)
+    return send_from_directory('static/images', filename)
     
 # E-post konfigurering
 app.config['MAIL_SERVER'] = 'smtp.gmail.com'
