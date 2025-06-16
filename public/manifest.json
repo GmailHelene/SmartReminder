@@ -3,6 +3,7 @@
   "short_name": "Reminder",
   "description": "Hold styr på det som betyr noe",
   "start_url": "/",
+  "display_override": ["fullscreen", "minimal-ui"],
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#2E86AB",
