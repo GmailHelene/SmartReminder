@@ -1,6 +1,6 @@
 {
   "name": "Smart Reminder Pro",
-  "short_name": "Reminder",
+  "short_name": "SmartRemind",
   "description": "Hold styr på det som betyr noe",
   "start_url": "/",
   "display_override": ["fullscreen", "minimal-ui"],
