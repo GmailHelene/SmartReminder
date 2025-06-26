@@ -71,6 +71,25 @@ except ImportError:
         
         def get_user_boards(self, email):
             return []
+        
+        def create_board(self, title, description, creator_email):
+            # Mock board object
+            return type('Board', (), {
+                'board_id': str(uuid.uuid4()),
+                'title': title,
+                'description': description,
+                'access_code': str(uuid.uuid4())[:8].upper(),
+                'members': [creator_email]
+            })()
+        
+        def get_board_by_id(self, board_id):
+            return None
+        
+        def join_board(self, access_code, email):
+            return None
+        
+        def save_board(self, board):
+            pass
 
 try:
     from email_service import EmailService
@@ -173,7 +192,7 @@ class DataManager:
                 return json.load(f)
         except (FileNotFoundError, json.JSONDecodeError) as e:
             logger.error(f"Feil ved lasting av {filename}: {e}")
-            return [] if filename in ['reminders', 'shared_reminders', 'notifications', 'email_log'] else {}
+            return [] if filename in ['reminders', 'shared_reminders', 'notifications', 'email_log', 'shared_noteboards'] else {}
     
     def save_data(self, filename, data):
         """Lagre data til JSON-fil med backup"""
