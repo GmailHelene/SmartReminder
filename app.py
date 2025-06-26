@@ -158,11 +158,11 @@ class DataManager:
     
     def _ensure_data_files(self):
         """Sørg for at alle data-filer eksisterer"""
-        files = ['users', 'reminders', 'shared_reminders', 'notifications', 'email_log']
+        files = ['users', 'reminders', 'shared_reminders', 'notifications', 'email_log', 'shared_noteboards']
         for filename in files:
             filepath = self.data_dir / f"{filename}.json"
             if not filepath.exists():
-                initial_data = [] if filename in ['reminders', 'shared_reminders', 'notifications', 'email_log'] else {}
+                initial_data = [] if filename in ['reminders', 'shared_reminders', 'notifications', 'email_log', 'shared_noteboards'] else {}
                 self.save_data(filename, initial_data)
     
     def load_data(self, filename):
@@ -642,6 +642,19 @@ def as_datetime(date_string):
         return datetime.fromisoformat(date_string.replace(' ', 'T'))
     except:
         return datetime.now()
+
+@app.template_filter('strftime')
+def datetime_format(value, format='%d.%m.%Y %H:%M'):
+    """Format a datetime object."""
+    if isinstance(value, str):
+        try:
+            value = datetime.fromisoformat(value.replace(' ', 'T'))
+        except:
+            return value
+    
+    if hasattr(value, 'strftime'):
+        return value.strftime(format)
+    return str(value)
 
 @app.route('/focus-modes')
 @login_required
