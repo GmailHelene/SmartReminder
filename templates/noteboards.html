@@ -32,7 +32,7 @@
 {% block scripts %}
 <script>
 function shareBoardLink(accessCode) {
-    const link = `${{window.location.origin}}/join-board?code=${accessCode}`;
+    const link = `${window.location.origin}/join-board?code=${accessCode}`;
     
     if (navigator.share) {
         navigator.share({
