@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Påminnelse: {{ reminder.title }}</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background-color: #f8f9fa; }
+        .container { max-width: 600px; margin: 0 auto; background: white; border-radius: 8px; overflow: hidden; }
+        .header { background: #007bff; color: white; padding: 20px; text-align: center; }
+        .content { padding: 30px; }
+        .reminder-box { background: #f8f9fa; border-left: 4px solid #007bff; padding: 20px; margin: 20px 0; }
+        .footer { background: #f8f9fa; padding: 20px; text-align: center; color: #6c757d; }
+        .btn { display: inline-block; padding: 12px 24px; background: #007bff; color: white; text-decoration: none; border-radius: 4px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔔 Påminnelse</h1>
+        </div>
+        
+        <div class="content">
+            <h2>Hei!</h2>
+            <p>Du har en påminnelse som skal skje snart:</p>
+            
+            <div class="reminder-box">
+                <h3>{{ reminder.title }}</h3>
+                {% if reminder.description %}
+                <p>{{ reminder.description }}</p>
+                {% endif %}
+                <p><strong>Tidspunkt:</strong> {{ reminder.datetime }}</p>
+                <p><strong>Prioritet:</strong> {{ reminder.priority }}</p>
+                <p><strong>Kategori:</strong> {{ reminder.category }}</p>
+            </div>
+            
+            <p>Dette er en automatisk påminnelse fra Smart Påminner Pro.</p>
+        </div>
+        
+        <div class="footer">
+            <p>Smart Påminner Pro © 2024</p>
+        </div>
+    </div>
+</body>
+</html>

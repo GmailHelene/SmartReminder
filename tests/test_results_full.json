@@ -1,0 +1,13 @@
+{
+  "timestamp": "2025-06-26T19:08:38.431561",
+  "duration_seconds": 83.25947666168213,
+  "unit_tests": {
+    "passed": true,
+    "status": "PASS"
+  },
+  "manual_tests": {
+    "passed": false,
+    "status": "FAIL"
+  },
+  "overall_status": "FAIL"
+}

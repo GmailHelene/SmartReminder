@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ny delt påminnelse</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background-color: #f8f9fa; }
+        .container { max-width: 600px; margin: 0 auto; background: white; border-radius: 8px; overflow: hidden; }
+        .header { background: #17a2b8; color: white; padding: 20px; text-align: center; }
+        .content { padding: 30px; }
+        .reminder-box { background: #f8f9fa; border-left: 4px solid #17a2b8; padding: 20px; margin: 20px 0; }
+        .footer { background: #f8f9fa; padding: 20px; text-align: center; color: #6c757d; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>👥 Ny delt påminnelse</h1>
+        </div>
+        
+        <div class="content">
+            <h2>Hei!</h2>
+            <p><strong>{{ shared_by }}</strong> har delt en påminnelse med deg:</p>
+            
+            <div class="reminder-box">
+                <h3>{{ reminder.title }}</h3>
+                {% if reminder.description %}
+                <p>{{ reminder.description }}</p>
+                {% endif %}
+                <p><strong>Tidspunkt:</strong> {{ reminder.datetime }}</p>
+                <p><strong>Prioritet:</strong> {{ reminder.priority }}</p>
+                <p><strong>Kategori:</strong> {{ reminder.category }}</p>
+            </div>
+            
+            <p>Du vil motta en påminnelse før tidspunktet.</p>
+        </div>
+        
+        <div class="footer">
+            <p>Smart Påminner Pro © 2024</p>
+        </div>
+    </div>
+</body>
+</html>

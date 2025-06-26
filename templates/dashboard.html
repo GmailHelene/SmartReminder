@@ -1,0 +1,222 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - {{ super() }}{% endblock %}
+
+{% block content %}
+<!-- Stats Cards -->
+<div class="row mb-4">
+    <div class="col-md-3 mb-3">
+        <div class="card stats-card">
+            <div class="card-body text-center">
+                <i class="fas fa-bell fa-2x mb-2"></i>
+                <h3 id="my-count">{{ stats.total }}</h3>
+                <small>Mine påminnelser</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 mb-3">
+        <div class="card bg-success text-white">
+            <div class="card-body text-center">
+                <i class="fas fa-check-circle fa-2x mb-2"></i>
+                <h3 id="completed-count">{{ stats.completed }}</h3>
+                <small>Fullført</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 mb-3">
+        <div class="card bg-info text-white">
+            <div class="card-body text-center">
+                <i class="fas fa-share fa-2x mb-2"></i>
+                <h3 id="shared-count">{{ stats.shared_count }}</h3>
+                <small>Delt med meg</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 mb-3">
+        <div class="card bg-warning text-white">
+            <div class="card-body text-center">
+                <i class="fas fa-percent fa-2x mb-2"></i>
+                <h3>{{ "%.0f"|format(stats.completion_rate) }}%</h3>
+                <small>Fullføringsrate</small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- New Reminder Form -->
+<div class="card mb-4">
+    <div class="card-header">
+        <h5 class="mb-0"><i class="fas fa-plus"></i> Ny påminnelse</h5>
+    </div>
+    <div class="card-body">
+        <form method="POST" action="{{ url_for('add_reminder') }}" class="needs-validation" novalidate>
+            {{ form.hidden_tag() }}
+            
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="form-floating mb-3">
+                        {{ form.title(class="form-control", placeholder="Tittel", required=true) }}
+                        {{ form.title.label(class="form-label") }}
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="form-floating mb-3">
+                        {{ form.category(class="form-select") }}
+                        {{ form.category.label(class="form-label") }}
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-floating mb-3">
+                {{ form.description(class="form-control", placeholder="Beskrivelse", rows="3") }}
+                {{ form.description.label(class="form-label") }}
+            </div>
+
+            <div class="row">
+                <div class="col-md-4">
+                    <div class="form-floating mb-3">
+                        {{ form.date(class="form-control", required=true) }}
+                        {{ form.date.label(class="form-label") }}
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="form-floating mb-3">
+                        {{ form.time(class="form-control", required=true) }}
+                        {{ form.time.label(class="form-label") }}
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="form-floating mb-3">
+                        {{ form.priority(class="form-select") }}
+                        {{ form.priority.label(class="form-label") }}
+                    </div>
+                </div>
+            </div>
+
+            {% if available_users %}
+            <div class="mb-3">
+                <label class="form-label">Del med:</label>
+                <div class="row">
+                    {% for user in available_users %}
+                    <div class="col-md-4">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="share_with" value="{{ user }}" id="user_{{ loop.index }}">
+                            <label class="form-check-label" for="user_{{ loop.index }}">
+                                {{ user }}
+                            </label>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+            <div class="d-grid">
+                {{ form.submit(class="btn btn-primary") }}
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- My Reminders -->
+<div class="row">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="fas fa-bell"></i> Mine påminnelser</h5>
+            </div>
+            <div class="card-body">
+                {% if my_reminders %}
+                    {% for reminder in my_reminders %}
+                    <div class="reminder-item card mb-3 priority-{{ reminder.priority.lower() }}">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div class="flex-grow-1">
+                                    <h6 class="card-title">{{ reminder.title }}</h6>
+                                    {% if reminder.description %}
+                                    <p class="card-text text-muted small">{{ reminder.description }}</p>
+                                    {% endif %}
+                                    <div class="d-flex gap-2 flex-wrap">
+                                        <span class="badge bg-primary">{{ reminder.datetime | as_datetime | strftime('%d.%m.%Y %H:%M') }}</span>
+                                        <span class="badge category-badge bg-secondary">{{ reminder.category }}</span>
+                                        <span class="badge bg-{{ 'danger' if reminder.priority == 'Høy' else 'warning' if reminder.priority == 'Medium' else 'success' }}">
+                                            {{ reminder.priority }}
+                                        </span>
+                                    </div>
+                                </div>
+                                <div class="dropdown">
+                                    <button class="btn btn-sm btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown">
+                                        <i class="fas fa-ellipsis-v"></i>
+                                    </button>
+                                    <ul class="dropdown-menu">
+                                        <li><a class="dropdown-item" href="{{ url_for('complete_reminder', reminder_id=reminder.id) }}">
+                                            <i class="fas fa-check text-success"></i> Fullfør
+                                        </a></li>
+                                        <li><a class="dropdown-item" href="{{ url_for('delete_reminder', reminder_id=reminder.id) }}" 
+                                               onclick="return confirm('Er du sikker på at du vil slette denne påminnelsen?')">
+                                            <i class="fas fa-trash text-danger"></i> Slett
+                                        </a></li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="text-center text-muted py-4">
+                        <i class="fas fa-bell-slash fa-3x mb-3"></i>
+                        <p>Ingen påminnelser ennå</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Shared Reminders -->
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="fas fa-share"></i> Delt med meg</h5>
+            </div>
+            <div class="card-body">
+                {% if shared_reminders %}
+                    {% for reminder in shared_reminders %}
+                    <div class="reminder-item card mb-3 priority-{{ reminder.priority.lower() }}">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div class="flex-grow-1">
+                                    <h6 class="card-title">
+                                        {{ reminder.title }}
+                                        <small class="text-muted">av {{ reminder.shared_by }}</small>
+                                    </h6>
+                                    {% if reminder.description %}
+                                    <p class="card-text text-muted small">{{ reminder.description }}</p>
+                                    {% endif %}
+                                    <div class="d-flex gap-2 flex-wrap">
+                                        <span class="badge bg-primary">{{ reminder.datetime | as_datetime | strftime('%d.%m.%Y %H:%M') }}</span>
+                                        <span class="badge category-badge bg-secondary">{{ reminder.category }}</span>
+                                        <span class="badge bg-{{ 'danger' if reminder.priority == 'Høy' else 'warning' if reminder.priority == 'Medium' else 'success' }}">
+                                            {{ reminder.priority }}
+                                        </span>
+                                    </div>
+                                </div>
+                                <div>
+                                    <a href="{{ url_for('complete_reminder', reminder_id=reminder.id) }}" class="btn btn-sm btn-outline-success">
+                                        <i class="fas fa-check"></i>
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="text-center text-muted py-4">
+                        <i class="fas fa-share-alt fa-3x mb-3"></i>
+                        <p>Ingen delte påminnelser</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

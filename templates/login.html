@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+
+{% block title %}Logg inn - {{ super() }}{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6 col-lg-4">
+        <div class="card shadow">
+            <div class="card-body p-4">
+                <div class="text-center mb-4">
+                    <i class="fas fa-bell fa-3x text-primary mb-3"></i>
+                    <h2 class="h4 text-gray-900">Smart Påminner Pro</h2>
+                    <p class="text-muted">Logg inn for å fortsette</p>
+                </div>
+
+                <form method="POST" class="needs-validation" novalidate>
+                    {{ form.hidden_tag() }}
+                    
+                    <div class="form-floating mb-3">
+                        {{ form.username(class="form-control", placeholder="E-post", required=true) }}
+                        {{ form.username.label(class="form-label") }}
+                        <div class="invalid-feedback">
+                            Vennligst oppgi en gyldig e-postadresse.
+                        </div>
+                    </div>
+
+                    <div class="form-floating mb-3">
+                        {{ form.password(class="form-control", placeholder="Passord", required=true) }}
+                        {{ form.password.label(class="form-label") }}
+                        <div class="invalid-feedback">
+                            Passord er påkrevd.
+                        </div>
+                    </div>
+
+                    <div class="d-grid mb-3">
+                        {{ form.submit(class="btn btn-primary btn-lg") }}
+                    </div>
+                </form>
+
+                <hr>
+                
+                <div class="text-center">
+                    <p class="small text-muted mb-2">Har du ikke konto?</p>
+                    <button type="button" class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#registerModal">
+                        <i class="fas fa-user-plus"></i> Registrer deg
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Register Modal -->
+<div class="modal fade" id="registerModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Opprett ny konto</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST" action="{{ url_for('register') }}" class="needs-validation" novalidate>
+                <div class="modal-body">
+                    <div class="form-floating mb-3">
+                        <input type="email" class="form-control" name="username" placeholder="E-post" required>
+                        <label>E-post</label>
+                        <div class="invalid-feedback">
+                            Vennligst oppgi en gyldig e-postadresse.
+                        </div>
+                    </div>
+                    <div class="form-floating mb-3">
+                        <input type="password" class="form-control" name="password" placeholder="Passord" minlength="6" required>
+                        <label>Passord (min 6 tegn)</label>
+                        <div class="invalid-feedback">
+                            Passord må være minst 6 tegn.
+                        </div>
+                    </div>
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Avbryt</button>
+                    <button type="submit" class="btn btn-primary">Opprett konto</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Auto-focus på første input
+document.addEventListener('DOMContentLoaded', function() {
+    const firstInput = document.querySelector('input[name="username"]');
+    if (firstInput) {
+        firstInput.focus();
+    }
+});
+</script>
+{% endblock %}

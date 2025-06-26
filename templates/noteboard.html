@@ -1,0 +1,269 @@
+{% extends "base.html" %}
+
+{% block title %}Delt tavle - {{ super() }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2><i class="fas fa-chalkboard"></i> {{ board.title }}</h2>
+        <p class="text-muted">{{ board.description }}</p>
+        <small class="text-muted">Tilgangskode: <strong>{{ board.access_code }}</strong></small>
+    </div>
+    <div>
+        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addNoteModal">
+            <i class="fas fa-plus"></i> Ny notis
+        </button>
+        <button class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#shareModal">
+            <i class="fas fa-share"></i> Del tavle
+        </button>
+    </div>
+</div>
+
+<!-- Noteboard Canvas -->
+<div class="card">
+    <div class="card-body p-0" style="height: 600px; overflow: hidden; position: relative; background: linear-gradient(to right, #f8f9fa 1px, transparent 1px), linear-gradient(to bottom, #f8f9fa 1px, transparent 1px); background-size: 20px 20px;">
+        
+        <!-- Notes -->
+        {% for note in board.notes %}
+        <div class="sticky-note" data-note-id="{{ note.id }}" 
+             style="position: absolute; left: {{ note.position.x|default(0) }}px; top: {{ note.position.y|default(0) }}px;">
+            <div class="card sticky-note-{{ note.color }}" style="width: 200px; cursor: move;">
+                <div class="card-body p-2">
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <small class="text-muted">{{ note.author }}</small>
+                        <div class="dropdown">
+                            <button class="btn btn-sm btn-link p-0" data-bs-toggle="dropdown">
+                                <i class="fas fa-ellipsis-v"></i>
+                            </button>
+                            <ul class="dropdown-menu">
+                                <li><a class="dropdown-item edit-note" href="#" data-note-id="{{ note.id }}">
+                                    <i class="fas fa-edit"></i> Rediger
+                                </a></li>
+                                <li><a class="dropdown-item change-color" href="#" data-note-id="{{ note.id }}">
+                                    <i class="fas fa-palette"></i> Endre farge
+                                </a></li>
+                                {% if note.author == current_user.email or board.created_by == current_user.email %}
+                                <li><hr class="dropdown-divider"></li>
+                                <li><a class="dropdown-item text-danger delete-note" href="#" data-note-id="{{ note.id }}">
+                                    <i class="fas fa-trash"></i> Slett
+                                </a></li>
+                                {% endif %}
+                            </ul>
+                        </div>
+                    </div>
+                    <div class="note-content">{{ note.content }}</div>
+                    <small class="text-muted">{{ note.created_at[:16] }}</small>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- Members -->
+<div class="row mt-4">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0"><i class="fas fa-users"></i> Medlemmer ({{ board.members|length }})</h6>
+            </div>
+            <div class="card-body">
+                {% for member in board.members %}
+                <div class="d-flex justify-content-between align-items-center py-1">
+                    <span>
+                        {{ member }}
+                        {% if member == board.created_by %}
+                        <span class="badge bg-primary">Eier</span>
+                        {% endif %}
+                    </span>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0"><i class="fas fa-info-circle"></i> Tavle-informasjon</h6>
+            </div>
+            <div class="card-body">
+                <p><strong>Opprettet:</strong> {{ board.created_at[:16] }}</p>
+                <p><strong>Antall notiser:</strong> {{ board.notes|length }}</p>
+                <p><strong>Tilgangskode:</strong> <code>{{ board.access_code }}</code></p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add Note Modal -->
+<div class="modal fade" id="addNoteModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Ny notis</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST" action="{{ url_for('add_note_to_board', board_id=board.board_id) }}">
+                {{ csrf_token() }}
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Innhold</label>
+                        <textarea class="form-control" name="content" rows="4" required></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Farge</label>
+                        <div class="d-flex gap-2">
+                            <input type="radio" class="btn-check" name="color" value="yellow" id="color-yellow" checked>
+                            <label class="btn btn-outline-warning" for="color-yellow">Gul</label>
+                            
+                            <input type="radio" class="btn-check" name="color" value="blue" id="color-blue">
+                            <label class="btn btn-outline-primary" for="color-blue">Blå</label>
+                            
+                            <input type="radio" class="btn-check" name="color" value="green" id="color-green">
+                            <label class="btn btn-outline-success" for="color-green">Grønn</label>
+                            
+                            <input type="radio" class="btn-check" name="color" value="pink" id="color-pink">
+                            <label class="btn btn-outline-danger" for="color-pink">Rosa</label>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Avbryt</button>
+                    <button type="submit" class="btn btn-primary">Legg til notis</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Share Modal -->
+<div class="modal fade" id="shareModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Del tavle</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label">Tilgangslenke</label>
+                    <div class="input-group">
+                        <input type="text" class="form-control" id="shareLink" 
+                               value="{{ url_for('join_board', _external=True) }}?code={{ board.access_code }}" readonly>
+                        <button class="btn btn-outline-secondary" type="button" onclick="copyToClipboard('shareLink')">
+                            <i class="fas fa-copy"></i>
+                        </button>
+                    </div>
+                    <small class="text-muted">Del denne lenken med andre for å gi dem tilgang til tavlen</small>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Tilgangskode</label>
+                    <div class="input-group">
+                        <input type="text" class="form-control" id="accessCode" value="{{ board.access_code }}" readonly>
+                        <button class="btn btn-outline-secondary" type="button" onclick="copyToClipboard('accessCode')">
+                            <i class="fas fa-copy"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block styles %}
+<style>
+.sticky-note-yellow { background-color: #fff3cd; border-color: #ffc107; }
+.sticky-note-blue { background-color: #cff4fc; border-color: #17a2b8; }
+.sticky-note-green { background-color: #d1e7dd; border-color: #28a745; }
+.sticky-note-pink { background-color: #f8d7da; border-color: #dc3545; }
+
+.sticky-note {
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    transform: rotate(-1deg);
+    transition: transform 0.2s ease;
+}
+
+.sticky-note:hover {
+    transform: rotate(0deg) scale(1.02);
+    z-index: 10;
+}
+
+.sticky-note .card {
+    border-width: 2px;
+}
+</style>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Make notes draggable
+document.addEventListener('DOMContentLoaded', function() {
+    const notes = document.querySelectorAll('.sticky-note');
+    
+    notes.forEach(note => {
+        let isDragging = false;
+        let currentX = 0;
+        let currentY = 0;
+        let initialX = 0;
+        let initialY = 0;
+        
+        note.addEventListener('mousedown', function(e) {
+            if (e.target.closest('.dropdown')) return;
+            
+            isDragging = true;
+            initialX = e.clientX - currentX;
+            initialY = e.clientY - currentY;
+            
+            note.style.zIndex = 1000;
+        });
+        
+        document.addEventListener('mousemove', function(e) {
+            if (isDragging) {
+                e.preventDefault();
+                currentX = e.clientX - initialX;
+                currentY = e.clientY - initialY;
+                
+                note.style.left = currentX + 'px';
+                note.style.top = currentY + 'px';
+            }
+        });
+        
+        document.addEventListener('mouseup', function() {
+            if (isDragging) {
+                isDragging = false;
+                note.style.zIndex = 'auto';
+                
+                // Save position
+                const noteId = note.dataset.noteId;
+                fetch(`/api/update-note-position/${noteId}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': '{{ csrf_token() }}'
+                    },
+                    body: JSON.stringify({
+                        x: currentX,
+                        y: currentY
+                    })
+                });
+            }
+        });
+    });
+});
+
+function copyToClipboard(elementId) {
+    const element = document.getElementById(elementId);
+    element.select();
+    document.execCommand('copy');
+    
+    // Show feedback
+    const button = element.nextElementSibling;
+    const originalText = button.innerHTML;
+    button.innerHTML = '<i class="fas fa-check"></i>';
+    setTimeout(() => {
+        button.innerHTML = originalText;
+    }, 2000);
+}
+</script>
+{% endblock %}

@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Oppdatering på delt tavle</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background-color: #f8f9fa; }
+        .container { max-width: 600px; margin: 0 auto; background: white; border-radius: 8px; overflow: hidden; }
+        .header { background: #17a2b8; color: white; padding: 20px; text-align: center; }
+        .content { padding: 30px; }
+        .update-box { background: #f8f9fa; border-left: 4px solid #17a2b8; padding: 20px; margin: 20px 0; }
+        .footer { background: #f8f9fa; padding: 20px; text-align: center; color: #6c757d; }
+        .btn { display: inline-block; padding: 12px 24px; background: #17a2b8; color: white; text-decoration: none; border-radius: 4px; }
+        .note-preview { background: #fff3cd; border: 1px solid #ffeaa7; padding: 10px; border-radius: 4px; margin: 10px 0; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📋 Tavle oppdatert</h1>
+        </div>
+        
+        <div class="content">
+            <h2>Hei!</h2>
+            <p>Det har skjedd en oppdatering på tavlen "<strong>{{ board.title }}</strong>":</p>
+            
+            <div class="update-box">
+                <h3>{{ update_type }}</h3>
+                <p><strong>Av:</strong> {{ updated_by }}</p>
+                <p><strong>Tidspunkt:</strong> {{ update_time | strftime('%d.%m.%Y %H:%M') }}</p>
+                
+                {% if update_type == "Ny notis lagt til" and note %}
+                <div class="note-preview">
+                    <strong>Ny notis:</strong> {{ note.content[:100] }}{% if note.content|length > 100 %}...{% endif %}
+                </div>
+                {% elif update_type == "Notis oppdatert" and note %}
+                <div class="note-preview">
+                    <strong>Oppdatert notis:</strong> {{ note.content[:100] }}{% if note.content|length > 100 %}...{% endif %}
+                </div>
+                {% elif update_type == "Notis slettet" %}
+                <p><em>En notis ble slettet fra tavlen</em></p>
+                {% endif %}
+            </div>
+            
+            <div style="text-align: center; margin: 30px 0;">
+                <a href="{{ board_url }}" class="btn">📋 Se tavlen</a>
+            </div>
+        </div>
+        
+        <div class="footer">
+            <p>Smart Påminner Pro © 2024</p>
+            <p><small>Du får dette varselet fordi du er medlem av tavlen "{{ board.title }}"</small></p>
+        </div>
+    </div>
+</body>
+</html>

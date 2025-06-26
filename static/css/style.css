@@ -1,0 +1,256 @@
+/* Smart Påminner Pro - Custom Styles */
+
+:root {
+    --primary-color: #007bff;
+    --success-color: #28a745;
+    --warning-color: #ffc107;
+    --danger-color: #dc3545;
+    --info-color: #17a2b8;
+    --dark-color: #343a40;
+    --light-color: #f8f9fa;
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: #f8f9fa;
+}
+
+.navbar-brand {
+    font-weight: bold;
+}
+
+.card {
+    border: none;
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+    transition: box-shadow 0.15s ease-in-out;
+}
+
+.card:hover {
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+}
+
+.reminder-item {
+    border-left: 4px solid var(--primary-color);
+    margin-bottom: 1rem;
+    transition: all 0.3s ease;
+}
+
+.reminder-item.priority-high {
+    border-left-color: var(--danger-color);
+}
+
+.reminder-item.priority-medium {
+    border-left-color: var(--warning-color);
+}
+
+.reminder-item.priority-low {
+    border-left-color: var(--success-color);
+}
+
+.btn-floating {
+    border-radius: 50px;
+    padding: 12px 16px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    transition: all 0.3s ease;
+}
+
+.btn-floating:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.3);
+}
+
+.stats-card {
+    background: linear-gradient(135deg, var(--primary-color), #0056b3);
+    color: white;
+}
+
+.category-badge {
+    font-size: 0.75rem;
+    padding: 0.25rem 0.5rem;
+    border-radius: 12px;
+}
+
+.offline {
+    filter: grayscale(50%);
+    opacity: 0.8;
+}
+
+.offline::before {
+    content: "📵 Offline-modus";
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    background: var(--warning-color);
+    color: var(--dark-color);
+    text-align: center;
+    padding: 8px;
+    z-index: 9999;
+    font-weight: bold;
+}
+
+@media (max-width: 768px) {
+    .container {
+        padding: 0 10px;
+    }
+    
+    .card {
+        margin-bottom: 1rem;
+    }
+    
+    .btn-floating {
+        bottom: 10px !important;
+        right: 10px !important;
+    }
+}
+
+/* PWA specific styles */
+/* PWA Install Button */
+.pwa-install-banner {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    animation: pulse 2s infinite;
+}
+
+.pwa-install-banner:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 16px rgba(0,0,0,0.2);
+}
+
+@keyframes pulse {
+    0% { box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+    50% { box-shadow: 0 4px 20px rgba(102, 126, 234, 0.4); }
+    100% { box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+}
+
+/* Standalone mode (PWA installed) */
+@media (display-mode: standalone) {
+    #installBtn {
+        display: none !important;
+    }
+    
+    body {
+        padding-top: env(safe-area-inset-top);
+        padding-bottom: env(safe-area-inset-bottom);
+    }
+    
+    .navbar {
+        padding-top: calc(env(safe-area-inset-top) + 0.5rem);
+    }
+}
+
+/* iOS PWA fixes */
+@media (display-mode: standalone) and (-webkit-touch-callout: none) {
+    .navbar {
+        padding-top: calc(env(safe-area-inset-top) + 1rem);
+    }
+}
+
+/* Offline indicator */
+.offline {
+    filter: grayscale(30%);
+}
+
+.offline::before {
+    content: "📵 Offline-modus aktiv";
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    background: var(--warning-color);
+    color: var(--dark-color);
+    text-align: center;
+    padding: 8px;
+    z-index: 9998;
+    font-weight: bold;
+    font-size: 0.875rem;
+}
+
+/* Touch improvements for mobile */
+@media (max-width: 768px) {
+    .btn {
+        min-height: 44px; /* Minimum touch target */
+        font-size: 1rem;
+    }
+    
+    .card {
+        margin-bottom: 1rem;
+        touch-action: manipulation; /* Prevent zoom on double-tap */
+    }
+    
+    /* Better spacing for mobile */
+    .container {
+        padding: 0 15px;
+    }
+    
+    /* Install button positioning on mobile */
+    #installBtn {
+        bottom: 80px !important;
+        right: 15px !important;
+        top: auto !important;
+        border-radius: 50px !important;
+        padding: 15px 20px !important;
+        font-size: 0.9rem !important;
+    }
+}
+
+/* Toast notifications */
+.toast-pwa {
+    animation: slideInRight 0.3s ease-out;
+}
+
+@keyframes slideInRight {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+/* Loading states */
+.btn.loading {
+    position: relative;
+    color: transparent;
+}
+
+.btn.loading::after {
+    content: "";
+    position: absolute;
+    width: 16px;
+    height: 16px;
+    top: 50%;
+    left: 50%;
+    margin-left: -8px;
+    margin-top: -8px;
+    border-radius: 50%;
+    border: 2px solid transparent;
+    border-top-color: currentColor;
+    animation: button-loading-spinner 1s ease infinite;
+}
+
+@keyframes button-loading-spinner {
+    from {
+        transform: rotate(0turn);
+    }
+    to {
+        transform: rotate(1turn);
+    }
+}
+
+/* Form improvements */
+.form-floating {
+    margin-bottom: 1rem;
+}
+
+.was-validated .form-control:valid {
+    border-color: var(--success-color);
+}
+
+.was-validated .form-control:invalid {
+    border-color: var(--danger-color);
+}

@@ -1,0 +1,159 @@
+{% extends "base.html" %}
+
+{% block title %}Mine tavler - {{ super() }}{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="fas fa-chalkboard-teacher"></i> Mine tavler</h2>
+    <div>
+        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createBoardModal">
+            <i class="fas fa-plus"></i> Ny tavle
+        </button>
+        <button class="btn btn-outline-success" data-bs-toggle="modal" data-bs-target="#joinBoardModal">
+            <i class="fas fa-sign-in-alt"></i> Bli med på tavle
+        </button>
+    </div>
+</div>
+
+{% if boards %}
+<div class="row">
+    {% for board in boards %}
+    <div class="col-md-6 col-lg-4 mb-4">
+        <div class="card h-100">
+            <div class="card-body">
+                <h5 class="card-title">{{ board.title }}</h5>
+                <p class="card-text text-muted">{{ board.description }}</p>
+                
+                <div class="mb-3">
+                    <small class="text-muted">
+                        <i class="fas fa-sticky-note"></i> {{ board.notes|length }} notiser<br>
+                        <i class="fas fa-users"></i> {{ board.members|length }} medlemmer<br>
+                        <i class="fas fa-calendar"></i> {{ board.created_at[:16] }}
+                    </small>
+                </div>
+                
+                {% if board.created_by == current_user.email %}
+                <span class="badge bg-primary mb-2">Din tavle</span>
+                {% else %}
+                <span class="badge bg-success mb-2">Delt med deg</span>
+                {% endif %}
+            </div>
+            <div class="card-footer">
+                <div class="d-flex justify-content-between">
+                    <a href="{{ url_for('view_board', board_id=board.board_id) }}" class="btn btn-primary btn-sm">
+                        <i class="fas fa-eye"></i> Åpne tavle
+                    </a>
+                    <div class="dropdown">
+                        <button class="btn btn-outline-secondary btn-sm dropdown-toggle" data-bs-toggle="dropdown">
+                            <i class="fas fa-cog"></i>
+                        </button>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="{{ url_for('view_board', board_id=board.board_id) }}">
+                                <i class="fas fa-eye"></i> Åpne
+                            </a></li>
+                            {% if board.created_by == current_user.email %}
+                            <li><a class="dropdown-item" href="#" onclick="shareBoardLink('{{ board.access_code }}')">
+                                <i class="fas fa-share"></i> Del lenke
+                            </a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item text-danger" href="{{ url_for('delete_board', board_id=board.board_id) }}"
+                                   onclick="return confirm('Er du sikker på at du vil slette denne tavlen?')">
+                                <i class="fas fa-trash"></i> Slett tavle
+                            </a></li>
+                            {% endif %}
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="text-center py-5">
+    <i class="fas fa-chalkboard fa-4x text-muted mb-3"></i>
+    <h4>Ingen tavler ennå</h4>
+    <p class="text-muted">Opprett din første delte tavle eller bli med på en eksisterende tavle</p>
+    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createBoardModal">
+        <i class="fas fa-plus"></i> Opprett tavle
+    </button>
+</div>
+{% endif %}
+
+<!-- Create Board Modal -->
+<div class="modal fade" id="createBoardModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Opprett ny tavle</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST" action="{{ url_for('create_board') }}">
+                {{ csrf_token() }}
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Tittel</label>
+                        <input type="text" class="form-control" name="title" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Beskrivelse</label>
+                        <textarea class="form-control" name="description" rows="3"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Avbryt</button>
+                    <button type="submit" class="btn btn-primary">Opprett tavle</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Join Board Modal -->
+<div class="modal fade" id="joinBoardModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Bli med på tavle</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST" action="{{ url_for('join_board') }}">
+                {{ csrf_token() }}
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Tilgangskode</label>
+                        <input type="text" class="form-control" name="access_code" 
+                               placeholder="F.eks: ABC12345" required>
+                        <small class="text-muted">Skriv inn tilgangskoden du fikk fra tavle-eieren</small>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Avbryt</button>
+                    <button type="submit" class="btn btn-success">Bli med</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function shareBoardLink(accessCode) {
+    const link = `${window.location.origin}/join-board?code=${accessCode}`;
+    
+    if (navigator.share) {
+        navigator.share({
+            title: 'Bli med på delt tavle',
+            text: 'Bli med på min delte tavle i Smart Påminner Pro',
+            url: link
+        });
+    } else {
+        // Fallback - copy to clipboard
+        navigator.clipboard.writeText(link).then(() => {
+            alert('Lenke kopiert til utklippstavlen!');
+        });
+    }
+}
+</script>
+{% endblock %}

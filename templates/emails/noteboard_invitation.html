@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Invitasjon til delt tavle</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background-color: #f8f9fa; }
+        .container { max-width: 600px; margin: 0 auto; background: white; border-radius: 8px; overflow: hidden; }
+        .header { background: #28a745; color: white; padding: 20px; text-align: center; }
+        .content { padding: 30px; }
+        .board-info { background: #f8f9fa; border-left: 4px solid #28a745; padding: 20px; margin: 20px 0; }
+        .footer { background: #f8f9fa; padding: 20px; text-align: center; color: #6c757d; }
+        .btn { display: inline-block; padding: 12px 24px; background: #28a745; color: white; text-decoration: none; border-radius: 4px; margin: 10px 5px; }
+        .access-code { font-size: 24px; font-weight: bold; background: #e9ecef; padding: 15px; text-align: center; border-radius: 4px; margin: 15px 0; letter-spacing: 3px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📋 Invitasjon til delt tavle</h1>
+        </div>
+        
+        <div class="content">
+            <h2>Hei!</h2>
+            <p><strong>{{ invited_by }}</strong> har invitert deg til å bli med på en delt tavle:</p>
+            
+            <div class="board-info">
+                <h3>{{ board.title }}</h3>
+                {% if board.description %}
+                <p>{{ board.description }}</p>
+                {% endif %}
+                <p><strong>Opprettet av:</strong> {{ board.created_by }}</p>
+                <p><strong>Opprettet:</strong> {{ board.created_at | as_datetime | strftime('%d.%m.%Y %H:%M') }}</p>
+            </div>
+            
+            <h3>Tilgangskode:</h3>
+            <div class="access-code">{{ board.access_code }}</div>
+            
+            <div style="text-align: center; margin: 30px 0;">
+                <a href="{{ join_url }}" class="btn">🚀 Bli med på tavlen</a>
+                <br>
+                <small style="color: #6c757d;">Eller gå til appen og bruk tilgangskoden: {{ board.access_code }}</small>
+            </div>
+            
+            <p><small><strong>Tips:</strong> Du kan samarbeide på denne tavlen, legge til notiser, og se oppdateringer i sanntid!</small></p>
+        </div>
+        
+        <div class="footer">
+            <p>Smart Påminner Pro © 2024</p>
+            <p><small>Denne invitasjonen ble sendt til {{ recipient_email }}</small></p>
+        </div>
+    </div>
+</body>
+</html>
