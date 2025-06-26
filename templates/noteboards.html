@@ -20,127 +20,10 @@
                                     <input type="text" name="title" class="form-control" 
                                            placeholder="Tavletittel" required>
                                 </div>
-                                <div class="col-md-4">
-                                    <input type="text" name="description" class="form-control" 
-                                           placeholder="Beskrivelse (valgfritt)">
-                                </div>
-                                <div class="col-md-2">
-                                    <button type="submit" class="btn btn-primary w-100">Opprett</button>
-                                </div>
                             </div>
                         </form>
                     </div>
                 </div>
-                
-                <!-- Join Board -->
-                <div class="card mb-4">
-                    <div class="card-header">
-                        <h5>Bli med på tavle</h5>
-                    </div>
-                    <div class="card-body">
-                        <form method="POST" action="{{ url_for('join_board') }}">
-                            {{ csrf_token() }}
-                            <div class="row">
-                                <div class="col-md-8">
-                                    <input type="text" name="access_code" class="form-control" 
-                                           placeholder="Skriv inn tilgangskode" required>
-                                </div>
-                                <div class="col-md-4">
-                                    <button type="submit" class="btn btn-success w-100">Bli med</button>
-                                </div>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-                
-                <!-- My Boards -->
-                <div class="row">
-                    {% if boards %}
-                        {% for board in boards %}
-                        <div class="col-md-6 mb-3">
-                            <div class="card">
-                                <div class="card-body">
-                                    <h5 class="card-title">{{ board.title }}</h5>
-                                    <p class="card-text">{{ board.description or 'Ingen beskrivelse' }}</p>
-                                    <p class="text-muted small">
-                                        Tilgangskode: <strong>{{ board.access_code }}</strong><br>
-                                        Medlemmer: {{ board.members|length }}
-                                    </p>
-                                    <a href="{{ url_for('view_board', board_id=board.board_id) }}" 
-                                       class="btn btn-primary">Åpne tavle</a>
-                                </div>
-                            </div>
-                        </div>
-                        {% endfor %}
-                    {% else %}
-                        <div class="col-12">
-                            <div class="alert alert-info text-center">
-                                <h5>Ingen tavler ennå</h5>
-                                <p>Opprett en ny tavle eller bli med på en eksisterende tavle ved hjelp av tilgangskode.</p>
-                            </div>
-                        </div>
-                    {% endif %}
-                </div>
-                
-                <div class="text-center mt-4">
-                    <a href="{{ url_for('dashboard') }}" class="btn btn-outline-secondary">Tilbake til dashboard</a>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Create Board Modal -->
-    <div class="modal fade" id="createBoardModal" tabindex="-1">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">Opprett ny tavle</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <form method="POST" action="{{ url_for('create_board') }}">
-                    {{ csrf_token() }}
-                    <div class="modal-body">
-                        <div class="mb-3">
-                            <label class="form-label">Tavletittel</label>
-                            <input type="text" class="form-control" name="title" required>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Beskrivelse</label>
-                            <textarea class="form-control" name="description" rows="3"></textarea>
-                        </div>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Avbryt</button>
-                        <button type="submit" class="btn btn-primary">Opprett tavle</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-
-    <!-- Join Board Modal -->
-    <div class="modal fade" id="joinBoardModal" tabindex="-1">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">Bli med på tavle</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <form method="POST" action="{{ url_for('join_board') }}">
-                    {{ csrf_token() }}
-                    <div class="modal-body">
-                        <div class="mb-3">
-                            <label class="form-label">Tilgangskode</label>
-                            <input type="text" class="form-control" name="access_code" 
-                                   placeholder="F.eks: ABC12345" required>
-                            <small class="text-muted">Skriv inn tilgangskoden du fikk fra tavle-eieren</small>
-                        </div>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Avbryt</button>
-                        <button type="submit" class="btn btn-success">Bli med</button>
-                    </div>
-                </form>
             </div>
         </div>
     </div>
@@ -149,18 +32,13 @@
 {% block scripts %}
 <script>
 function shareBoardLink(accessCode) {
-    const link = `${window.location.origin}/join-board?code=${accessCode}`;
+    const link = `${{window.location.origin}}/join-board?code=${accessCode}`;
     
     if (navigator.share) {
         navigator.share({
             title: 'Bli med på delt tavle',
             text: 'Bli med på min delte tavle i Smart Påminner Pro',
             url: link
-        });
-    } else {
-        // Fallback - copy to clipboard
-        navigator.clipboard.writeText(link).then(() => {
-            alert('Lenke kopiert til utklippstavlen!');
         });
     }
 }
