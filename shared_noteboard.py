@@ -91,7 +91,10 @@ class NoteboardManager:
     def _ensure_data_file(self):
         """Sørg for at data-fil eksisterer"""
         try:
-            self.dm.load_data(self.boards_file)
+            data = self.dm.load_data(self.boards_file)
+            # Ensure data is a dict, not a list
+            if isinstance(data, list):
+                self.dm.save_data(self.boards_file, {})
         except:
             self.dm.save_data(self.boards_file, {})
     
@@ -101,6 +104,10 @@ class NoteboardManager:
         board = SharedNoteboard(board_id, title, description, created_by)
         
         boards = self.dm.load_data(self.boards_file)
+        # Ensure boards is a dict
+        if not isinstance(boards, dict):
+            boards = {}
+            
         boards[board_id] = {
             'board_id': board.board_id,
             'title': board.title,
@@ -146,6 +153,10 @@ class NoteboardManager:
     def get_user_boards(self, user_email):
         """Hent alle tavler brukeren har tilgang til"""
         boards = self.dm.load_data(self.boards_file)
+        # Ensure boards is a dict
+        if not isinstance(boards, dict):
+            return []
+            
         user_boards = []
         
         for board_data in boards.values():

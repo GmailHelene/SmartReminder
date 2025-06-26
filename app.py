@@ -706,8 +706,13 @@ def set_focus_mode():
 @login_required
 def noteboards():
     """Vis alle tavler brukeren har tilgang til"""
-    boards = noteboard_manager.get_user_boards(current_user.email)
-    return render_template('noteboards.html', boards=boards)
+    try:
+        boards = noteboard_manager.get_user_boards(current_user.email)
+        return render_template('noteboards.html', boards=boards)
+    except Exception as e:
+        logger.error(f"Error loading noteboards: {e}")
+        flash('Feil ved lasting av tavler', 'error')
+        return render_template('noteboards.html', boards=[])
 
 @app.route('/create-board', methods=['POST'])
 @login_required
@@ -720,86 +725,127 @@ def create_board():
         flash('Tittel er påkrevd', 'error')
         return redirect(url_for('noteboards'))
     
-    board = noteboard_manager.create_board(title, description, current_user.email)
-    flash(f'Tavle "{title}" opprettet! Tilgangskode: {board.access_code}', 'success')
-    
-    return redirect(url_for('view_board', board_id=board.board_id))
+    try:
+        board = noteboard_manager.create_board(title, description, current_user.email)
+        flash(f'Tavle "{title}" opprettet! Tilgangskode: {board.access_code}', 'success')
+        return redirect(url_for('view_board', board_id=board.board_id))
+    except Exception as e:
+        logger.error(f"Error creating board: {e}")
+        flash('Feil ved opprettelse av tavle', 'error')
+        return redirect(url_for('noteboards'))
 
 @app.route('/board/<board_id>')
 @login_required
 def view_board(board_id):
     """Vis spesifikk tavle"""
-    board = noteboard_manager.get_board_by_id(board_id)
-    
-    if not board or current_user.email not in board.members:
-        flash('Tavle ikke funnet eller ingen tilgang', 'error')
-        return redirect(url_for('noteboards'))
-    
-    return render_template('noteboard.html', board=board)
-
-@app.route('/join-board', methods=['GET', 'POST'])
-@login_required
-def join_board():
-    """Bli med på tavle via tilgangskode"""
-    if request.method == 'GET':
-        # Join via URL parameter
-        access_code = request.args.get('code')
-        if access_code:
-            board = noteboard_manager.join_board(access_code, current_user.email)
-            if board:
-                flash(f'Du er nå med på tavlen "{board.title}"!', 'success')
-                return redirect(url_for('view_board', board_id=board.board_id))
-            else:
-                flash('Ugyldig tilgangskode', 'error')
+    try:
+        board = noteboard_manager.get_board_by_id(board_id)
         
-        return redirect(url_for('noteboards'))
-    
-    # POST request from form
-    access_code = request.form.get('access_code')
-    if not access_code:
-        flash('Tilgangskode er påkrevd', 'error')
-        return redirect(url_for('noteboards'))
-    
-    board = noteboard_manager.join_board(access_code, current_user.email)
-    if board:
-        flash(f'Du er nå med på tavlen "{board.title}"!', 'success')
-        return redirect(url_for('view_board', board_id=board.board_id))
-    else:
-        flash('Ugyldig tilgangskode', 'error')
+        if not board or current_user.email not in board.members:
+            flash('Tavle ikke funnet eller ingen tilgang', 'error')
+            return redirect(url_for('noteboards'))
+        
+        return render_template('noteboard.html', board=board)
+    except Exception as e:
+        logger.error(f"Error viewing board {board_id}: {e}")
+        flash('Feil ved lasting av tavle', 'error')
         return redirect(url_for('noteboards'))
 
-@app.route('/add-note/<board_id>', methods=['POST'])
+@app.route('/share-reminder', methods=['POST'])
 @login_required
-def add_note_to_board(board_id):
-    """Legg til notis på tavle"""
-    board = noteboard_manager.get_board_by_id(board_id)
+def share_reminder():
+    """Del påminnelse med andre via e-post (også ikke-registrerte brukere)"""
+    reminder_id = request.form.get('reminder_id')
+    email_addresses = request.form.get('email_addresses', '').strip()
+    personal_message = request.form.get('personal_message', '')
     
-    if not board or current_user.email not in board.members:
-        flash('Ingen tilgang til tavle', 'error')
-        return redirect(url_for('noteboards'))
+    if not reminder_id or not email_addresses:
+        flash('Påminnelse ID og e-post adresser er påkrevd', 'error')
+        return redirect(url_for('dashboard'))
     
-    content = request.form.get('content')
-    color = request.form.get('color', 'yellow')
+    # Parse email addresses
+    emails = [email.strip() for email in email_addresses.replace(',', ' ').split() if '@' in email]
     
-    if not content:
-        flash('Innhold er påkrevd', 'error')
-        return redirect(url_for('view_board', board_id=board_id))
+    if not emails:
+        flash('Ingen gyldige e-post adresser funnet', 'error')
+        return redirect(url_for('dashboard'))
     
-    note = board.add_note(content, current_user.email, color=color)
-    noteboard_manager.save_board(board)
+    # Find the reminder
+    reminders = dm.load_data('reminders')
+    reminder = None
+    for r in reminders:
+        if r['id'] == reminder_id and r['user_id'] == current_user.email:
+            reminder = r
+            break
     
-    flash('Notis lagt til!', 'success')
-    return redirect(url_for('view_board', board_id=board_id))
+    if not reminder:
+        flash('Påminnelse ikke funnet', 'error')
+        return redirect(url_for('dashboard'))
+    
+    # Send emails to all recipients
+    successful_shares = 0
+    for email in emails:
+        try:
+            # Create a shared reminder entry for tracking
+            shared_reminder = {
+                'id': str(uuid.uuid4()),
+                'original_id': reminder_id,
+                'shared_by': current_user.email,
+                'shared_with': email,
+                'title': reminder['title'],
+                'description': reminder['description'],
+                'datetime': reminder['datetime'],
+                'priority': reminder['priority'],
+                'category': reminder['category'],
+                'completed': False,
+                'created': datetime.now().isoformat(),
+                'is_shared': True,
+                'personal_message': personal_message
+            }
+            
+            # Send email notification
+            subject = f"Påminnelse delt med deg fra {current_user.email}"
+            if send_email(email, subject, 'emails/shared_reminder.html', 
+                         reminder=shared_reminder, 
+                         shared_by=current_user.email,
+                         personal_message=personal_message):
+                
+                # Save shared reminder for registered users
+                users = dm.load_data('users')
+                is_registered = any(user_data['email'] == email for user_data in users.values())
+                
+                if is_registered:
+                    shared_reminders = dm.load_data('shared_reminders')
+                    shared_reminders.append(shared_reminder)
+                    dm.save_data('shared_reminders', shared_reminders)
+                
+                successful_shares += 1
+            
+        except Exception as e:
+            logger.error(f"Error sharing reminder with {email}: {e}")
+    
+    if successful_shares > 0:
+        flash(f'Påminnelse delt med {successful_shares} personer!', 'success')
+    else:
+        flash('Feil ved deling av påminnelse', 'error')
+    
+    return redirect(url_for('dashboard'))
 
 @app.route('/email-settings')
 @login_required
 def email_settings():
     """Vis e-post innstillinger og statistikk"""
-    stats = email_service.get_email_statistics()
-    
-    return render_template('email_settings.html', 
-                         email_stats=stats,
-                         current_user=current_user)
+    try:
+        stats = email_service.get_email_statistics()
+        return render_template('email_settings.html', 
+                             email_stats=stats,
+                             current_user=current_user)
+    except Exception as e:
+        logger.error(f"Error loading email settings: {e}")
+        flash('Feil ved lasting av e-post innstillinger', 'error')
+        return render_template('email_settings.html', 
+                             email_stats={'total_sent': 0, 'total_failed': 0, 'success_rate': 0, 'recent_emails': []},
+                             current_user=current_user)
 
 @app.route('/test-email', methods=['POST'])
 @login_required
