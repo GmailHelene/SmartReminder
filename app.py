@@ -42,7 +42,16 @@ except ImportError:
     class FocusModeManager:
         @staticmethod
         def get_all_modes():
-            return {'normal': type('obj', (object,), {'name': 'Normal', 'description': 'Standard mode'})}
+            return {
+                'normal': type('obj', (object,), {'name': 'Normal', 'description': 'Standard mode'}),
+                'focus': type('obj', (object,), {'name': 'Focus', 'description': 'High focus mode'}),
+                'break': type('obj', (object,), {'name': 'Break', 'description': 'Break time mode'})
+            }
+        
+        @staticmethod
+        def get_mode(mode_name):
+            modes = FocusModeManager.get_all_modes()
+            return modes.get(mode_name, modes['normal'])
         
         @staticmethod
         def apply_mode_to_reminders(reminders, mode_name):
@@ -73,13 +82,30 @@ except ImportError:
             self.dm = dm
         
         def send_reminder_notification(self, reminder, email):
-            return True
+            subject = f"Påminnelse: {reminder['title']}"
+            return send_email(email, subject, 'emails/reminder_notification.html', reminder=reminder)
         
         def send_shared_reminder_notification(self, reminder, shared_by, email):
-            return True
+            subject = f"Delt påminnelse fra {shared_by}: {reminder['title']}"
+            return send_email(email, subject, 'emails/shared_reminder.html', reminder=reminder, shared_by=shared_by)
+        
+        def send_test_email(self, email):
+            subject = "Test e-post fra SmartReminder"
+            return send_email(email, subject, 'emails/test_email.html', user_email=email)
         
         def get_email_statistics(self):
-            return {'total_sent': 0, 'total_failed': 0, 'success_rate': 0, 'by_template': {}, 'recent_emails': []}
+            email_log = self.dm.load_data('email_log')
+            total_sent = len([log for log in email_log if log.get('status') == 'sent'])
+            total_failed = len([log for log in email_log if log.get('status') == 'failed'])
+            success_rate = (total_sent / len(email_log) * 100) if email_log else 0
+            
+            return {
+                'total_sent': total_sent,
+                'total_failed': total_failed,
+                'success_rate': round(success_rate, 2),
+                'by_template': {},
+                'recent_emails': email_log[-10:] if email_log else []
+            }
 
 # Mock APScheduler for testing
 try:
@@ -763,7 +789,7 @@ def email_log():
     try:
         log_data = dm.load_data('email_log')
         # Sort by timestamp, newest first
-        log_data.sort(key=lambda x: x.get('timestamp', ''), reverse=True)
+        log_data.sort(key=lambda x: x.get('sent_at', ''), reverse=True)
         return jsonify({
             'success': True,
             'log': log_data[-50:]  # Last 50 entries
@@ -776,9 +802,3 @@ def email_log():
 
 if __name__ == '__main__':
     app.run(debug=True)
-    scheduler.add_job(
-        func=check_reminders_for_notifications,
-        trigger="interval",
-        seconds=app.config['REMINDER_CHECK_INTERVAL'],
-        id='reminder_check'
-    )
