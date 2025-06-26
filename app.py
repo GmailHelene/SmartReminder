@@ -782,6 +782,3 @@ if __name__ == '__main__':
         seconds=app.config['REMINDER_CHECK_INTERVAL'],
         id='reminder_check'
     )
-
-if __name__ == '__main__':
-    app.run(debug=True)

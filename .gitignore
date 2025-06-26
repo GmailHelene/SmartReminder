@@ -20,18 +20,10 @@ wheels/
 .installed.cfg
 *.egg
 
-# Environment
-.env
-.venv
-env/
+# Virtual environment
 venv/
+env/
 ENV/
-env.bak/
-venv.bak/
-
-# Data
-data/*.json
-!data/.gitkeep
 
 # IDE
 .vscode/
@@ -43,5 +35,17 @@ data/*.json
 .DS_Store
 Thumbs.db
 
-# Railway
-.railway/
+# App specific
+data/
+*.log
+.env
+
+# Test results
+.pytest_cache/
+tests/test_results*.json
+.coverage
+
+# Temporary files
+*.tmp
+*.bak
+*.backup

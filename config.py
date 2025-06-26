@@ -4,10 +4,14 @@ Configuration for Smart Påminner Pro
 
 import os
 from pathlib import Path
-from dotenv import load_dotenv
 
-# Last miljøvariabler
-load_dotenv()
+# Try to load environment variables
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    # dotenv not available, use os.environ directly
+    pass
 
 class Config:
     """Base configuration"""

@@ -208,7 +208,7 @@ class FocusModeManager:
         return self.current_mode
     
     @classmethod
-    def get_mode(cls, mode_name):
+    def get_mode_by_name(cls, mode_name):
         """Hent en spesifikk fokumodus"""
         return cls.AVAILABLE_MODES.get(mode_name, cls.AVAILABLE_MODES['normal'])
     
@@ -220,11 +220,11 @@ class FocusModeManager:
     @classmethod
     def apply_mode_to_reminders(cls, reminders, mode_name):
         """Apply focus mode to reminders"""
-        mode = cls.get_mode(mode_name)
+        mode = cls.get_mode_by_name(mode_name)
         return mode.apply_to_reminders(reminders)
     
     @classmethod
     def get_mode_settings(cls, mode_name):
         """Get settings for a specific mode"""
-        mode = cls.get_mode(mode_name)
+        mode = cls.get_mode_by_name(mode_name)
         return mode.settings

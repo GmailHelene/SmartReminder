@@ -295,21 +295,3 @@ class TestDataManager(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)
-        
-        # Save initial data
-        self.dm.save_data('backup_test', initial_data)
-        
-        # Update data (should create backup)
-        self.dm.save_data('backup_test', updated_data)
-        
-        # Check backup exists
-        backup_file = self.dm.data_dir / 'backup_test.backup.json'
-        self.assertTrue(backup_file.exists())
-        
-        # Verify backup contains initial data
-        with open(backup_file, 'r', encoding='utf-8') as f:
-            backup_data = json.load(f)
-        self.assertEqual(backup_data, initial_data)
-
-if __name__ == '__main__':
-    unittest.main(verbosity=2)
