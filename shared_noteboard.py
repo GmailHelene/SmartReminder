@@ -125,22 +125,34 @@ class NoteboardManager:
     
     def get_board_by_id(self, board_id):
         """Hent tavle ved ID"""
-        boards = self.dm.load_data(self.boards_file)
-        if board_id in boards:
+        try:
+            boards = self.dm.load_data(self.boards_file)
+            if not isinstance(boards, dict):
+                print(f"Warning: boards data is not a dict: {type(boards)}")
+                return None
+            
+            if board_id not in boards:
+                print(f"Board {board_id} not found in boards: {list(boards.keys())}")
+                return None
+                
             board_data = boards[board_id]
             board = SharedNoteboard(
                 board_data['board_id'],
                 board_data['title'],
                 board_data['description'],
                 board_data['created_by'],
-                board_data['access_code']
+                board_data.get('access_code')
             )
-            board.created_at = board_data['created_at']
-            board.members = board_data['members']
-            board.notes = board_data['notes']
-            board.settings = board_data['settings']
+            board.created_at = board_data.get('created_at', datetime.now().isoformat())
+            board.members = board_data.get('members', [])
+            board.notes = board_data.get('notes', [])
+            board.settings = board_data.get('settings', {})
+            
+            print(f"Successfully loaded board {board_id} with {len(board.notes)} notes")
             return board
-        return None
+        except Exception as e:
+            print(f"Error loading board {board_id}: {e}")
+            return None
     
     def get_board_by_access_code(self, access_code):
         """Hent tavle ved tilgangskode"""

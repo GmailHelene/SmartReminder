@@ -835,17 +835,40 @@ def create_board():
 def view_board(board_id):
     """Vis spesifikk tavle"""
     try:
+        logger.info(f"Attempting to load board {board_id} for user {current_user.email}")
         board = noteboard_manager.get_board_by_id(board_id)
         
-        if not board or current_user.email not in board.members:
-            flash('Tavle ikke funnet eller ingen tilgang', 'error')
+        if not board:
+            logger.warning(f"Board {board_id} not found")
+            flash('Tavle ikke funnet', 'error')
             return redirect(url_for('noteboards'))
         
-        logger.info(f"Loading board {board_id} with {len(board.notes)} notes for user {current_user.email}")
+        if current_user.email not in board.members:
+            logger.warning(f"User {current_user.email} not in board {board_id} members: {board.members}")
+            flash('Du har ikke tilgang til denne tavlen', 'error')
+            return redirect(url_for('noteboards'))
+        
+        # Ensure notes is a list and has proper structure
+        if not hasattr(board, 'notes') or board.notes is None:
+            board.notes = []
+        
+        # Ensure each note has required fields
+        for note in board.notes:
+            if 'position' not in note:
+                note['position'] = {'x': 100, 'y': 100}
+            if 'color' not in note:
+                note['color'] = 'warning'
+            if 'created_at' not in note:
+                note['created_at'] = datetime.now().isoformat()
+            if 'updated_at' not in note:
+                note['updated_at'] = note['created_at']
+        
+        logger.info(f"Successfully loaded board {board_id} with {len(board.notes)} notes for user {current_user.email}")
         return render_template('noteboard.html', board=board)
+        
     except Exception as e:
-        logger.error(f"Error viewing board {board_id}: {e}")
-        flash('Feil ved lasting av tavle', 'error')
+        logger.error(f"Error viewing board {board_id}: {e}", exc_info=True)
+        flash(f'Feil ved lasting av tavle: {str(e)}', 'error')
         return redirect(url_for('noteboards'))
 
 @app.route('/share-reminder', methods=['POST'])

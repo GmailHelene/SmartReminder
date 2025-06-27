@@ -43,36 +43,6 @@
     </div>
 </div>
 
-<!-- Calendar View -->
-<div class="row mb-4">
-    <div class="col-12">
-        <div class="card">
-            <div class="card-header d-flex justify-content-between align-items-center">
-                <h5 class="mb-0"><i class="fas fa-calendar-alt"></i> Kalendervisning</h5>
-                <div class="btn-group" role="group">
-                    <button type="button" class="btn btn-sm btn-outline-primary" onclick="calendarView.prevMonth()">
-                        <i class="fas fa-chevron-left"></i>
-                    </button>
-                    <button type="button" class="btn btn-sm btn-outline-primary" onclick="calendarView.nextMonth()">
-                        <i class="fas fa-chevron-right"></i>
-                    </button>
-                    <button type="button" class="btn btn-sm btn-outline-secondary" onclick="calendarView.today()">
-                        I dag
-                    </button>
-                </div>
-            </div>
-            <div class="card-body">
-                <div id="calendar-header" class="text-center mb-3">
-                    <h4 id="calendar-month-year"></h4>
-                </div>
-                <div id="calendar-grid" class="calendar-grid">
-                    <!-- Calendar will be generated here -->
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-
 <!-- New Reminder Form -->
 <div class="card mb-4">
     <div class="card-header">
@@ -83,13 +53,13 @@
             {{ form.hidden_tag() }}
             
             <div class="row">
-                <div class="col-md-6">
+                <div class="col-lg-6 col-md-12">
                     <div class="form-floating mb-3">
                         {{ form.title(class="form-control", placeholder="Tittel", required=true) }}
                         {{ form.title.label(class="form-label") }}
                     </div>
                 </div>
-                <div class="col-md-6">
+                <div class="col-lg-6 col-md-12">
                     <div class="form-floating mb-3">
                         {{ form.category(class="form-select") }}
                         {{ form.category.label(class="form-label") }}
@@ -103,19 +73,19 @@
             </div>
 
             <div class="row">
-                <div class="col-md-4">
+                <div class="col-lg-4 col-md-6 col-sm-12">
                     <div class="form-floating mb-3">
                         {{ form.date(class="form-control", required=true) }}
                         {{ form.date.label(class="form-label") }}
                     </div>
                 </div>
-                <div class="col-md-4">
+                <div class="col-lg-4 col-md-6 col-sm-12">
                     <div class="form-floating mb-3">
                         {{ form.time(class="form-control", required=true) }}
                         {{ form.time.label(class="form-label") }}
                     </div>
                 </div>
-                <div class="col-md-4">
+                <div class="col-lg-4 col-md-12 col-sm-12">
                     <div class="form-floating mb-3">
                         {{ form.priority(class="form-select") }}
                         {{ form.priority.label(class="form-label") }}
@@ -150,10 +120,11 @@
 
 <!-- My Reminders -->
 <div class="row">
-    <div class="col-md-6">
-        <div class="card">
-            <div class="card-header">
+    <div class="col-lg-6 col-md-12 dashboard-col">
+        <div class="card h-100">
+            <div class="card-header d-flex justify-content-between align-items-center">
                 <h5 class="mb-0"><i class="fas fa-bell"></i> Mine påminnelser</h5>
+                <span class="badge bg-primary">{{ my_reminders|length }}</span>
             </div>
             <div class="card-body">
                 {% if my_reminders %}
@@ -206,10 +177,11 @@
     </div>
 
     <!-- Shared Reminders -->
-    <div class="col-md-6">
-        <div class="card">
-            <div class="card-header">
+    <div class="col-lg-6 col-md-12 dashboard-col">
+        <div class="card h-100">
+            <div class="card-header d-flex justify-content-between align-items-center">
                 <h5 class="mb-0"><i class="fas fa-share"></i> Delt med meg</h5>
+                <span class="badge bg-info">{{ shared_reminders|length }}</span>
             </div>
             <div class="card-body">
                 {% if shared_reminders %}
@@ -279,7 +251,7 @@
 
 <!-- Share Reminder Modal -->
 <div class="modal fade" id="shareReminderModal" tabindex="-1">
-    <div class="modal-dialog">
+    <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title"><i class="fas fa-share"></i> Del påminnelse</h5>
@@ -291,12 +263,12 @@
                     <input type="hidden" name="reminder_id" id="shareReminderIdInput">
                     
                     <div class="mb-3">
-                        <label class="form-label">Påminnelse:</label>
+                        <label class="form-label fw-bold">Påminnelse:</label>
                         <p class="text-muted" id="shareReminderTitle"></p>
                     </div>
                     
                     <div class="mb-3">
-                        <label for="emailAddresses" class="form-label">E-post adresser:</label>
+                        <label for="emailAddresses" class="form-label fw-bold">E-post adresser:</label>
                         <textarea class="form-control" name="email_addresses" id="emailAddresses" 
                                   rows="3" placeholder="Skriv inn e-post adresser separert med komma eller mellomrom"
                                   required></textarea>
@@ -430,136 +402,6 @@ function shareReminder(reminderId, reminderTitle) {
     var modal = new bootstrap.Modal(document.getElementById('shareReminderModal'));
     modal.show();
 }
-
-// Calendar functionality
-const calendarView = {
-    currentDate: new Date(),
-    reminders: [
-        {% for reminder in my_reminders %}
-        {
-            id: '{{ reminder.id }}',
-            title: '{{ reminder.title|e }}',
-            date: '{{ reminder.datetime }}',
-            priority: '{{ reminder.priority }}',
-            category: '{{ reminder.category }}',
-            backgroundColor: {% if reminder.priority == 'Høy' %}'#dc3545'{% elif reminder.priority == 'Medium' %}'#fd7e14'{% else %}'#198754'{% endif %},
-            borderColor: {% if reminder.priority == 'Høy' %}'#dc3545'{% elif reminder.priority == 'Medium' %}'#fd7e14'{% else %}'#198754'{% endif %}
-        },
-        {% endfor %}
-    ],
-    
-    init: function() {
-        this.render();
-    },
-    
-    render: function() {
-        const monthNames = [
-            "Januar", "Februar", "Mars", "April", "Mai", "Juni",
-            "Juli", "August", "September", "Oktober", "November", "Desember"
-        ];
-        const dayNames = ["Man", "Tir", "Ons", "Tor", "Fre", "Lør", "Søn"];
-        
-        const year = this.currentDate.getFullYear();
-        const month = this.currentDate.getMonth();
-        
-        // Update header
-        document.getElementById('calendar-month-year').textContent = 
-            `${monthNames[month]} ${year}`;
-        
-        // Get first day of month and number of days
-        const firstDay = new Date(year, month, 1).getDay();
-        const daysInMonth = new Date(year, month + 1, 0).getDate();
-        const adjustedFirstDay = firstDay === 0 ? 6 : firstDay - 1; // Adjust for Monday start
-        
-        let html = '<div class="calendar-weekdays">';
-        dayNames.forEach(day => {
-            html += `<div class="calendar-weekday">${day}</div>`;
-        });
-        html += '</div><div class="calendar-days">';
-        
-        // Empty cells for days before first day of month
-        for (let i = 0; i < adjustedFirstDay; i++) {
-            html += '<div class="calendar-day calendar-day-other"></div>';
-        }
-        
-        // Days of the month
-        for (let day = 1; day <= daysInMonth; day++) {
-            const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-            const isToday = this.isToday(year, month, day);
-            const dayReminders = this.getRemindersByDate(dateStr);
-            
-            html += `<div class="calendar-day ${isToday ? 'calendar-day-today' : ''}" onclick="calendarView.dayClick('${dateStr}')">
-                <div class="calendar-day-number">${day}</div>`;
-            
-            if (dayReminders.length > 0) {
-                html += '<div class="calendar-day-reminders">';
-                dayReminders.slice(0, 3).forEach(reminder => {
-                    html += `<div class="calendar-reminder" style="background-color: ${reminder.backgroundColor};" title="${reminder.title}">
-                        ${reminder.title.length > 15 ? reminder.title.substring(0, 15) + '...' : reminder.title}
-                    </div>`;
-                });
-                if (dayReminders.length > 3) {
-                    html += `<div class="calendar-reminder-more">+${dayReminders.length - 3} mer</div>`;
-                }
-                html += '</div>';
-            }
-            
-            html += '</div>';
-        }
-        
-        html += '</div>';
-        document.getElementById('calendar-grid').innerHTML = html;
-    },
-    
-    isToday: function(year, month, day) {
-        const today = new Date();
-        return year === today.getFullYear() && 
-               month === today.getMonth() && 
-               day === today.getDate();
-    },
-    
-    getRemindersByDate: function(dateStr) {
-        return this.reminders.filter(reminder => {
-            const reminderDate = new Date(reminder.date);
-            const targetDate = new Date(dateStr);
-            return reminderDate.toDateString() === targetDate.toDateString();
-        });
-    },
-    
-    dayClick: function(dateStr) {
-        const dayReminders = this.getRemindersByDate(dateStr);
-        if (dayReminders.length > 0) {
-            let remindersList = dayReminders.map(r => `• ${r.title} (${r.priority})`).join('\n');
-            alert(`Påminnelser for ${dateStr}:\n\n${remindersList}`);
-        } else {
-            if (confirm(`Ingen påminnelser for ${dateStr}. Vil du legge til en ny påminnelse?`)) {
-                // Set the date input to clicked date
-                document.querySelector('input[name="date"]').value = dateStr;
-                document.querySelector('input[name="title"]').focus();
-            }
-        }
-    },
-    
-    prevMonth: function() {
-        this.currentDate.setMonth(this.currentDate.getMonth() - 1);
-        this.render();
-    },
-    
-    nextMonth: function() {
-        this.currentDate.setMonth(this.currentDate.getMonth() + 1);
-        this.render();
-    },
-    
-    today: function() {
-        this.currentDate = new Date();
-        this.render();
-    }
-};
-
-// Initialize calendar when page loads
-document.addEventListener('DOMContentLoaded', function() {
-    calendarView.init();
-});
 
 // Form validation
 (function() {
