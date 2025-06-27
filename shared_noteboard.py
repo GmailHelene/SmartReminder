@@ -199,5 +199,3 @@ class NoteboardManager:
             self.save_board(board)
             return board
         return None
-            return board
-        return None
