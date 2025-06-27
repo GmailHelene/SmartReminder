@@ -43,6 +43,36 @@
     </div>
 </div>
 
+<!-- Calendar View -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0"><i class="fas fa-calendar-alt"></i> Kalendervisning</h5>
+                <div class="btn-group" role="group">
+                    <button type="button" class="btn btn-sm btn-outline-primary" onclick="calendarView.prevMonth()">
+                        <i class="fas fa-chevron-left"></i>
+                    </button>
+                    <button type="button" class="btn btn-sm btn-outline-primary" onclick="calendarView.nextMonth()">
+                        <i class="fas fa-chevron-right"></i>
+                    </button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" onclick="calendarView.today()">
+                        I dag
+                    </button>
+                </div>
+            </div>
+            <div class="card-body">
+                <div id="calendar-header" class="text-center mb-3">
+                    <h4 id="calendar-month-year"></h4>
+                </div>
+                <div id="calendar-grid" class="calendar-grid">
+                    <!-- Calendar will be generated here -->
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- New Reminder Form -->
 <div class="card mb-4">
     <div class="card-header">
@@ -152,6 +182,9 @@
                                         <li><a class="dropdown-item" href="{{ url_for('complete_reminder', reminder_id=reminder.id) }}">
                                             <i class="fas fa-check text-success"></i> Fullfør
                                         </a></li>
+                                        <li><button class="dropdown-item" onclick="shareReminder('{{ reminder.id }}', '{{ reminder.title }}')">
+                                            <i class="fas fa-share text-info"></i> Del via e-post
+                                        </button></li>
                                         <li><a class="dropdown-item" href="{{ url_for('delete_reminder', reminder_id=reminder.id) }}" 
                                                onclick="return confirm('Er du sikker på at du vil slette denne påminnelsen?')">
                                             <i class="fas fa-trash text-danger"></i> Slett
@@ -219,4 +252,341 @@
         </div>
     </div>
 </div>
+
+<!-- Calendar View -->
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0"><i class="fas fa-calendar-alt"></i> Kalendervisning</h5>
+                <div class="btn-group" role="group">
+                    <input type="radio" class="btn-check" name="calendarView" id="monthView" autocomplete="off" checked>
+                    <label class="btn btn-outline-primary btn-sm" for="monthView">Måned</label>
+                    
+                    <input type="radio" class="btn-check" name="calendarView" id="weekView" autocomplete="off">
+                    <label class="btn btn-outline-primary btn-sm" for="weekView">Uke</label>
+                    
+                    <input type="radio" class="btn-check" name="calendarView" id="dayView" autocomplete="off">
+                    <label class="btn btn-outline-primary btn-sm" for="dayView">Dag</label>
+                </div>
+            </div>
+            <div class="card-body p-0">
+                <div id="calendar" style="height: 600px;"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Share Reminder Modal -->
+<div class="modal fade" id="shareReminderModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fas fa-share"></i> Del påminnelse</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST" action="{{ url_for('share_reminder') }}">
+                <div class="modal-body">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                    <input type="hidden" name="reminder_id" id="shareReminderIdInput">
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Påminnelse:</label>
+                        <p class="text-muted" id="shareReminderTitle"></p>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="emailAddresses" class="form-label">E-post adresser:</label>
+                        <textarea class="form-control" name="email_addresses" id="emailAddresses" 
+                                  rows="3" placeholder="Skriv inn e-post adresser separert med komma eller mellomrom"
+                                  required></textarea>
+                        <div class="form-text">Eksempel: person1@example.com, person2@example.com</div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="personalMessage" class="form-label">Personlig melding (valgfritt):</label>
+                        <textarea class="form-control" name="personal_message" id="personalMessage" 
+                                  rows="3" placeholder="Legg til en personlig melding..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Avbryt</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-paper-plane"></i> Send påminnelse
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<!-- FullCalendar CSS & JS -->
+<link href='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.css' rel='stylesheet' />
+<script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.js'></script>
+
+<script>
+// Calendar initialization
+document.addEventListener('DOMContentLoaded', function() {
+    var calendarEl = document.getElementById('calendar');
+    
+    // Prepare events from reminders
+    var events = [];
+    
+    {% for reminder in my_reminders %}
+    events.push({
+        id: '{{ reminder.id }}',
+        title: '{{ reminder.title|e }}',
+        start: '{{ reminder.datetime }}',
+        backgroundColor: {% if reminder.priority == 'Høy' %}'#dc3545'{% elif reminder.priority == 'Medium' %}'#fd7e14'{% else %}'#198754'{% endif %},
+        borderColor: {% if reminder.priority == 'Høy' %}'#dc3545'{% elif reminder.priority == 'Medium' %}'#fd7e14'{% else %}'#198754'{% endif %},
+        extendedProps: {
+            description: '{{ reminder.description|e }}',
+            category: '{{ reminder.category|e }}',
+            priority: '{{ reminder.priority|e }}',
+            type: 'my'
+        }
+    });
+    {% endfor %}
+    
+    {% for reminder in shared_reminders %}
+    events.push({
+        id: 'shared_{{ reminder.id }}',
+        title: '{{ reminder.title|e }} ({{ reminder.shared_by|e }})',
+        start: '{{ reminder.datetime }}',
+        backgroundColor: '#6f42c1',
+        borderColor: '#6f42c1',
+        extendedProps: {
+            description: '{{ reminder.description|e }}',
+            category: '{{ reminder.category|e }}',
+            priority: '{{ reminder.priority|e }}',
+            sharedBy: '{{ reminder.shared_by|e }}',
+            type: 'shared'
+        }
+    });
+    {% endfor %}
+    
+    var calendar = new FullCalendar.Calendar(calendarEl, {
+        initialView: 'dayGridMonth',
+        height: 600,
+        events: events,
+        headerToolbar: {
+            left: 'prev,next today',
+            center: 'title',
+            right: 'dayGridMonth,timeGridWeek,timeGridDay'
+        },
+        eventClick: function(info) {
+            // Show event details
+            const event = info.event;
+            const props = event.extendedProps;
+            
+            let content = `
+                <h6>${event.title}</h6>
+                <p><strong>Dato:</strong> ${event.start.toLocaleString('nb-NO')}</p>
+                <p><strong>Kategori:</strong> ${props.category}</p>
+                <p><strong>Prioritet:</strong> ${props.priority}</p>
+            `;
+            
+            if (props.description) {
+                content += `<p><strong>Beskrivelse:</strong> ${props.description}</p>`;
+            }
+            
+            if (props.sharedBy) {
+                content += `<p><strong>Delt av:</strong> ${props.sharedBy}</p>`;
+            }
+            
+            // Simple alert for now - can be replaced with modal
+            alert(content.replace(/<[^>]*>/g, '\n'));
+        },
+        eventDidMount: function(info) {
+            // Add tooltip
+            info.el.setAttribute('title', info.event.extendedProps.description || '');
+        }
+    });
+    
+    calendar.render();
+    
+    // Calendar view switcher
+    document.querySelectorAll('input[name="calendarView"]').forEach(radio => {
+        radio.addEventListener('change', function() {
+            if (this.id === 'monthView') {
+                calendar.changeView('dayGridMonth');
+            } else if (this.id === 'weekView') {
+                calendar.changeView('timeGridWeek');
+            } else if (this.id === 'dayView') {
+                calendar.changeView('timeGridDay');
+            }
+        });
+    });
+});
+
+// Share reminder function
+function shareReminder(reminderId, reminderTitle) {
+    document.getElementById('shareReminderIdInput').value = reminderId;
+    document.getElementById('shareReminderTitle').textContent = reminderTitle;
+    
+    var modal = new bootstrap.Modal(document.getElementById('shareReminderModal'));
+    modal.show();
+}
+
+// Calendar functionality
+const calendarView = {
+    currentDate: new Date(),
+    reminders: [
+        {% for reminder in my_reminders %}
+        {
+            id: '{{ reminder.id }}',
+            title: '{{ reminder.title|e }}',
+            date: '{{ reminder.datetime }}',
+            priority: '{{ reminder.priority }}',
+            category: '{{ reminder.category }}',
+            backgroundColor: {% if reminder.priority == 'Høy' %}'#dc3545'{% elif reminder.priority == 'Medium' %}'#fd7e14'{% else %}'#198754'{% endif %},
+            borderColor: {% if reminder.priority == 'Høy' %}'#dc3545'{% elif reminder.priority == 'Medium' %}'#fd7e14'{% else %}'#198754'{% endif %}
+        },
+        {% endfor %}
+    ],
+    
+    init: function() {
+        this.render();
+    },
+    
+    render: function() {
+        const monthNames = [
+            "Januar", "Februar", "Mars", "April", "Mai", "Juni",
+            "Juli", "August", "September", "Oktober", "November", "Desember"
+        ];
+        const dayNames = ["Man", "Tir", "Ons", "Tor", "Fre", "Lør", "Søn"];
+        
+        const year = this.currentDate.getFullYear();
+        const month = this.currentDate.getMonth();
+        
+        // Update header
+        document.getElementById('calendar-month-year').textContent = 
+            `${monthNames[month]} ${year}`;
+        
+        // Get first day of month and number of days
+        const firstDay = new Date(year, month, 1).getDay();
+        const daysInMonth = new Date(year, month + 1, 0).getDate();
+        const adjustedFirstDay = firstDay === 0 ? 6 : firstDay - 1; // Adjust for Monday start
+        
+        let html = '<div class="calendar-weekdays">';
+        dayNames.forEach(day => {
+            html += `<div class="calendar-weekday">${day}</div>`;
+        });
+        html += '</div><div class="calendar-days">';
+        
+        // Empty cells for days before first day of month
+        for (let i = 0; i < adjustedFirstDay; i++) {
+            html += '<div class="calendar-day calendar-day-other"></div>';
+        }
+        
+        // Days of the month
+        for (let day = 1; day <= daysInMonth; day++) {
+            const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+            const isToday = this.isToday(year, month, day);
+            const dayReminders = this.getRemindersByDate(dateStr);
+            
+            html += `<div class="calendar-day ${isToday ? 'calendar-day-today' : ''}" onclick="calendarView.dayClick('${dateStr}')">
+                <div class="calendar-day-number">${day}</div>`;
+            
+            if (dayReminders.length > 0) {
+                html += '<div class="calendar-day-reminders">';
+                dayReminders.slice(0, 3).forEach(reminder => {
+                    html += `<div class="calendar-reminder" style="background-color: ${reminder.backgroundColor};" title="${reminder.title}">
+                        ${reminder.title.length > 15 ? reminder.title.substring(0, 15) + '...' : reminder.title}
+                    </div>`;
+                });
+                if (dayReminders.length > 3) {
+                    html += `<div class="calendar-reminder-more">+${dayReminders.length - 3} mer</div>`;
+                }
+                html += '</div>';
+            }
+            
+            html += '</div>';
+        }
+        
+        html += '</div>';
+        document.getElementById('calendar-grid').innerHTML = html;
+    },
+    
+    isToday: function(year, month, day) {
+        const today = new Date();
+        return year === today.getFullYear() && 
+               month === today.getMonth() && 
+               day === today.getDate();
+    },
+    
+    getRemindersByDate: function(dateStr) {
+        return this.reminders.filter(reminder => {
+            const reminderDate = new Date(reminder.date);
+            const targetDate = new Date(dateStr);
+            return reminderDate.toDateString() === targetDate.toDateString();
+        });
+    },
+    
+    dayClick: function(dateStr) {
+        const dayReminders = this.getRemindersByDate(dateStr);
+        if (dayReminders.length > 0) {
+            let remindersList = dayReminders.map(r => `• ${r.title} (${r.priority})`).join('\n');
+            alert(`Påminnelser for ${dateStr}:\n\n${remindersList}`);
+        } else {
+            if (confirm(`Ingen påminnelser for ${dateStr}. Vil du legge til en ny påminnelse?`)) {
+                // Set the date input to clicked date
+                document.querySelector('input[name="date"]').value = dateStr;
+                document.querySelector('input[name="title"]').focus();
+            }
+        }
+    },
+    
+    prevMonth: function() {
+        this.currentDate.setMonth(this.currentDate.getMonth() - 1);
+        this.render();
+    },
+    
+    nextMonth: function() {
+        this.currentDate.setMonth(this.currentDate.getMonth() + 1);
+        this.render();
+    },
+    
+    today: function() {
+        this.currentDate = new Date();
+        this.render();
+    }
+};
+
+// Initialize calendar when page loads
+document.addEventListener('DOMContentLoaded', function() {
+    calendarView.init();
+});
+
+// Form validation
+(function() {
+    'use strict';
+    window.addEventListener('load', function() {
+        var forms = document.getElementsByClassName('needs-validation');
+        var validation = Array.prototype.filter.call(forms, function(form) {
+            form.addEventListener('submit', function(event) {
+                if (form.checkValidity() === false) {
+                    event.preventDefault();
+                    event.stopPropagation();
+                }
+                form.classList.add('was-validated');
+            }, false);
+        });
+    }, false);
+})();
+
+// Auto-refresh reminder count every 5 minutes
+setInterval(function() {
+    fetch('/api/reminder-count')
+        .then(response => response.json())
+        .then(data => {
+            // Update UI if needed
+            console.log('Reminder count updated:', data);
+        })
+        .catch(error => console.log('Error updating reminder count:', error));
+}, 300000);
+</script>
 {% endblock %}

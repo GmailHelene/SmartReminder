@@ -254,3 +254,308 @@ body {
 .was-validated .form-control:invalid {
     border-color: var(--danger-color);
 }
+
+/* Calendar Styles */
+.calendar-grid {
+    width: 100%;
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+.calendar-weekdays {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 1px;
+    background-color: #dee2e6;
+    margin-bottom: 1px;
+}
+
+.calendar-weekday {
+    background-color: #6c757d;
+    color: white;
+    padding: 10px;
+    text-align: center;
+    font-weight: bold;
+    font-size: 0.875rem;
+}
+
+.calendar-days {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 1px;
+    background-color: #dee2e6;
+}
+
+.calendar-day {
+    background-color: white;
+    min-height: 100px;
+    padding: 8px;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+    position: relative;
+}
+
+.calendar-day:hover {
+    background-color: #f8f9fa;
+}
+
+.calendar-day-other {
+    background-color: #f8f9fa;
+    color: #6c757d;
+    cursor: default;
+}
+
+.calendar-day-today {
+    background-color: #e3f2fd;
+    border: 2px solid #2196f3;
+}
+
+.calendar-day-number {
+    font-weight: bold;
+    margin-bottom: 4px;
+    font-size: 0.875rem;
+}
+
+.calendar-day-reminders {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.calendar-reminder {
+    background-color: #007bff;
+    color: white;
+    padding: 2px 4px;
+    border-radius: 3px;
+    font-size: 0.75rem;
+    line-height: 1.2;
+    text-overflow: ellipsis;
+    overflow: hidden;
+    white-space: nowrap;
+}
+
+.calendar-reminder-more {
+    color: #6c757d;
+    font-size: 0.7rem;
+    font-style: italic;
+    text-align: center;
+    padding: 1px 0;
+}
+
+@media (max-width: 768px) {
+    .calendar-day {
+        min-height: 80px;
+        padding: 4px;
+    }
+    
+    .calendar-day-number {
+        font-size: 0.75rem;
+    }
+    
+    .calendar-reminder {
+        font-size: 0.65rem;
+        padding: 1px 2px;
+    }
+    
+    .calendar-weekday {
+        padding: 8px 4px;
+        font-size: 0.75rem;
+    }
+}
+
+/* End Calendar Styles */
+
+/* Sticky Notes Board Styles */
+.board-canvas-container {
+    position: relative;
+    overflow: hidden;
+}
+
+.sticky-note {
+    position: absolute;
+    z-index: 10;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.sticky-note:hover {
+    transform: scale(1.05) !important;
+    z-index: 20;
+    box-shadow: 0 10px 20px rgba(0,0,0,0.3) !important;
+}
+
+.sticky-note .note-content {
+    padding: 15px;
+    font-family: 'Comic Sans MS', cursive, sans-serif;
+    font-size: 14px;
+    line-height: 1.4;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+    border: 2px solid rgba(0,0,0,0.1);
+}
+
+.sticky-note .note-content.bg-warning {
+    background: linear-gradient(135deg, #fff3cd, #ffeaa7) !important;
+}
+
+.sticky-note .note-content.bg-info {
+    background: linear-gradient(135deg, #d1ecf1, #74b9ff) !important;
+}
+
+.sticky-note .note-content.bg-success {
+    background: linear-gradient(135deg, #d4edda, #00b894) !important;
+}
+
+.sticky-note .note-content.bg-danger {
+    background: linear-gradient(135deg, #f8d7da, #e17055) !important;
+}
+
+.sticky-note .note-content.bg-light {
+    background: linear-gradient(135deg, #ffffff, #f8f9fa) !important;
+}
+
+.user-avatar {
+    font-family: 'Segoe UI', sans-serif !important;
+}
+
+.note-text {
+    max-height: 120px;
+    overflow-y: auto;
+    word-wrap: break-word;
+}
+
+.board-canvas-container::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-image: 
+        linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px);
+    background-size: 30px 30px;
+    pointer-events: none;
+    z-index: 1;
+}
+
+.note-actions {
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+
+.sticky-note:hover .note-actions {
+    opacity: 1;
+}
+
+/* Calendar Enhancements */
+.fc-event {
+    border-radius: 8px !important;
+    border: none !important;
+    padding: 2px 6px !important;
+}
+
+.fc-event-title {
+    font-weight: 600 !important;
+}
+
+.fc-daygrid-event {
+    margin: 1px 0 !important;
+}
+
+/* Reminder Cards */
+.reminder-card {
+    transition: all 0.3s ease;
+    border-radius: 12px;
+}
+
+.reminder-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(0,0,0,0.15) !important;
+}
+
+.priority-høy {
+    border-left: 4px solid #e74c3c !important;
+}
+
+.priority-medium {
+    border-left: 4px solid #f39c12 !important;
+}
+
+.priority-lav {
+    border-left: 4px solid #27ae60 !important;
+}
+
+/* Share Modal Enhancements */
+.modal-content {
+    border-radius: 15px;
+    border: none;
+    box-shadow: 0 15px 35px rgba(0,0,0,0.1);
+}
+
+.modal-header {
+    border-bottom: 1px solid rgba(0,0,0,0.1);
+    border-radius: 15px 15px 0 0;
+}
+
+/* PWA Install Button */
+.pwa-install-banner {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 1050;
+    animation: slideInRight 0.5s ease;
+}
+
+@keyframes slideInRight {
+    from { transform: translateX(100%); }
+    to { transform: translateX(0); }
+}
+
+/* Statistics Cards */
+.stats-card {
+    background: linear-gradient(135deg, var(--primary-color), var(--info-color));
+    color: white;
+    border-radius: 15px;
+    padding: 20px;
+    text-align: center;
+    transition: transform 0.3s ease;
+}
+
+.stats-card:hover {
+    transform: translateY(-5px);
+}
+
+.stats-card h3 {
+    font-size: 2.5rem;
+    font-weight: bold;
+    margin-bottom: 0.5rem;
+}
+
+/* Mobile Responsiveness */
+@media (max-width: 768px) {
+    .sticky-note {
+        transform: scale(0.9) !important;
+    }
+    
+    .sticky-note:hover {
+        transform: scale(0.95) !important;
+    }
+    
+    .board-canvas-container {
+        min-height: 400px !important;
+    }
+    
+    .reminder-card {
+        margin-bottom: 15px;
+    }
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+    .board-canvas-container {
+        background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%) !important;
+    }
+    
+    .sticky-note .note-content {
+        box-shadow: 0 5px 15px rgba(255,255,255,0.1);
+    }
+}

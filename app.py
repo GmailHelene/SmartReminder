@@ -63,7 +63,9 @@ except ImportError:
 
 try:
     from shared_noteboard import NoteboardManager
-except ImportError:
+    print("Successfully imported NoteboardManager from shared_noteboard")
+except ImportError as e:
+    print(f"Failed to import NoteboardManager: {e}")
     # Fallback if shared_noteboard module doesn't exist
     class NoteboardManager:
         def __init__(self, dm):
@@ -839,6 +841,7 @@ def view_board(board_id):
             flash('Tavle ikke funnet eller ingen tilgang', 'error')
             return redirect(url_for('noteboards'))
         
+        logger.info(f"Loading board {board_id} with {len(board.notes)} notes for user {current_user.email}")
         return render_template('noteboard.html', board=board)
     except Exception as e:
         logger.error(f"Error viewing board {board_id}: {e}")
@@ -897,29 +900,19 @@ def share_reminder():
                 'personal_message': personal_message
             }
             
-            # Send email notification
-            subject = f"Påminnelse delt med deg fra {current_user.email}"
-            if send_email(email, subject, 'emails/shared_reminder.html', 
-                         reminder=shared_reminder, 
-                         shared_by=current_user.email,
-                         personal_message=personal_message):
-                
-                # Save shared reminder for registered users
-                users = dm.load_data('users')
-                is_registered = any(user_data['email'] == email for user_data in users.values())
-                
-                if is_registered:
-                    shared_reminders = dm.load_data('shared_reminders')
-                    shared_reminders.append(shared_reminder)
-                    dm.save_data('shared_reminders', shared_reminders)
-                
-                successful_shares += 1
+            # Save shared reminder
+            shared_reminders = dm.load_data('shared_reminders')
+            shared_reminders.append(shared_reminder)
+            dm.save_data('shared_reminders', shared_reminders)
             
+            # Send email notification
+            if send_shared_reminder_notification(shared_reminder, current_user.email, email):
+                successful_shares += 1
         except Exception as e:
             logger.error(f"Error sharing reminder with {email}: {e}")
     
     if successful_shares > 0:
-        flash(f'Påminnelse delt med {successful_shares} personer!', 'success')
+        flash(f'Påminnelse delt med {successful_shares} av {len(emails)} mottakere!', 'success')
     else:
         flash('Feil ved deling av påminnelse', 'error')
     
@@ -934,7 +927,7 @@ def test_email():
     if email_service.send_test_email(email):
         flash(f'Test-e-post sendt til {email}!', 'success')
     else:
-        flash(f'Feil ved sending av test-e-post til {email}', 'error')
+        flash('Feil ved sending av test-e-post', 'error')
     
     return redirect(url_for('email_settings'))
 
@@ -944,8 +937,6 @@ def email_log():
     """Vis e-post logg (kun for debugging)"""
     try:
         log_data = dm.load_data('email_log')
-        # Sort by timestamp, newest first
-        log_data.sort(key=lambda x: x.get('sent_at', ''), reverse=True)
         return jsonify({
             'success': True,
             'log': log_data[-50:]  # Last 50 entries
@@ -956,10 +947,172 @@ def email_log():
             'error': str(e)
         }), 500
 
-@app.route('/join-board', methods=['POST'])
+@app.route('/board/<board_id>/add-note', methods=['POST'])
+@login_required  
+def add_note_to_board(board_id):
+    """Add a note to a board"""
+    try:
+        logger.info(f"Attempting to add note to board {board_id} by {current_user.email}")
+        board = noteboard_manager.get_board_by_id(board_id)
+        
+        if not board:
+            logger.warning(f"Board {board_id} not found")
+            if request.is_json:
+                return jsonify({'success': False, 'error': 'Board not found'}), 404
+            flash('Tavle ikke funnet', 'error')
+            return redirect(url_for('noteboards'))
+        
+        if current_user.email not in board.members:
+            logger.warning(f"User {current_user.email} not in board {board_id} members: {board.members}")
+            if request.is_json:
+                return jsonify({'success': False, 'error': 'No access'}), 403
+            flash('Ingen tilgang til denne tavlen', 'error')
+            return redirect(url_for('noteboards'))
+        
+        # Handle both form and JSON data
+        if request.is_json:
+            data = request.get_json()
+            content = data.get('content')
+            color = data.get('color', 'warning')
+            x = data.get('x', 100)
+            y = data.get('y', 100)
+        else:
+            content = request.form.get('content')
+            color = request.form.get('color', 'warning')
+            x = 100
+            y = 100
+        
+        if not content:
+            logger.warning(f"No content provided for note in board {board_id}")
+            if request.is_json:
+                return jsonify({'success': False, 'error': 'Content required'})
+            flash('Innhold er påkrevd', 'error')
+            return redirect(url_for('view_board', board_id=board_id))
+        
+        # Add note to board
+        note = board.add_note(content, current_user.email, 'text', color)
+        if note:
+            note['position'] = {'x': x, 'y': y}
+            noteboard_manager.save_board(board)
+            logger.info(f"Note added to board {board_id} by {current_user.email}: {note['id']}")
+        
+        if request.is_json:
+            return jsonify({'success': True, 'note': note})
+        
+        flash('Notis lagt til!', 'success')
+        return redirect(url_for('view_board', board_id=board_id))
+        
+        flash('Notis lagt til!', 'success')
+        return redirect(url_for('view_board', board_id=board_id))
+        
+    except Exception as e:
+        logger.error(f"Error adding note to board {board_id}: {e}")
+        if request.is_json:
+            return jsonify({'success': False, 'error': str(e)}), 500
+        flash('Feil ved å legge til notis', 'error')
+        return redirect(url_for('view_board', board_id=board_id))
+
+@app.route('/api/update-note-position/<note_id>', methods=['POST'])
+@login_required
+def update_note_position(note_id):
+    """Update note position via API"""
+    try:
+        data = request.get_json()
+        x = data.get('x', 0)
+        y = data.get('y', 0)
+        
+        # Find board containing this note
+        boards = dm.load_data('shared_noteboards')
+        for board_data in boards.values():
+            if current_user.email in board_data.get('members', []):
+                for note in board_data.get('notes', []):
+                    if note['id'] == note_id:
+                        note['position'] = {'x': x, 'y': y}
+                        note['updated_at'] = datetime.now().isoformat()
+                        dm.save_data('shared_noteboards', boards)
+                        return jsonify({'success': True})
+        
+        return jsonify({'success': False, 'error': 'Note not found'}), 404
+        
+    except Exception as e:
+        logger.error(f"Error updating note position {note_id}: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/edit-note/<note_id>', methods=['PUT'])
+@login_required
+def edit_note(note_id):
+    """Edit note content via API"""
+    try:
+        data = request.get_json()
+        content = data.get('content')
+        
+        if not content:
+            return jsonify({'success': False, 'error': 'Content required'}), 400
+        
+        # Find board containing this note
+        boards = dm.load_data('shared_noteboards')
+        for board_data in boards.values():
+            if current_user.email in board_data.get('members', []):
+                for note in board_data.get('notes', []):
+                    if note['id'] == note_id and note['author'] == current_user.email:
+                        note['content'] = content
+                        note['updated_at'] = datetime.now().isoformat()
+                        dm.save_data('shared_noteboards', boards)
+                        return jsonify({'success': True})
+        
+        return jsonify({'success': False, 'error': 'Note not found or no permission'}), 404
+        
+    except Exception as e:
+        logger.error(f"Error editing note {note_id}: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/delete-note/<note_id>', methods=['DELETE'])
+@login_required
+def delete_note(note_id):
+    """Delete note via API"""
+    try:
+        # Find board containing this note
+        boards = dm.load_data('shared_noteboards')
+        for board_data in boards.values():
+            if current_user.email in board_data.get('members', []):
+                notes = board_data.get('notes', [])
+                for i, note in enumerate(notes):
+                    if note['id'] == note_id:
+                        # Check if user can delete (author or board creator)
+                        if note['author'] == current_user.email or board_data['created_by'] == current_user.email:
+                            del notes[i]
+                            dm.save_data('shared_noteboards', boards)
+                            return jsonify({'success': True})
+                        else:
+                            return jsonify({'success': False, 'error': 'No permission'}), 403
+        
+        return jsonify({'success': False, 'error': 'Note not found'}), 404
+        
+    except Exception as e:
+        logger.error(f"Error deleting note {note_id}: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/join-board', methods=['GET', 'POST'])
 @login_required
 def join_board():
     """Bli med på delt tavle via tilgangskode"""
+    if request.method == 'GET':
+        # Handle URL like /join-board?code=XXXX
+        access_code = request.args.get('code')
+        if access_code:
+            try:
+                board = noteboard_manager.join_board(access_code, current_user.email)
+                if board:
+                    flash(f'Du er nå medlem av tavlen "{board.title}"!', 'success')
+                    return redirect(url_for('view_board', board_id=board.board_id))
+                else:
+                    flash('Ugyldig tilgangskode eller du er allerede medlem.', 'error')
+            except Exception as e:
+                logger.error(f"Error joining board with code {access_code}: {e}")
+                flash('Feil ved å bli med på tavle', 'error')
+        return redirect(url_for('noteboards'))
+    
+    # POST method
     access_code = request.form.get('access_code')
     if not access_code:
         flash('Tilgangskode er påkrevd', 'error')
@@ -976,51 +1129,6 @@ def join_board():
         logger.error(f"Error joining board: {e}")
         flash('Feil ved å bli med på tavle', 'error')
         return redirect(url_for('noteboards'))
-
-@app.route('/board/<board_id>/add-note', methods=['POST'])
-@login_required
-def add_note_to_board(board_id):
-    """Add a note to a board"""
-    try:
-        board = noteboard_manager.get_board_by_id(board_id)
-        
-        if not board or current_user.email not in board.members:
-            flash('Tavle ikke funnet eller ingen tilgang', 'error')
-            return redirect(url_for('noteboards'))
-        
-        content = request.form.get('content')
-        color = request.form.get('color', 'yellow')
-        
-        if not content:
-            flash('Innhold er påkrevd', 'error')
-            return redirect(url_for('view_board', board_id=board_id))
-        
-        # Add note to board (this would need to be implemented in the noteboard_manager)
-        # For now, just return success
-        flash('Notis lagt til!', 'success')
-        return redirect(url_for('view_board', board_id=board_id))
-        
-    except Exception as e:
-        logger.error(f"Error adding note to board {board_id}: {e}")
-        flash('Feil ved å legge til notis', 'error')
-        return redirect(url_for('view_board', board_id=board_id))
-
-@app.route('/api/update-note-position/<note_id>', methods=['POST'])
-@login_required
-def update_note_position(note_id):
-    """Update note position via API"""
-    try:
-        data = request.get_json()
-        x = data.get('x', 0)
-        y = data.get('y', 0)
-        
-        # This would need to be implemented in the noteboard_manager
-        # For now, just return success
-        return jsonify({'success': True})
-        
-    except Exception as e:
-        logger.error(f"Error updating note position {note_id}: {e}")
-        return jsonify({'success': False, 'error': str(e)}), 500
 
 if __name__ == '__main__':
     app.run(debug=True)

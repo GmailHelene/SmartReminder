@@ -21,31 +21,71 @@
 
 <!-- Board Canvas -->
 <div class="card mb-4">
-    <div class="card-body position-relative" style="min-height: 600px; background: #f8f9fa;">
-        <div id="board-canvas" class="position-relative w-100 h-100">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h5><i class="fas fa-chalkboard"></i> {{ board.title }}</h5>
+        <div class="btn-group" role="group">
+            <button type="button" class="btn btn-sm btn-outline-primary" onclick="addQuickNote()">
+                <i class="fas fa-plus"></i> Hurtig notat
+            </button>
+            <button type="button" class="btn btn-sm btn-outline-info" onclick="toggleGridView()">
+                <i class="fas fa-th"></i> Rutenett
+            </button>
+        </div>
+    </div>
+    <div class="card-body position-relative board-canvas-container" style="min-height: 600px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); overflow: hidden;">
+        <div id="board-canvas" class="position-relative w-100 h-100" onclick="addNoteAtPosition(event)" 
+             style="background-image: radial-gradient(circle, rgba(255,255,255,0.1) 1px, transparent 1px); background-size: 30px 30px;">
             {% if board.notes %}
                 {% for note in board.notes %}
-                <div class="sticky-note" id="note-{{ note.id }}" 
+                <div class="sticky-note draggable-note" id="note-{{ note.id }}" 
                      data-note-id="{{ note.id }}"
-                     style="position: absolute; left: {{ note.position.x|default(0) }}px; top: {{ note.position.y|default(0) }}px;">
-                    <div class="note-content bg-{{ note.color|default('warning') }} p-3 rounded shadow-sm" 
-                         style="width: 200px; min-height: 150px; cursor: move;">
-                        <div class="d-flex justify-content-between align-items-start mb-2">
-                            <small class="text-muted">{{ note.author }}</small>
-                            <button class="btn btn-sm btn-outline-danger" onclick="deleteNote('{{ note.id }}')">
-                                <i class="fas fa-times"></i>
-                            </button>
+                     style="position: absolute; left: {{ note.position.x|default(50 + loop.index0 * 220) }}px; top: {{ note.position.y|default(50 + (loop.index0 // 4) * 200) }}px;">
+                    <div class="note-content bg-{{ note.color|default('warning') }} shadow-lg border-0" 
+                         style="width: 200px; min-height: 200px; cursor: move; border-radius: 15px; transform: rotate({{ (loop.index0 % 5 - 2) * 3 }}deg); transition: all 0.3s ease; position: relative;">
+                        
+                        <!-- Note Content -->
+                        <div class="note-header d-flex justify-content-between align-items-start p-2" style="border-bottom: 1px solid rgba(0,0,0,0.1);">
+                            <div class="d-flex align-items-center">
+                                <div class="user-avatar" style="width: 24px; height: 24px; border-radius: 50%; background: linear-gradient(45deg, #ff6b6b, #4ecdc4); display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 0.7rem; margin-right: 6px;">
+                                    {{ note.author.split('@')[0][:2].upper() }}
+                                </div>
+                                <small class="text-dark fw-bold">{{ note.author.split('@')[0] }}</small>
+                            </div>
+                            <div class="note-actions">
+                                {% if note.author == current_user.email or board.created_by == current_user.email %}
+                                <button class="btn btn-sm text-dark note-action-btn" onclick="editNote('{{ note.id }}', event)" style="border: none; background: none; padding: 2px; opacity: 0.7;">
+                                    <i class="fas fa-edit" style="font-size: 0.8em;"></i>
+                                </button>
+                                <button class="btn btn-sm text-danger note-action-btn" onclick="deleteNote('{{ note.id }}')" style="border: none; background: none; padding: 2px; opacity: 0.7;">
+                                    <i class="fas fa-times" style="font-size: 0.8em;"></i>
+                                </button>
+                                {% endif %}
+                            </div>
                         </div>
-                        <div class="note-text">{{ note.content }}</div>
-                        <small class="text-muted d-block mt-2">{{ note.created_at | as_datetime | strftime('%d.%m %H:%M') }}</small>
+                        
+                        <div class="note-body p-3">
+                            <div class="note-text" data-note-id="{{ note.id }}" style="font-size: 0.9em; line-height: 1.4; max-height: 120px; overflow-y: auto; word-break: break-word;">{{ note.content|nl2br }}</div>
+                            <div class="note-footer mt-2 pt-2" style="border-top: 1px solid rgba(0,0,0,0.1);">
+                                <small class="text-dark d-block opacity-75">{{ note.created_at | as_datetime | strftime('%d.%m %H:%M') }}</small>
+                                {% if note.updated_at != note.created_at %}
+                                <small class="text-dark opacity-50">✏️ {{ note.updated_at | as_datetime | strftime('%d.%m %H:%M') }}</small>
+                                {% endif %}
+                            </div>
+                        </div>
+                        
+                        <!-- Note pin -->
+                        <div class="note-pin" style="position: absolute; top: -5px; left: 50%; transform: translateX(-50%); width: 15px; height: 15px; border-radius: 50%; background: #ff4757; box-shadow: 0 2px 5px rgba(0,0,0,0.3);"></div>
                     </div>
                 </div>
                 {% endfor %}
             {% else %}
-                <div class="text-center text-muted py-5">
-                    <i class="fas fa-sticky-note fa-3x mb-3"></i>
-                    <h4>Ingen notater ennå</h4>
-                    <p>Legg til ditt første notat ved å klikke "Legg til notat" under.</p>
+                <div class="text-center text-white py-5" id="empty-board-message" style="background: rgba(0,0,0,0.1); border-radius: 15px; margin: 50px;">
+                    <i class="fas fa-sticky-note fa-4x mb-4 opacity-75"></i>
+                    <h4 class="fw-light">Ingen notater ennå</h4>
+                    <p class="mb-4">Start samarbeidet ved å klikke hvor som helst på tavlen!</p>
+                    <button class="btn btn-light btn-lg" onclick="addQuickNote()">
+                        <i class="fas fa-plus me-2"></i>Legg til første notat
+                    </button>
                 </div>
             {% endif %}
         </div>
@@ -195,6 +235,114 @@ function deleteNote(noteId) {
         .then(response => {
             if (response.ok) {
                 document.getElementById(`note-${noteId}`).remove();
+                // Show empty message if no notes left
+                const remainingNotes = document.querySelectorAll('.sticky-note');
+                if (remainingNotes.length === 0) {
+                    showEmptyBoardMessage();
+                }
+            } else {
+                alert('Feil ved sletting av notat');
+            }
+        })
+        .catch(error => {
+            console.error('Error deleting note:', error);
+            alert('Feil ved sletting av notat');
+        });
+    }
+}
+
+function addNoteAtPosition(event) {
+    // Don't add note if clicking on existing note
+    if (event.target.closest('.sticky-note')) {
+        return;
+    }
+    
+    const canvas = document.getElementById('board-canvas');
+    const rect = canvas.getBoundingClientRect();
+    const x = event.clientX - rect.left;
+    const y = event.clientY - rect.top;
+    
+    const content = prompt('Skriv inn innholdet for notatet:');
+    if (!content) return;
+    
+    // Hide empty message
+    const emptyMessage = document.getElementById('empty-board-message');
+    if (emptyMessage) {
+        emptyMessage.style.display = 'none';
+    }
+    
+    fetch(`{{ url_for('add_note_to_board', board_id=board.board_id) }}`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': document.querySelector('[name=csrf_token]').value
+        },
+        body: JSON.stringify({
+            content: content,
+            x: x,
+            y: y,
+            color: 'warning'
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            location.reload(); // Refresh to show new note
+        } else {
+            alert('Feil ved oppretting av notat');
+        }
+    })
+    .catch(error => {
+        console.error('Error creating note:', error);
+        alert('Feil ved oppretting av notat');
+    });
+}
+
+function editNote(noteId, event) {
+    event.stopPropagation();
+    
+    const noteElement = document.querySelector(`[data-note-id="${noteId}"] .note-text`);
+    const currentContent = noteElement.textContent.trim();
+    
+    const newContent = prompt('Rediger notat:', currentContent);
+    if (!newContent || newContent === currentContent) return;
+    
+    fetch(`/api/edit-note/${noteId}`, {
+        method: 'PUT',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': document.querySelector('[name=csrf_token]').value
+        },
+        body: JSON.stringify({ content: newContent })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            noteElement.textContent = newContent;
+        } else {
+            alert('Feil ved redigering av notat');
+        }
+    })
+    .catch(error => {
+        console.error('Error editing note:', error);
+        alert('Feil ved redigering av notat');
+    });
+}
+
+function showEmptyBoardMessage() {
+    const canvas = document.getElementById('board-canvas');
+    const emptyMessage = document.createElement('div');
+    emptyMessage.id = 'empty-board-message';
+    emptyMessage.className = 'text-center text-muted py-5';
+    emptyMessage.innerHTML = `
+        <i class="fas fa-sticky-note fa-3x mb-3"></i>
+        <h4>Ingen notater ennå</h4>
+        <p>Klikk hvor som helst på tavlen for å legge til et notat.</p>
+    `;
+    canvas.appendChild(emptyMessage);
+}
+            if (response.ok) {
+                document.getElementById(`note-${noteId}`).remove();
             } else {
                 alert('Feil ved sletting av notat');
             }
@@ -225,10 +373,64 @@ function shareBoardLink(accessCode) {
     }
 }
 
+function addQuickNote() {
+    const content = prompt('Skriv inn innholdet for det nye notatet:');
+    if (!content) return;
+    
+    // Get random position
+    const x = Math.random() * 300 + 50;
+    const y = Math.random() * 200 + 50;
+    
+    // Hide empty message
+    const emptyMessage = document.getElementById('empty-board-message');
+    if (emptyMessage) {
+        emptyMessage.style.display = 'none';
+    }
+    
+    fetch(`{{ url_for('add_note_to_board', board_id=board.board_id) }}`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': document.querySelector('[name=csrf_token]').value
+        },
+        body: JSON.stringify({
+            content: content,
+            x: x,
+            y: y,
+            color: 'warning'
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            location.reload();
+        } else {
+            alert('Feil ved oppretting av notat: ' + (data.error || 'Ukjent feil'));
+        }
+    })
+    .catch(error => {
+        console.error('Error creating note:', error);
+        alert('Feil ved oppretting av notat');
+    });
+}
+
+function toggleGridView() {
+    const canvas = document.getElementById('board-canvas');
+    if (canvas.style.backgroundImage.includes('radial-gradient')) {
+        canvas.style.backgroundImage = 'none';
+    } else {
+        canvas.style.backgroundImage = 'radial-gradient(circle, rgba(255,255,255,0.1) 1px, transparent 1px)';
+        canvas.style.backgroundSize = '30px 30px';
+    }
+}
+
 // Auto-refresh board every 30 seconds to see other users' changes
 setInterval(() => {
     if (!document.hidden) {
-        location.reload();
+        // Only refresh if no notes are being dragged
+        if (!document.querySelector('.sticky-note:hover')) {
+            location.reload();
+        }
     }
 }, 30000);
 </script>
