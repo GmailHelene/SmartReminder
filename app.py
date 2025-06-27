@@ -916,19 +916,6 @@ def share_reminder():
     
     return redirect(url_for('dashboard'))
 
-@app.route('/email-settings', methods=['GET', 'POST'])
-@login_required
-def email_settings():
-    if request.method == 'POST':
-        # Handle email settings update
-        email = request.form.get('email')
-        if email:
-            # Save email settings logic here
-            flash('Email settings updated successfully!', 'success')
-        else:
-            flash('Email is required.', 'error')
-    return render_template('email_settings.html')
-
 @app.route('/test-email', methods=['POST'])
 @login_required
 def test_email():
