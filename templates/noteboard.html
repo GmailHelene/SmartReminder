@@ -64,7 +64,7 @@
                         </div>
                         
                         <div class="note-body p-3">
-                            <div class="note-text" data-note-id="{{ note.id }}" style="font-size: 0.9em; line-height: 1.4; max-height: 120px; overflow-y: auto; word-break: break-word;">{{ note.content|nl2br }}</div>
+                            <div class="note-text" data-note-id="{{ note.id }}" style="font-size: 0.9em; line-height: 1.4; max-height: 120px; overflow-y: auto; word-break: break-word;">{{ note.content|replace('\n', '<br>')|replace('\r\n', '<br>')|replace('\r', '<br>')|safe }}</div>
                             <div class="note-footer mt-2 pt-2" style="border-top: 1px solid rgba(0,0,0,0.1);">
                                 <small class="text-dark d-block opacity-75">{{ note.created_at | as_datetime | strftime('%d.%m %H:%M') }}</small>
                                 {% if note.updated_at != note.created_at %}

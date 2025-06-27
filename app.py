@@ -162,6 +162,29 @@ app = Flask(__name__)
 config_name = os.environ.get('FLASK_ENV', 'development')
 app.config.from_object(config[config_name])
 
+# Custom Jinja2 filters
+def nl2br_filter(text):
+    """Convert newlines to HTML break tags"""
+    if text is None:
+        return ''
+    # Replace \n with <br> and also handle \r\n
+    result = text.replace('\r\n', '<br>').replace('\n', '<br>').replace('\r', '<br>')
+    
+    # Try to use Markup for safety, fallback to string
+    try:
+        from markupsafe import Markup
+        return Markup(result)
+    except ImportError:
+        # Fallback if markupsafe is not available
+        return result
+
+# Register the filter in multiple ways to ensure it works
+app.template_filter('nl2br')(nl2br_filter)
+app.jinja_env.filters['nl2br'] = nl2br_filter
+
+# Verify filter registration
+print(f"🔧 nl2br filter registered: {'nl2br' in app.jinja_env.filters}")
+
 # Extensions
 csrf = CSRFProtect(app)
 mail = Mail(app)
@@ -1218,6 +1241,3 @@ def import_event_to_user_calendar(event_data):
         logger.error(f"Error importing calendar event: {e}")
         flash('Feil ved import av kalenderhendelse', 'error')
         return redirect(url_for('dashboard'))
-
-if __name__ == '__main__':
-    app.run(debug=True)
