@@ -1,5 +1,7 @@
 {% extends 'base.html' %}
 
+{% block title %}Delte Tavler - {{ super() }}{% endblock %}
+
 {% block content %}
     <div class="container mt-4">
         <div class="row">
@@ -53,6 +55,70 @@
                     </div>
                 </div>
 
+                <!-- My Boards -->
+                {% if boards %}
+                <div class="card">
+                    <div class="card-header">
+                        <h5><i class="fas fa-clipboard-list"></i> Mine tavler</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            {% for board in boards %}
+                            <div class="col-md-6 mb-3">
+                                <div class="card border-left-primary">
+                                    <div class="card-body">
+                                        <div class="d-flex justify-content-between align-items-start">
+                                            <div class="flex-grow-1">
+                                                <h6 class="card-title mb-1">{{ board.title }}</h6>
+                                                {% if board.description %}
+                                                <p class="card-text text-muted small mb-2">{{ board.description }}</p>
+                                                {% endif %}
+                                                <small class="text-muted">
+                                                    <i class="fas fa-users"></i> {{ board.members|length }} medlemmer
+                                                    <span class="ms-2">
+                                                        <i class="fas fa-key"></i> {{ board.access_code }}
+                                                    </span>
+                                                </small>
+                                            </div>
+                                            <div class="dropdown">
+                                                <button class="btn btn-sm btn-outline-secondary dropdown-toggle" 
+                                                        data-bs-toggle="dropdown">
+                                                    <i class="fas fa-ellipsis-v"></i>
+                                                </button>
+                                                <ul class="dropdown-menu">
+                                                    <li>
+                                                        <a class="dropdown-item" href="{{ url_for('view_board', board_id=board.board_id) }}">
+                                                            <i class="fas fa-eye"></i> Vis tavle
+                                                        </a>
+                                                    </li>
+                                                    <li>
+                                                        <button class="dropdown-item" onclick="shareBoardLink('{{ board.access_code }}')">
+                                                            <i class="fas fa-share"></i> Del tavle
+                                                        </button>
+                                                    </li>
+                                                </ul>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+                {% else %}
+                <div class="card">
+                    <div class="card-body text-center py-5">
+                        <i class="fas fa-clipboard fa-3x text-muted mb-3"></i>
+                        <h5 class="text-muted">Ingen tavler ennå</h5>
+                        <p class="text-muted">Opprett din første tavle eller bli med på en eksisterende tavle ved å bruke tilgangskoden.</p>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+{% endblock %}
 
 {% block scripts %}
 <script>
@@ -64,6 +130,13 @@ function shareBoardLink(accessCode) {
             title: 'Bli med på delt tavle',
             text: 'Bli med på min delte tavle i Smart Påminner Pro',
             url: link
+        });
+    } else {
+        // Fallback - copy to clipboard
+        navigator.clipboard.writeText(link).then(() => {
+            alert('Link kopiert til utklippstavle!');
+        }).catch(() => {
+            prompt('Kopier denne linken:', link);
         });
     }
 }

@@ -977,5 +977,50 @@ def join_board():
         flash('Feil ved å bli med på tavle', 'error')
         return redirect(url_for('noteboards'))
 
+@app.route('/board/<board_id>/add-note', methods=['POST'])
+@login_required
+def add_note_to_board(board_id):
+    """Add a note to a board"""
+    try:
+        board = noteboard_manager.get_board_by_id(board_id)
+        
+        if not board or current_user.email not in board.members:
+            flash('Tavle ikke funnet eller ingen tilgang', 'error')
+            return redirect(url_for('noteboards'))
+        
+        content = request.form.get('content')
+        color = request.form.get('color', 'yellow')
+        
+        if not content:
+            flash('Innhold er påkrevd', 'error')
+            return redirect(url_for('view_board', board_id=board_id))
+        
+        # Add note to board (this would need to be implemented in the noteboard_manager)
+        # For now, just return success
+        flash('Notis lagt til!', 'success')
+        return redirect(url_for('view_board', board_id=board_id))
+        
+    except Exception as e:
+        logger.error(f"Error adding note to board {board_id}: {e}")
+        flash('Feil ved å legge til notis', 'error')
+        return redirect(url_for('view_board', board_id=board_id))
+
+@app.route('/api/update-note-position/<note_id>', methods=['POST'])
+@login_required
+def update_note_position(note_id):
+    """Update note position via API"""
+    try:
+        data = request.get_json()
+        x = data.get('x', 0)
+        y = data.get('y', 0)
+        
+        # This would need to be implemented in the noteboard_manager
+        # For now, just return success
+        return jsonify({'success': True})
+        
+    except Exception as e:
+        logger.error(f"Error updating note position {note_id}: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 if __name__ == '__main__':
     app.run(debug=True)

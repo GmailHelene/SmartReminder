@@ -1,12 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Delt tavle - {{ super() }}{% endblock %}
-
-{% block content %}nds "base.html" %}
-
-{% block title %}Delt tavle - {{ super() }}{% endblock %}% block title %}Delt tavle - {{ super() }}{% endblock %}extends "base.html" %}
-
-{% block title %}Delt tavle - {{ super() }}
+{% block title %}{{ board.title }} - Delt tavle - {{ super() }}{% endblock %}
 
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
@@ -16,190 +10,110 @@
         <small class="text-muted">Tilgangskode: <strong>{{ board.access_code }}</strong></small>
     </div>
     <div>
-        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addNoteModal">
-            <i class="fas fa-plus"></i> Ny notis
-        </button>
-        <button class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#shareModal">
+        <button class="btn btn-outline-primary me-2" onclick="shareBoardLink('{{ board.access_code }}')">
             <i class="fas fa-share"></i> Del tavle
         </button>
+        <a href="{{ url_for('noteboards') }}" class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-left"></i> Tilbake
+        </a>
     </div>
 </div>
 
-<!-- Noteboard Canvas -->
-<div class="card">
-    <div class="card-body p-0" style="height: 600px; overflow: hidden; position: relative; background: linear-gradient(to right, #f8f9fa 1px, transparent 1px), linear-gradient(to bottom, #f8f9fa 1px, transparent 1px); background-size: 20px 20px;">
-        
-        <!-- Notes -->
-        {% for note in board.notes %}
-        <div class="sticky-note" data-note-id="{{ note.id }}" 
-             style="position: absolute; left: {{ note.position.x|default(0) }}px; top: {{ note.position.y|default(0) }}px;">
-            <div class="card sticky-note-{{ note.color }}" style="width: 200px; cursor: move;">
-                <div class="card-body p-2">
-                    <div class="d-flex justify-content-between align-items-start mb-2">
-                        <small class="text-muted">{{ note.author }}</small>
-                        <div class="dropdown">
-                            <button class="btn btn-sm btn-link p-0" data-bs-toggle="dropdown">
-                                <i class="fas fa-ellipsis-v"></i>
+<!-- Board Canvas -->
+<div class="card mb-4">
+    <div class="card-body position-relative" style="min-height: 600px; background: #f8f9fa;">
+        <div id="board-canvas" class="position-relative w-100 h-100">
+            {% if board.notes %}
+                {% for note in board.notes %}
+                <div class="sticky-note" id="note-{{ note.id }}" 
+                     data-note-id="{{ note.id }}"
+                     style="position: absolute; left: {{ note.position.x|default(0) }}px; top: {{ note.position.y|default(0) }}px;">
+                    <div class="note-content bg-{{ note.color|default('warning') }} p-3 rounded shadow-sm" 
+                         style="width: 200px; min-height: 150px; cursor: move;">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <small class="text-muted">{{ note.author }}</small>
+                            <button class="btn btn-sm btn-outline-danger" onclick="deleteNote('{{ note.id }}')">
+                                <i class="fas fa-times"></i>
                             </button>
-                            <ul class="dropdown-menu">
-                                <li><a class="dropdown-item edit-note" href="#" data-note-id="{{ note.id }}">
-                                    <i class="fas fa-edit"></i> Rediger
-                                </a></li>
-                                <li><a class="dropdown-item change-color" href="#" data-note-id="{{ note.id }}">
-                                    <i class="fas fa-palette"></i> Endre farge
-                                </a></li>
-                                {% if note.author == current_user.email or board.created_by == current_user.email %}
-                                <li><hr class="dropdown-divider"></li>
-                                <li><a class="dropdown-item text-danger delete-note" href="#" data-note-id="{{ note.id }}">
-                                    <i class="fas fa-trash"></i> Slett
-                                </a></li>
-                                {% endif %}
-                            </ul>
                         </div>
+                        <div class="note-text">{{ note.content }}</div>
+                        <small class="text-muted d-block mt-2">{{ note.created_at | as_datetime | strftime('%d.%m %H:%M') }}</small>
                     </div>
-                    <div class="note-content">{{ note.content }}</div>
-                    <small class="text-muted">{{ note.created_at[:16] }}</small>
+                </div>
+                {% endfor %}
+            {% else %}
+                <div class="text-center text-muted py-5">
+                    <i class="fas fa-sticky-note fa-3x mb-3"></i>
+                    <h4>Ingen notater ennå</h4>
+                    <p>Legg til ditt første notat ved å klikke "Legg til notat" under.</p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Add Note Form -->
+<div class="card">
+    <div class="card-header">
+        <h5><i class="fas fa-plus"></i> Legg til nytt notat</h5>
+    </div>
+    <div class="card-body">
+        <form method="POST" action="{{ url_for('add_note_to_board', board_id=board.board_id) }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="row">
+                <div class="col-md-8">
+                    <div class="form-floating mb-3">
+                        <textarea class="form-control" name="content" placeholder="Skriv ditt notat her..." 
+                                  style="height: 100px;" required></textarea>
+                        <label>Notat innhold</label>
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <div class="form-floating mb-3">
+                        <select class="form-select" name="color">
+                            <option value="warning">Gul</option>
+                            <option value="info">Blå</option>
+                            <option value="success">Grønn</option>
+                            <option value="danger">Rød</option>
+                            <option value="light">Hvit</option>
+                        </select>
+                        <label>Farge</label>
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <button type="submit" class="btn btn-primary w-100 h-100">
+                        <i class="fas fa-plus"></i><br>Legg til
+                    </button>
                 </div>
             </div>
-        </div>
-        {% endfor %}
+        </form>
     </div>
 </div>
 
-<!-- Members -->
-<div class="row mt-4">
-    <div class="col-md-6">
-        <div class="card">
-            <div class="card-header">
-                <h6 class="mb-0"><i class="fas fa-users"></i> Medlemmer ({{ board.members|length }})</h6>
-            </div>
-            <div class="card-body">
-                {% for member in board.members %}
-                <div class="d-flex justify-content-between align-items-center py-1">
-                    <span>
-                        {{ member }}
+<!-- Board Members -->
+<div class="card mt-4">
+    <div class="card-header">
+        <h6><i class="fas fa-users"></i> Medlemmer ({{ board.members|length }})</h6>
+    </div>
+    <div class="card-body">
+        <div class="row">
+            {% for member in board.members %}
+            <div class="col-md-3 mb-2">
+                <div class="d-flex align-items-center">
+                    <i class="fas fa-user-circle fa-2x text-primary me-2"></i>
+                    <div>
+                        <small class="d-block">{{ member }}</small>
                         {% if member == board.created_by %}
                         <span class="badge bg-primary">Eier</span>
                         {% endif %}
-                    </span>
+                    </div>
                 </div>
-                {% endfor %}
             </div>
-        </div>
-    </div>
-    <div class="col-md-6">
-        <div class="card">
-            <div class="card-header">
-                <h6 class="mb-0"><i class="fas fa-info-circle"></i> Tavle-informasjon</h6>
-            </div>
-            <div class="card-body">
-                <p><strong>Opprettet:</strong> {{ board.created_at[:16] }}</p>
-                <p><strong>Antall notiser:</strong> {{ board.notes|length }}</p>
-                <p><strong>Tilgangskode:</strong> <code>{{ board.access_code }}</code></p>
-            </div>
+            {% endfor %}
         </div>
     </div>
 </div>
-
-<!-- Add Note Modal -->
-<div class="modal fade" id="addNoteModal" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">Ny notis</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <form method="POST" action="{{ url_for('add_note_to_board', board_id=board.board_id) }}">
-                {{ csrf_token() }}
-                <div class="modal-body">
-                    <div class="mb-3">
-                        <label class="form-label">Innhold</label>
-                        <textarea class="form-control" name="content" rows="4" required></textarea>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Farge</label>
-                        <div class="d-flex gap-2">
-                            <input type="radio" class="btn-check" name="color" value="yellow" id="color-yellow" checked>
-                            <label class="btn btn-outline-warning" for="color-yellow">Gul</label>
-                            
-                            <input type="radio" class="btn-check" name="color" value="blue" id="color-blue">
-                            <label class="btn btn-outline-primary" for="color-blue">Blå</label>
-                            
-                            <input type="radio" class="btn-check" name="color" value="green" id="color-green">
-                            <label class="btn btn-outline-success" for="color-green">Grønn</label>
-                            
-                            <input type="radio" class="btn-check" name="color" value="pink" id="color-pink">
-                            <label class="btn btn-outline-danger" for="color-pink">Rosa</label>
-                        </div>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Avbryt</button>
-                    <button type="submit" class="btn btn-primary">Legg til notis</button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
-
-<!-- Share Modal -->
-<div class="modal fade" id="shareModal" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">Del tavle</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <div class="mb-3">
-                    <label class="form-label">Tilgangslenke</label>
-                    <div class="input-group">
-                        <input type="text" class="form-control" id="shareLink" 
-                               value="{{ url_for('join_board', _external=True) }}?code={{ board.access_code }}" readonly>
-                        <button class="btn btn-outline-secondary" type="button" onclick="copyToClipboard('shareLink')">
-                            <i class="fas fa-copy"></i>
-                        </button>
-                    </div>
-                    <small class="text-muted">Del denne lenken med andre for å gi dem tilgang til tavlen</small>
-                </div>
-                <div class="mb-3">
-                    <label class="form-label">Tilgangskode</label>
-                    <div class="input-group">
-                        <input type="text" class="form-control" id="accessCode" value="{{ board.access_code }}" readonly>
-                        <button class="btn btn-outline-secondary" type="button" onclick="copyToClipboard('accessCode')">
-                            <i class="fas fa-copy"></i>
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-
-
-{% block styles %}
-<style>
-.sticky-note-yellow { background-color: #fff3cd; border-color: #ffc107; }
-.sticky-note-blue { background-color: #cff4fc; border-color: #17a2b8; }
-.sticky-note-green { background-color: #d1e7dd; border-color: #28a745; }
-.sticky-note-pink { background-color: #f8d7da; border-color: #dc3545; }
-
-.sticky-note {
-    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-    transform: rotate(-1deg);
-    transition: transform 0.2s ease;
-}
-
-.sticky-note:hover {
-    transform: rotate(0deg) scale(1.02);
-    z-index: 10;
-}
-
-.sticky-note .card {
-    border-width: 2px;
-}
-</style>
-
+{% endblock %}
 
 {% block scripts %}
 <script>
@@ -209,67 +123,113 @@ document.addEventListener('DOMContentLoaded', function() {
     
     notes.forEach(note => {
         let isDragging = false;
-        let currentX = 0;
-        let currentY = 0;
-        let initialX = 0;
-        let initialY = 0;
+        let startX, startY, noteX, noteY;
         
-        note.addEventListener('mousedown', function(e) {
-            if (e.target.closest('.dropdown')) return;
-            
+        const noteContent = note.querySelector('.note-content');
+        
+        noteContent.addEventListener('mousedown', function(e) {
             isDragging = true;
-            initialX = e.clientX - currentX;
-            initialY = e.clientY - currentY;
-            
-            note.style.zIndex = 1000;
+            startX = e.clientX;
+            startY = e.clientY;
+            noteX = note.offsetLeft;
+            noteY = note.offsetTop;
+            noteContent.style.cursor = 'grabbing';
         });
         
         document.addEventListener('mousemove', function(e) {
-            if (isDragging) {
-                e.preventDefault();
-                currentX = e.clientX - initialX;
-                currentY = e.clientY - initialY;
-                
-                note.style.left = currentX + 'px';
-                note.style.top = currentY + 'px';
-            }
+            if (!isDragging) return;
+            
+            const newX = noteX + (e.clientX - startX);
+            const newY = noteY + (e.clientY - startY);
+            
+            // Keep within bounds
+            const canvas = document.getElementById('board-canvas');
+            const maxX = canvas.offsetWidth - note.offsetWidth;
+            const maxY = canvas.offsetHeight - note.offsetHeight;
+            
+            const boundedX = Math.max(0, Math.min(newX, maxX));
+            const boundedY = Math.max(0, Math.min(newY, maxY));
+            
+            note.style.left = boundedX + 'px';
+            note.style.top = boundedY + 'px';
         });
         
         document.addEventListener('mouseup', function() {
             if (isDragging) {
                 isDragging = false;
-                note.style.zIndex = 'auto';
+                noteContent.style.cursor = 'move';
                 
                 // Save position
                 const noteId = note.dataset.noteId;
-                fetch(`/api/update-note-position/${noteId}`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRFToken': '{{ csrf_token() }}'
-                    },
-                    body: JSON.stringify({
-                        x: currentX,
-                        y: currentY
-                    })
-                });
+                const x = parseInt(note.style.left);
+                const y = parseInt(note.style.top);
+                
+                updateNotePosition(noteId, x, y);
             }
         });
     });
 });
 
-function copyToClipboard(elementId) {
-    const element = document.getElementById(elementId);
-    element.select();
-    document.execCommand('copy');
-    
-    // Show feedback
-    const button = element.nextElementSibling;
-    const originalText = button.innerHTML;
-    button.innerHTML = '<i class="fas fa-check"></i>';
-    setTimeout(() => {
-        button.innerHTML = originalText;
-    }, 2000);
+function updateNotePosition(noteId, x, y) {
+    fetch(`/api/update-note-position/${noteId}`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': document.querySelector('[name=csrf_token]').value
+        },
+        body: JSON.stringify({ x: x, y: y })
+    })
+    .catch(error => {
+        console.error('Error updating note position:', error);
+    });
 }
+
+function deleteNote(noteId) {
+    if (confirm('Er du sikker på at du vil slette dette notatet?')) {
+        fetch(`/api/delete-note/${noteId}`, {
+            method: 'DELETE',
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrf_token]').value
+            }
+        })
+        .then(response => {
+            if (response.ok) {
+                document.getElementById(`note-${noteId}`).remove();
+            } else {
+                alert('Feil ved sletting av notat');
+            }
+        })
+        .catch(error => {
+            console.error('Error deleting note:', error);
+            alert('Feil ved sletting av notat');
+        });
+    }
+}
+
+function shareBoardLink(accessCode) {
+    const link = `${window.location.origin}/join-board?code=${accessCode}`;
+    
+    if (navigator.share) {
+        navigator.share({
+            title: 'Bli med på delt tavle',
+            text: 'Bli med på min delte tavle i Smart Påminner Pro',
+            url: link
+        });
+    } else {
+        // Fallback - copy to clipboard
+        navigator.clipboard.writeText(link).then(() => {
+            alert('Link kopiert til utklippstavle!');
+        }).catch(() => {
+            prompt('Kopier denne linken:', link);
+        });
+    }
+}
+
+// Auto-refresh board every 30 seconds to see other users' changes
+setInterval(() => {
+    if (!document.hidden) {
+        location.reload();
+    }
+}, 30000);
 </script>
 {% endblock %}
