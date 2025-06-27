@@ -154,13 +154,6 @@
 {% block scripts %}
 <script>
 // Auto-refresh statistics every 30 seconds
-setTimeout(function() {
-    window.location.reload();
-}, 30000);
-</script>
-{% endblock %}
-</body>
-</html>
 setInterval(function() {
     window.location.reload();
 }, 30000);
@@ -168,21 +161,3 @@ setInterval(function() {
 {% endblock %}
 </body>
 </html>
-                    <li><i class="fas fa-share text-info"></i> Delte påminnelser</li>
-                    <li><i class="fas fa-users text-success"></i> Tavle-invitasjoner</li>
-                    <li><i class="fas fa-edit text-warning"></i> Tavle-oppdateringer</li>
-                </ul>
-            </div>
-        </div>
-    </div>
-</div>
-{% endblock %}
-
-{% block scripts %}
-<script>
-// Auto-refresh statistics every 30 seconds
-setInterval(function() {
-    window.location.reload();
-}, 30000);
-</script>
-{% endblock %}
