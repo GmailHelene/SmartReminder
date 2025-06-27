@@ -933,5 +933,26 @@ def email_log():
             'error': str(e)
         }), 500
 
+@app.route('/join-board', methods=['POST'])
+@login_required
+def join_board():
+    """Bli med på delt tavle via tilgangskode"""
+    access_code = request.form.get('access_code')
+    if not access_code:
+        flash('Tilgangskode er påkrevd', 'error')
+        return redirect(url_for('noteboards'))
+    try:
+        board = noteboard_manager.join_board(access_code, current_user.email)
+        if board:
+            flash(f'Du er nå medlem av tavlen "{board.title}"!', 'success')
+            return redirect(url_for('view_board', board_id=board.board_id))
+        else:
+            flash('Ugyldig tilgangskode eller du er allerede medlem.', 'error')
+            return redirect(url_for('noteboards'))
+    except Exception as e:
+        logger.error(f"Error joining board: {e}")
+        flash('Feil ved å bli med på tavle', 'error')
+        return redirect(url_for('noteboards'))
+
 if __name__ == '__main__':
     app.run(debug=True)
