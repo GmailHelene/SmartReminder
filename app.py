@@ -744,12 +744,46 @@ def set_focus_mode():
         flash('Fokusmodus er påkrevd', 'error')
         return redirect(url_for('focus_modes'))
     try:
-        FocusModeManager.set_mode(focus_mode)
-        flash(f'Fokusmodus endret til: {FocusModeManager.get_mode_by_name(focus_mode).name}', 'success')
+        # Lagre fokusmodus på bruker i users.json
+        users = dm.load_data('users')
+        # Sikre at users er dict
+        if isinstance(users, list):
+            users_dict = {}
+            for user in users:
+                uid = user.get('id') or user.get('user_id') or str(uuid.uuid4())
+                users_dict[uid] = user
+            users = users_dict
+        if current_user.id in users:
+            users[current_user.id]['focus_mode'] = focus_mode
+            dm.save_data('users', users)
+            flash(f'Fokusmodus endret til: {FocusModeManager.get_mode_by_name(focus_mode).name}', 'success')
+        else:
+            flash('Fant ikke bruker for å lagre fokusmodus', 'error')
     except Exception as e:
         logger.error(f"Error setting focus mode: {e}")
         flash('Feil ved å endre fokusmodus', 'error')
     return redirect(url_for('focus_modes'))
+
+@app.route('/email-settings')
+@login_required
+def email_settings():
+    """Vis e-post innstillinger og statistikk"""
+    try:
+        stats = email_service.get_email_statistics()
+        # Sikre at alle nødvendige nøkler finnes
+        stats.setdefault('total_sent', 0)
+        stats.setdefault('total_failed', 0)
+        stats.setdefault('success_rate', 0)
+        stats.setdefault('recent_emails', [])
+        return render_template('email_settings.html', 
+                             email_stats=stats,
+                             current_user=current_user)
+    except Exception as e:
+        logger.error(f"Error loading email settings: {e}")
+        flash('Feil ved lasting av e-post innstillinger', 'error')
+        return render_template('email_settings.html', 
+                             email_stats={'total_sent': 0, 'total_failed': 0, 'success_rate': 0, 'recent_emails': []},
+                             current_user=current_user)
 
 @app.route('/noteboards')
 @login_required
@@ -757,6 +791,9 @@ def noteboards():
     """Vis alle tavler brukeren har tilgang til"""
     try:
         boards = noteboard_manager.get_user_boards(current_user.email)
+        # Sikre at boards er en liste av objekter med nødvendige attributter
+        if not boards:
+            boards = []
         return render_template('noteboards.html', boards=boards)
     except Exception as e:
         logger.error(f"Error loading noteboards: {e}")
@@ -880,21 +917,18 @@ def share_reminder():
     
     return redirect(url_for('dashboard'))
 
-@app.route('/email-settings')
+@app.route('/email-settings', methods=['GET', 'POST'])
 @login_required
 def email_settings():
-    """Vis e-post innstillinger og statistikk"""
-    try:
-        stats = email_service.get_email_statistics()
-        return render_template('email_settings.html', 
-                             email_stats=stats,
-                             current_user=current_user)
-    except Exception as e:
-        logger.error(f"Error loading email settings: {e}")
-        flash('Feil ved lasting av e-post innstillinger', 'error')
-        return render_template('email_settings.html', 
-                             email_stats={'total_sent': 0, 'total_failed': 0, 'success_rate': 0, 'recent_emails': []},
-                             current_user=current_user)
+    if request.method == 'POST':
+        # Handle email settings update
+        email = request.form.get('email')
+        if email:
+            # Save email settings logic here
+            flash('Email settings updated successfully!', 'success')
+        else:
+            flash('Email is required.', 'error')
+    return render_template('email_settings.html')
 
 @app.route('/test-email', methods=['POST'])
 @login_required

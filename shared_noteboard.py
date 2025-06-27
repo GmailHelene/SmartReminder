@@ -93,7 +93,7 @@ class NoteboardManager:
         try:
             data = self.dm.load_data(self.boards_file)
             # Ensure data is a dict, not a list
-            if isinstance(data, list):
+            if not isinstance(data, dict):
                 self.dm.save_data(self.boards_file, {})
         except:
             self.dm.save_data(self.boards_file, {})
@@ -156,14 +156,12 @@ class NoteboardManager:
         # Ensure boards is a dict
         if not isinstance(boards, dict):
             return []
-            
         user_boards = []
-        
         for board_data in boards.values():
-            if user_email in board_data['members']:
+            if user_email in board_data.get('members', []):
                 board = self.get_board_by_id(board_data['board_id'])
-                user_boards.append(board)
-        
+                if board:
+                    user_boards.append(board)
         return user_boards
     
     def save_board(self, board):
@@ -199,5 +197,7 @@ class NoteboardManager:
         if board:
             board.add_member(user_email)
             self.save_board(board)
+            return board
+        return None
             return board
         return None
