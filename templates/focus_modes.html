@@ -17,7 +17,7 @@
             <p class="text-muted">Velg en fokusmodus som passer din arbeidsstil</p>
             
             <form method="POST" action="{{ url_for('set_focus_mode') }}">
-                {{ csrf_token() }}
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <div class="row">
                     {% for mode_key, mode in focus_modes.items() %}
                     <div class="col-md-4 mb-3">

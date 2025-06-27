@@ -14,16 +14,45 @@
                     </div>
                     <div class="card-body">
                         <form method="POST" action="{{ url_for('create_board') }}">
-                            {{ csrf_token() }}
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                             <div class="row">
                                 <div class="col-md-6">
                                     <input type="text" name="title" class="form-control" 
                                            placeholder="Tavletittel" required>
                                 </div>
+                                <div class="col-md-4">
+                                    <input type="text" name="description" class="form-control" 
+                                           placeholder="Beskrivelse (valgfritt)">
+                                </div>
+                                <div class="col-md-2">
+                                    <button type="submit" class="btn btn-primary w-100">Opprett</button>
+                                </div>
                             </div>
                         </form>
                     </div>
                 </div>
+                
+                <!-- Join Board -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5>Bli med på tavle</h5>
+                    </div>
+                    <div class="card-body">
+                        <form method="POST" action="{{ url_for('join_board') }}">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <div class="row">
+                                <div class="col-md-8">
+                                    <input type="text" name="access_code" class="form-control" 
+                                           placeholder="Skriv inn tilgangskode" required>
+                                </div>
+                                <div class="col-md-4">
+                                    <button type="submit" class="btn btn-success w-100">Bli med</button>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+                <!-- ...existing code... -->
             </div>
         </div>
     </div>
