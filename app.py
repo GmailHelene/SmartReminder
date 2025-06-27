@@ -181,19 +181,44 @@ class DataManager:
         for filename in files:
             filepath = self.data_dir / f"{filename}.json"
             if not filepath.exists():
-                initial_data = [] if filename in ['reminders', 'shared_reminders', 'notifications', 'email_log', 'shared_noteboards'] else {}
+                # users skal være dict, resten liste eller dict
+                initial_data = {} if filename == 'users' else ([] if filename in ['reminders', 'shared_reminders', 'notifications', 'email_log'] else {})
                 self.save_data(filename, initial_data)
-    
+            else:
+                # MIGRERING: Konverter users fra liste til dict hvis nødvendig
+                if filename == 'users':
+                    try:
+                        with open(filepath, 'r', encoding='utf-8') as f:
+                            data = json.load(f)
+                        if isinstance(data, list):
+                            # Konverter til dict
+                            users_dict = {}
+                            for user in data:
+                                user_id = user.get('id') or user.get('user_id') or str(uuid.uuid4())
+                                users_dict[user_id] = user
+                            self.save_data('users', users_dict)
+                    except Exception as e:
+                        logger.error(f"Feil ved migrering av users: {e}")
+
     def load_data(self, filename):
         """Last inn data fra JSON-fil med error handling"""
         filepath = self.data_dir / f"{filename}.json"
         try:
             with open(filepath, 'r', encoding='utf-8') as f:
-                return json.load(f)
+                data = json.load(f)
+                # Sikre at users alltid er dict
+                if filename == 'users' and isinstance(data, list):
+                    users_dict = {}
+                    for user in data:
+                        user_id = user.get('id') or user.get('user_id') or str(uuid.uuid4())
+                        users_dict[user_id] = user
+                    self.save_data('users', users_dict)
+                    return users_dict
+                return data
         except (FileNotFoundError, json.JSONDecodeError) as e:
             logger.error(f"Feil ved lasting av {filename}: {e}")
-            return [] if filename in ['reminders', 'shared_reminders', 'notifications', 'email_log', 'shared_noteboards'] else {}
-    
+            return {} if filename == 'users' else []
+
     def save_data(self, filename, data):
         """Lagre data til JSON-fil med backup"""
         filepath = self.data_dir / f"{filename}.json"
@@ -358,6 +383,13 @@ class User(UserMixin):
     @staticmethod
     def get(user_id):
         users = dm.load_data('users')
+        # Sikre at users er dict
+        if isinstance(users, list):
+            users_dict = {}
+            for user in users:
+                uid = user.get('id') or user.get('user_id') or str(uuid.uuid4())
+                users_dict[uid] = user
+            users = users_dict
         if user_id in users:
             user_data = users[user_id]
             return User(user_id, user_data['username'], user_data['email'], user_data.get('password_hash'))
@@ -366,6 +398,13 @@ class User(UserMixin):
     @staticmethod
     def get_by_email(email):
         users = dm.load_data('users')
+        # Sikre at users er dict
+        if isinstance(users, list):
+            users_dict = {}
+            for user in users:
+                uid = user.get('id') or user.get('user_id') or str(uuid.uuid4())
+                users_dict[uid] = user
+            users = users_dict
         for user_id, user_data in users.items():
             if user_data['email'] == email:
                 return User(user_id, user_data['username'], user_data['email'], user_data.get('password_hash'))
@@ -432,11 +471,15 @@ def register():
         password_hash = generate_password_hash(form.password.data)
         
         users = dm.load_data('users')
+        # Sikre at users er dict
+        if not isinstance(users, dict):
+            users = {}
         users[user_id] = {
             'username': form.username.data,
             'email': form.username.data,
             'password_hash': password_hash,
-            'created': datetime.now().isoformat()
+            'created': datetime.now().isoformat(),
+            'focus_mode': 'normal'  # Sett default fokusmodus
         }
         dm.save_data('users', users)
         
@@ -680,8 +723,15 @@ def datetime_format(value, format='%d.%m.%Y %H:%M'):
 def focus_modes():
     """Vis fokusmoduser"""
     users = dm.load_data('users')
+    # Sikre at users er dict
+    if isinstance(users, list):
+        users_dict = {}
+        for user in users:
+            uid = user.get('id') or user.get('user_id') or str(uuid.uuid4())
+            users_dict[uid] = user
+        users = users_dict
+    # Hent eller sett default fokusmodus
     current_mode = users.get(current_user.id, {}).get('focus_mode', 'normal')
-    
     return render_template('focus_modes.html',
                          focus_modes=FocusModeManager.get_all_modes(),
                          current_mode=current_mode)
@@ -691,15 +741,20 @@ def focus_modes():
 def set_focus_mode():
     """Sett fokusmoduser"""
     focus_mode = request.form.get('focus_mode', 'normal')
-    
     users = dm.load_data('users')
+    # Sikre at users er dict
+    if isinstance(users, list):
+        users_dict = {}
+        for user in users:
+            uid = user.get('id') or user.get('user_id') or str(uuid.uuid4())
+            users_dict[uid] = user
+        users = users_dict
     if current_user.id in users:
         users[current_user.id]['focus_mode'] = focus_mode
         dm.save_data('users', users)
-        flash(f'Fokusmoduser endret til: {FocusModeManager.get_mode(focus_mode).name}', 'success')
+        flash(f'Fokusmodus endret til: {FocusModeManager.get_mode(focus_mode).name}', 'success')
     else:
-        flash('Feil ved lagring av fokusmoduser', 'error')
-    
+        flash('Feil ved lagring av fokusmodus', 'error')
     return redirect(url_for('focus_modes'))
 
 @app.route('/noteboards')
