@@ -168,6 +168,13 @@ login_manager.login_view = 'login'
 login_manager.login_message = 'Vennligst logg inn for å få tilgang til denne siden.'
 login_manager.login_message_category = 'info'
 
+# Template context processors
+@app.context_processor
+def inject_csrf_token():
+    """Make CSRF token available in all templates"""
+    from flask_wtf.csrf import generate_csrf
+    return dict(csrf_token=generate_csrf)
+
 # 📊 Data Manager (forbedret)
 class DataManager:
     def __init__(self):
@@ -776,12 +783,14 @@ def email_settings():
         stats.setdefault('recent_emails', [])
         return render_template('email_settings.html', 
                              email_stats=stats,
+                             config=app.config,
                              current_user=current_user)
     except Exception as e:
         logger.error(f"Error loading email settings: {e}")
         flash('Feil ved lasting av e-post innstillinger', 'error')
         return render_template('email_settings.html', 
                              email_stats={'total_sent': 0, 'total_failed': 0, 'success_rate': 0, 'recent_emails': []},
+                             config=app.config,
                              current_user=current_user)
 
 @app.route('/noteboards')
