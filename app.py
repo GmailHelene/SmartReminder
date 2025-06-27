@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, flash, jsonify
+from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, session
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
 from flask_mail import Mail, Message
 from flask_wtf import FlaskForm
@@ -739,22 +739,16 @@ def focus_modes():
 @app.route('/set-focus-mode', methods=['POST'])
 @login_required
 def set_focus_mode():
-    """Sett fokusmoduser"""
-    focus_mode = request.form.get('focus_mode', 'normal')
-    users = dm.load_data('users')
-    # Sikre at users er dict
-    if isinstance(users, list):
-        users_dict = {}
-        for user in users:
-            uid = user.get('id') or user.get('user_id') or str(uuid.uuid4())
-            users_dict[uid] = user
-        users = users_dict
-    if current_user.id in users:
-        users[current_user.id]['focus_mode'] = focus_mode
-        dm.save_data('users', users)
-        flash(f'Fokusmodus endret til: {FocusModeManager.get_mode(focus_mode).name}', 'success')
-    else:
-        flash('Feil ved lagring av fokusmodus', 'error')
+    focus_mode = request.form.get('focus_mode')
+    if not focus_mode:
+        flash('Fokusmodus er påkrevd', 'error')
+        return redirect(url_for('focus_modes'))
+    try:
+        FocusModeManager.set_mode(focus_mode)
+        flash(f'Fokusmodus endret til: {FocusModeManager.get_mode_by_name(focus_mode).name}', 'success')
+    except Exception as e:
+        logger.error(f"Error setting focus mode: {e}")
+        flash('Feil ved å endre fokusmodus', 'error')
     return redirect(url_for('focus_modes'))
 
 @app.route('/noteboards')
