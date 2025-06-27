@@ -744,9 +744,8 @@ def set_focus_mode():
         flash('Fokusmodus er påkrevd', 'error')
         return redirect(url_for('focus_modes'))
     try:
-        # Lagre fokusmodus på bruker i users.json
         users = dm.load_data('users')
-        # Sikre at users er dict
+        # Ensure users is a dict
         if isinstance(users, list):
             users_dict = {}
             for user in users:
