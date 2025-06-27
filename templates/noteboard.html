@@ -341,18 +341,6 @@ function showEmptyBoardMessage() {
     `;
     canvas.appendChild(emptyMessage);
 }
-            if (response.ok) {
-                document.getElementById(`note-${noteId}`).remove();
-            } else {
-                alert('Feil ved sletting av notat');
-            }
-        })
-        .catch(error => {
-            console.error('Error deleting note:', error);
-            alert('Feil ved sletting av notat');
-        });
-    }
-}
 
 function shareBoardLink(accessCode) {
     const link = `${window.location.origin}/join-board?code=${accessCode}`;

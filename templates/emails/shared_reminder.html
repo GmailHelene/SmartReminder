@@ -80,8 +80,7 @@
                     <div style="background: white; padding: 8px 15px; border-radius: 20px; border: 2px solid #007bff;">
                         <strong>🕒 Tid:</strong> {{ reminder.datetime }}
                     </div>
-                    <div style="background: white; padding: 8px 15px; border-radius: 20px; border: 2px solid 
-                        {% if reminder.priority == 'Høy' %}#dc3545{% elif reminder.priority == 'Medium' %}#ffc107{% else %}#28a745{% endif %};">
+                    <div style="background: white; padding: 8px 15px; border-radius: 20px; border: 2px solid {% if reminder.priority == 'Høy' %}#dc3545{% elif reminder.priority == 'Medium' %}#ffc107{% else %}#28a745{% endif %};">
                         <strong>⚡ Prioritet:</strong> {{ reminder.priority }}
                     </div>
                     <div style="background: white; padding: 8px 15px; border-radius: 20px; border: 2px solid #6c757d;">

@@ -1155,3 +1155,69 @@ def join_board():
 
 if __name__ == '__main__':
     app.run(debug=True)
+
+@app.route('/import-calendar-event/<event_token>')
+def import_calendar_event(event_token):
+    """Import shared calendar event to user's calendar (with auto-registration)"""
+    try:
+        # Decode the event token (you would encode reminder data in the sharing email)
+        import base64
+        import json
+        
+        # For now, we'll use a simple approach - in production you'd want proper encryption
+        try:
+            decoded_data = base64.b64decode(event_token.encode()).decode()
+            event_data = json.loads(decoded_data)
+        except:
+            flash('Ugyldig kalenderinvitasjon', 'error')
+            return redirect(url_for('login'))
+        
+        # Check if user is logged in
+        if not current_user.is_authenticated:
+            # Store event data in session for after login/registration
+            session['pending_calendar_import'] = event_data
+            flash('Logg inn eller registrer deg for å importere kalenderhendelsen', 'info')
+            return redirect(url_for('login'))
+        
+        # Import the event to user's calendar
+        return import_event_to_user_calendar(event_data)
+        
+    except Exception as e:
+        logger.error(f"Error importing calendar event: {e}")
+        flash('Feil ved import av kalenderhendelse', 'error')
+        return redirect(url_for('dashboard'))
+
+def import_event_to_user_calendar(event_data):
+    """Import event data to current user's calendar"""
+    try:
+        # Create new reminder for the user
+        reminder_id = str(uuid.uuid4())
+        new_reminder = {
+            'id': reminder_id,
+            'user_id': current_user.email,
+            'title': f"[Importert] {event_data['title']}",
+            'description': event_data.get('description', ''),
+            'datetime': event_data['datetime'],
+            'priority': event_data.get('priority', 'Medium'),
+            'category': event_data.get('category', 'Importert'),
+            'completed': False,
+            'created': datetime.now().isoformat(),
+            'imported_from': event_data.get('shared_by', 'Ukjent'),
+            'original_id': event_data.get('id')
+        }
+        
+        # Save reminder
+        reminders = dm.load_data('reminders')
+        reminders.append(new_reminder)
+        dm.save_data('reminders', reminders)
+        
+        flash(f'Kalenderhendelse importert til din kalender!', 'success')
+        return redirect(url_for('dashboard'))
+        
+    except Exception as e:
+        logger.error(f"Error importing calendar event: {e}")
+        flash('Feil ved import av kalenderhendelse', 'error')
+        return redirect(url_for('dashboard'))
+
+if __name__ == '__main__':
+    app.run(debug=True)
