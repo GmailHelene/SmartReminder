@@ -8,11 +8,11 @@ from wtforms.validators import DataRequired, Email, Length
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime, timedelta
 import json
-import hashlib
-import uuid
 import os
 import logging
 from pathlib import Path
+import hashlib
+import uuid
 
 # Import local modules with fallbacks
 try:

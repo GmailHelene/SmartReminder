@@ -56,7 +56,8 @@ class ProductionConfig(Config):
     WTF_CSRF_ENABLED = True
     
     # Use more secure session settings in production
-    SESSION_COOKIE_SECURE = True
+    # Only enable secure cookies if HTTPS is confirmed
+    SESSION_COOKIE_SECURE = os.environ.get('FORCE_HTTPS', 'false').lower() in ['true', '1', 'yes']
     SESSION_COOKIE_HTTPONLY = True
     SESSION_COOKIE_SAMESITE = 'Lax'
 
