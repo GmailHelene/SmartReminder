@@ -559,45 +559,6 @@ def dashboard():
     # Former
     form = ReminderForm()
     
-    # Prepare events for calendar (JSON format)
-    events_json = []
-    
-    # Add my reminders
-    for reminder in my_reminders:
-        color = '#dc3545' if reminder['priority'] == 'Høy' else '#fd7e14' if reminder['priority'] == 'Medium' else '#198754'
-        events_json.append({
-            'id': reminder['id'],
-            'title': reminder['title'],
-            'start': reminder['datetime'],
-            'backgroundColor': color,
-            'borderColor': color,
-            'extendedProps': {
-                'description': reminder.get('description', ''),
-                'category': reminder.get('category', ''),
-                'priority': reminder.get('priority', ''),
-                'type': 'my'
-            }
-        })
-    
-    # Add shared reminders
-    for reminder in shared_with_me:
-        events_json.append({
-            'id': f"shared_{reminder['id']}",
-            'title': f"{reminder['title']} ({reminder.get('shared_by', 'Ukjent')})",
-            'start': reminder['datetime'],
-            'backgroundColor': '#6f42c1',
-            'borderColor': '#6f42c1',
-            'extendedProps': {
-                'description': reminder.get('description', ''),
-                'category': reminder.get('category', ''),
-                'priority': reminder.get('priority', ''),
-                'sharedBy': reminder.get('shared_by', ''),
-                'type': 'shared'
-            }
-        })
-    
-    import json
-    
     return render_template('dashboard.html', 
                          form=form,
                          my_reminders=my_reminders,
@@ -609,8 +570,70 @@ def dashboard():
                              'shared_count': len(shared_with_me)
                          },
                          available_users=available_users,
-                         current_time=datetime.now(),
-                         events_json=json.dumps(events_json))
+                         current_time=datetime.now())
+
+@app.route('/add_reminder', methods=['POST'])
+@login_required
+def add_reminder():
+    form = ReminderForm()
+    
+    if form.validate_on_submit():
+        # Hent deling-data fra request
+        share_with = request.form.getlist('share_with')
+        
+        # Opprett påminnelse
+        reminder_id = str(uuid.uuid4())
+        new_reminder = {
+            'id': reminder_id,
+            'user_id': current_user.email,
+            'title': form.title.data,
+            'description': form.description.data,
+            'datetime': f"{form.date.data} {form.time.data}",
+            'priority': form.priority.data,
+            'category': form.category.data,
+            'completed': False,
+            'created': datetime.now().isoformat(),
+            'shared_with': share_with
+        }
+        
+        # Lagre påminnelse
+        reminders = dm.load_data('reminders')
+        reminders.append(new_reminder)
+        dm.save_data('reminders', reminders)
+        
+        # Opprett delte påminnelser og send notifikasjoner
+        if share_with:
+            shared_reminders = dm.load_data('shared_reminders')
+            
+            for recipient in share_with:
+                shared_reminder = {
+                    'id': str(uuid.uuid4()),
+                    'original_id': reminder_id,
+                    'shared_by': current_user.email,
+                    'shared_with': recipient,
+                    'title': form.title.data,
+                    'description': form.description.data,
+                    'datetime': f"{form.date.data} {form.time.data}",
+                    'priority': form.priority.data,
+                    'category': form.category.data,
+                    'completed': False,
+                    'created': datetime.now().isoformat(),
+                    'is_shared': True
+                }
+                shared_reminders.append(shared_reminder)
+                
+                # Send e-post notifikasjon om delt påminnelse
+                send_shared_reminder_notification(shared_reminder, current_user.email, recipient)
+            
+            dm.save_data('shared_reminders', shared_reminders)
+            flash(f'Påminnelse "{form.title.data}" opprettet og delt med {len(share_with)} personer!', 'success')
+        else:
+            flash(f'Påminnelse "{form.title.data}" opprettet!', 'success')
+            
+    else:
+        flash('Feil i skjema. Sjekk alle felt.', 'error')
+    
+    return redirect(url_for('dashboard'))
 
 @app.route('/complete_reminder/<reminder_id>')
 @login_required
@@ -711,7 +734,7 @@ def api_update_reminder_datetime():
 
 @app.route('/add_reminder', methods=['POST'])
 @login_required
-def add_reminder():
+def add_reminder_api():
     """Handle both form and JSON requests for creating reminders"""
     try:
         # Check if it's a JSON request (from calendar)
@@ -813,118 +836,3 @@ def add_reminder():
         else:
             flash('Feil ved opprettelse av påminnelse', 'error')
             return redirect(url_for('dashboard'))
-
-@app.route('/api/share-calendar-event', methods=['POST'])
-@login_required
-def api_share_calendar_event():
-    """API endpoint for sharing calendar events via email"""
-    try:
-        data = request.get_json() if request.is_json else request.form
-        
-        reminder_id = data.get('reminder_id')
-        email_addresses = data.get('email_addresses', '')
-        personal_message = data.get('personal_message', '')
-        
-        if not reminder_id or not email_addresses:
-            return jsonify({'success': False, 'error': 'Missing required fields'}), 400
-        
-        # Parse email addresses
-        emails = []
-        for email in email_addresses.replace(',', ' ').split():
-            email = email.strip()
-            if email and '@' in email:
-                emails.append(email)
-        
-        if not emails:
-            return jsonify({'success': False, 'error': 'No valid email addresses provided'}), 400
-        
-        # Find the reminder
-        reminders = dm.load_data('reminders')
-        reminder = None
-        
-        for r in reminders:
-            if r['id'] == reminder_id and r['user_id'] == current_user.email:
-                reminder = r
-                break
-        
-        if not reminder:
-            return jsonify({'success': False, 'error': 'Reminder not found or access denied'}), 404
-        
-        # Send calendar invitation emails
-        success_count = 0
-        for email in emails:
-            try:
-                send_calendar_invitation_email(reminder, current_user.email, email, personal_message)
-                success_count += 1
-            except Exception as e:
-                logger.error(f"Failed to send calendar invitation to {email}: {e}")
-        
-        if success_count > 0:
-            return jsonify({
-                'success': True, 
-                'message': f'Kalenderinvitasjon sendt til {success_count} av {len(emails)} mottakere'
-            })
-        else:
-            return jsonify({'success': False, 'error': 'Failed to send any invitations'}), 500
-            
-    except Exception as e:
-        logger.error(f"Error sharing calendar event: {e}")
-        return jsonify({'success': False, 'error': str(e)}), 500
-
-def send_calendar_invitation_email(reminder, shared_by, recipient_email, personal_message=None):
-    """
-    Send a calendar invitation (ICS) for a reminder via email.
-    """
-    from flask_mail import Message
-    import pytz
-    from email.utils import formataddr
-    import base64
-    
-    # Prepare event details
-    event_title = reminder.get('title', 'Påminnelse')
-    event_description = reminder.get('description', '')
-    event_start = reminder.get('datetime')
-    event_end = reminder.get('datetime')
-    event_category = reminder.get('category', '')
-    event_priority = reminder.get('priority', 'Medium')
-    
-    # Parse start/end time
-    try:
-        start_dt = datetime.strptime(event_start, '%Y-%m-%d %H:%M')
-        end_dt = start_dt + timedelta(minutes=30)
-    except Exception:
-        start_dt = datetime.now()
-        end_dt = start_dt + timedelta(minutes=30)
-    
-    # ICS content
-    dtstamp = start_dt.strftime('%Y%m%dT%H%M%SZ')
-    dtstart = start_dt.strftime('%Y%m%dT%H%M%SZ')
-    dtend = end_dt.strftime('%Y%m%dT%H%M%SZ')
-    uid = f"{reminder.get('id')}@smartreminder"
-    
-    ics = f"""BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//SmartReminder//EN\nCALSCALE:GREGORIAN\nBEGIN:VEVENT\nUID:{uid}\nDTSTAMP:{dtstamp}\nDTSTART:{dtstart}\nDTEND:{dtend}\nSUMMARY:{event_title}\nDESCRIPTION:{event_description}\nCATEGORIES:{event_category}\nPRIORITY:{'1' if event_priority=='Høy' else '5' if event_priority=='Medium' else '9'}\nEND:VEVENT\nEND:VCALENDAR"""
-    
-    # Email body
-    html_body = render_template(
-        'emails/calendar_invitation.html',
-        reminder=reminder,
-        shared_by=shared_by,
-        personal_message=personal_message or ''
-    )
-    
-    msg = Message(
-        subject=f"Delt kalenderhendelse: {event_title}",
-        recipients=[recipient_email],
-        html=html_body
-    )
-    msg.body = f"{event_title}\n\n{event_description}\n\nTid: {event_start}"
-    msg.sender = formataddr(("SmartReminder", current_app.config.get('MAIL_DEFAULT_SENDER', shared_by)))
-    
-    # Attach ICS
-    msg.attach(
-        filename="invitasjon.ics",
-        content_type="text/calendar; charset=utf-8; method=REQUEST",
-        data=ics
-    )
-    
-    mail.send(msg)
