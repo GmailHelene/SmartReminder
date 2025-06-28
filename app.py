@@ -197,6 +197,31 @@ def as_datetime_filter(date_string):
         logger.warning(f"as_datetime filter error: {e}")
         return None
 
+def format_datetime_filter(date_input, format_string='%d.%m.%Y %H:%M'):
+    """Combined filter to safely format datetime - handles None and invalid dates"""
+    if not date_input:
+        return 'Ikke satt'
+    
+    try:
+        # First convert to datetime if needed
+        if isinstance(date_input, str):
+            # Try to parse string to datetime
+            for fmt in ['%Y-%m-%d %H:%M:%S', '%Y-%m-%dT%H:%M:%S', '%Y-%m-%d %H:%M', '%Y-%m-%dT%H:%M:%S.%f']:
+                try:
+                    date_obj = datetime.strptime(date_input.split('.')[0] if '.' in date_input else date_input, fmt)
+                    return date_obj.strftime(format_string)
+                except ValueError:
+                    continue
+            return 'Ugyldig datoformat'
+        elif hasattr(date_input, 'strftime'):
+            # Already a datetime object
+            return date_input.strftime(format_string)
+        else:
+            return str(date_input)
+    except Exception as e:
+        logger.warning(f"format_datetime filter error: {e} for input: {date_input}")
+        return 'Datefeil'
+
 def strftime_filter(date_obj, format_string='%Y-%m-%d %H:%M'):
     """Format datetime object to string"""
     if not date_obj:
@@ -211,7 +236,7 @@ def strftime_filter(date_obj, format_string='%Y-%m-%d %H:%M'):
             return date_obj.strftime(format_string)
         return str(date_obj)
     except Exception as e:
-        logger.warning(f"strftime filter error: {e}")
+        logger.warning(f"strftime filter error: {e} for object: {date_obj}")
         return 'Ugyldig dato'
 
 # Register the filters
@@ -221,6 +246,8 @@ app.template_filter('as_datetime')(as_datetime_filter)
 app.jinja_env.filters['as_datetime'] = as_datetime_filter
 app.template_filter('strftime')(strftime_filter)
 app.jinja_env.filters['strftime'] = strftime_filter
+app.template_filter('format_datetime')(format_datetime_filter)
+app.jinja_env.filters['format_datetime'] = format_datetime_filter
 
 # Add safe url_for function
 def safe_url_for(endpoint, **values):
@@ -236,6 +263,7 @@ app.jinja_env.globals['safe_url_for'] = safe_url_for
 print(f"🔧 nl2br filter registered: {'nl2br' in app.jinja_env.filters}")
 print(f"🔧 as_datetime filter registered: {'as_datetime' in app.jinja_env.filters}")
 print(f"🔧 strftime filter registered: {'strftime' in app.jinja_env.filters}")
+print(f"🔧 format_datetime filter registered: {'format_datetime' in app.jinja_env.filters}")
 
 # Extensions
 csrf = CSRFProtect(app)
