@@ -1,8 +1,8 @@
-# Smart Påminner Pro 🔔
+# SmartReminder Pro 🔔
 
 En moderne progressiv web-app (PWA) for smarte påminnelser med avanserte funksjoner for deling og fokusmoduser.
 
-![Smart Påminner Pro](https://img.shields.io/badge/PWA-Ready-blue)
+![SmartReminder Pro](https://img.shields.io/badge/PWA-Ready-blue)
 ![Python](https://img.shields.io/badge/Python-3.7+-green)
 ![Flask](https://img.shields.io/badge/Flask-2.3+-lightgrey)
 
@@ -218,4 +218,4 @@ CMD ["python", "run_local.py"]
 
 ---
 
-**Smart Påminner Pro** - Aldri glem en påminnelse igjen! 🎯
+**SmartReminder Pro** - Aldri glem en påminnelse igjen! 🎯
