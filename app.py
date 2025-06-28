@@ -178,24 +178,6 @@ def nl2br_filter(text):
         # Fallback if markupsafe is not available
         return result
 
-def safe_url_for(endpoint, **values):
-    """Safely generate URL with fallback to direct path"""
-    try:
-        from flask import url_for
-        return url_for(endpoint, **values)
-    except Exception as e:
-        logger.warning(f"url_for failed for endpoint '{endpoint}': {e}")
-        # Fallback to direct path construction
-        endpoint_to_path = {
-            'dashboard': '/dashboard',
-            'noteboards': '/noteboards',
-            'focus_modes': '/focus-modes',
-            'email_settings': '/email-settings',
-            'login': '/login',
-            'logout': '/logout'
-        }
-        return endpoint_to_path.get(endpoint, '/')
-
 def as_datetime_filter(date_string):
     """Convert ISO date string to datetime object"""
     if not date_string:
@@ -212,34 +194,25 @@ def as_datetime_filter(date_string):
     except Exception:
         return None
 
-def strftime_filter(date_obj, format_string):
-    """Format datetime object using strftime"""
-    if not date_obj:
-        return ''
-    try:
-        if isinstance(date_obj, str):
-            # Convert string to datetime first
-            date_obj = as_datetime_filter(date_obj)
-        if date_obj:
-            return date_obj.strftime(format_string)
-        return ''
-    except Exception as e:
-        logger.warning(f"strftime filter error: {e}")
-        return str(date_obj) if date_obj else ''
-
 # Register the filters
 app.template_filter('nl2br')(nl2br_filter)
 app.jinja_env.filters['nl2br'] = nl2br_filter
 app.template_filter('as_datetime')(as_datetime_filter)
 app.jinja_env.filters['as_datetime'] = as_datetime_filter
-app.template_filter('strftime')(strftime_filter)
-app.jinja_env.filters['strftime'] = strftime_filter
 
-# Context processor for safe URL generation
-@app.context_processor
-def inject_safe_url_for():
-    """Inject safe_url_for into template context"""
-    return dict(safe_url_for=safe_url_for)
+# Add safe url_for function
+def safe_url_for(endpoint, **values):
+    """Safely generate URL, return # if endpoint doesn't exist"""
+    try:
+        return url_for(endpoint, **values)
+    except Exception:
+        return '#'
+
+app.jinja_env.globals['safe_url_for'] = safe_url_for
+
+# Verification prints
+print(f"🔧 nl2br filter registered: {'nl2br' in app.jinja_env.filters}")
+print(f"🔧 as_datetime filter registered: {'as_datetime' in app.jinja_env.filters}")
 
 # Extensions
 csrf = CSRFProtect(app)
@@ -335,28 +308,7 @@ dm = DataManager()
 
 # Initialize services after dm is created
 email_service = EmailService(mail, dm)
-
-# Initialize noteboard manager with error handling
-try:
-    noteboard_manager = NoteboardManager(dm)
-    logger.info("✅ NoteboardManager initialized successfully")
-except Exception as e:
-    logger.error(f"❌ Failed to initialize NoteboardManager: {e}")
-    # Create a fallback manager
-    class FallbackNoteboardManager:
-        def __init__(self, dm):
-            self.dm = dm
-        def get_user_boards(self, email):
-            return []
-        def create_board(self, title, description, creator_email):
-            return None
-        def get_board_by_id(self, board_id):
-            return None
-        def join_board(self, access_code, email):
-            return None
-        def save_board(self, board):
-            pass
-    noteboard_manager = FallbackNoteboardManager(dm)
+noteboard_manager = NoteboardManager(dm)
 
 # 📧 E-post funksjoner
 def send_email(to, subject, template, **kwargs):
@@ -953,99 +905,58 @@ def send_calendar_invitation_email(reminder, shared_by, recipient_email, persona
     Send a calendar invitation (ICS) for a reminder via email.
     """
     from flask_mail import Message
+    import pytz
     from email.utils import formataddr
-    from flask import current_app
+    import base64
     
     # Prepare event details
     event_title = reminder.get('title', 'Påminnelse')
     event_description = reminder.get('description', '')
     event_start = reminder.get('datetime')
+    event_end = reminder.get('datetime')
     event_category = reminder.get('category', '')
     event_priority = reminder.get('priority', 'Medium')
     
-    # Parse start/end time with better error handling
+    # Parse start/end time
     try:
-        if isinstance(event_start, str):
-            start_dt = datetime.strptime(event_start, '%Y-%m-%d %H:%M')
-        else:
-            start_dt = datetime.now()
+        start_dt = datetime.strptime(event_start, '%Y-%m-%d %H:%M')
         end_dt = start_dt + timedelta(minutes=30)
-    except Exception as e:
-        logger.warning(f"Could not parse datetime '{event_start}': {e}")
+    except Exception:
         start_dt = datetime.now()
         end_dt = start_dt + timedelta(minutes=30)
     
-    # Format for ICS (UTC time)
-    dtstamp = datetime.utcnow().strftime('%Y%m%dT%H%M%SZ')
-    dtstart = start_dt.strftime('%Y%m%dT%H%M%S')
-    dtend = end_dt.strftime('%Y%m%dT%H%M%S')
-    uid = f"{reminder.get('id', 'unknown')}@smartreminder"
+    # ICS content
+    dtstamp = start_dt.strftime('%Y%m%dT%H%M%SZ')
+    dtstart = start_dt.strftime('%Y%m%dT%H%M%SZ')
+    dtend = end_dt.strftime('%Y%m%dT%H%M%SZ')
+    uid = f"{reminder.get('id')}@smartreminder"
     
-    # Create properly formatted ICS file
-    ics_lines = [
-        "BEGIN:VCALENDAR",
-        "VERSION:2.0",
-        "PRODID:-//SmartReminder//SmartReminder Pro//NO",
-        "CALSCALE:GREGORIAN",
-        "METHOD:REQUEST",
-        "BEGIN:VEVENT",
-        f"UID:{uid}",
-        f"DTSTAMP:{dtstamp}",
-        f"DTSTART:{dtstart}",
-        f"DTEND:{dtend}",
-        f"SUMMARY:{event_title}",
-        f"DESCRIPTION:{event_description.replace(',', '\\,').replace(';', '\\;').replace('\\n', '\\n')}",
-        f"CATEGORIES:{event_category}",
-        f"PRIORITY:{'1' if event_priority=='Høy' else '5' if event_priority=='Medium' else '9'}",
-        f"ORGANIZER:MAILTO:{shared_by}",
-        f"ATTENDEE;CN={recipient_email};RSVP=TRUE:MAILTO:{recipient_email}",
-        "STATUS:CONFIRMED",
-        "TRANSP:OPAQUE",
-        "END:VEVENT",
-        "END:VCALENDAR"
-    ]
-    
-    ics = "\r\n".join(ics_lines)
-    
-    # Get base URL for the app link
-    base_url = current_app.config.get('SERVER_NAME') or 'smartremind-production.up.railway.app'
-    if not base_url.startswith('http'):
-        base_url = f"https://{base_url}"
+    ics = f"""BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//SmartReminder//EN\nCALSCALE:GREGORIAN\nBEGIN:VEVENT\nUID:{uid}\nDTSTAMP:{dtstamp}\nDTSTART:{dtstart}\nDTEND:{dtend}\nSUMMARY:{event_title}\nDESCRIPTION:{event_description}\nCATEGORIES:{event_category}\nPRIORITY:{'1' if event_priority=='Høy' else '5' if event_priority=='Medium' else '9'}\nEND:VEVENT\nEND:VCALENDAR"""
     
     # Email body
     html_body = render_template(
         'emails/calendar_invitation.html',
         reminder=reminder,
         shared_by=shared_by,
-        personal_message=personal_message or '',
-        app_url=base_url
+        personal_message=personal_message or ''
     )
     
-    # Email sender configuration with fallback
-    mail_default_sender = current_app.config.get('MAIL_DEFAULT_SENDER') or current_app.config.get('MAIL_USERNAME') or shared_by
-    if not mail_default_sender:
-        mail_default_sender = 'noreply@smartreminder.com'
-    
     msg = Message(
-        subject=f"📅 Kalenderinvitasjon: {event_title}",
+        subject=f"Delt kalenderhendelse: {event_title}",
         recipients=[recipient_email],
         html=html_body
     )
-    msg.body = f"{event_title}\n\n{event_description}\n\nTid: {event_start}\n\nDenne kalenderinvitasjonen ble sendt av {shared_by} via SmartReminder Pro."
-    msg.sender = formataddr(("SmartReminder Pro", mail_default_sender))
+    msg.body = f"{event_title}\n\n{event_description}\n\nTid: {event_start}"
+    msg.sender = formataddr(("SmartReminder", current_app.config.get('MAIL_DEFAULT_SENDER', shared_by)))
     
-    # Attach ICS file
+    # Attach ICS
     msg.attach(
-        filename="kalender_invitasjon.ics",
+        filename="invitasjon.ics",
         content_type="text/calendar; charset=utf-8; method=REQUEST",
         data=ics
     )
     
-    # Send email only if not suppressed for testing
-    if not current_app.config.get('MAIL_SUPPRESS_SEND', False):
-        mail.send(msg)
-    else:
-        logger.info(f"📧 Email sending suppressed for testing. Would send calendar invitation to {recipient_email}")
+    mail.send(msg)
 
 # 📝 Noteboard Routes
 @app.route('/noteboards')
@@ -1330,26 +1241,15 @@ def focus_modes():
     
     return render_template('focus_modes.html', current_focus_mode=current_focus_mode)
 
-# 🔍 Debug: Verify route registration
-if not os.environ.get('TESTING'):
-    try:
-        with app.app_context():
-            registered_routes = [rule.endpoint for rule in app.url_map.iter_rules()]
-            critical_routes = ['dashboard', 'noteboards', 'focus_modes', 'email_settings']
-            
-            missing_routes = []
-            for route in critical_routes:
-                if route not in registered_routes:
-                    missing_routes.append(route)
-            
-            if missing_routes:
-                logger.error(f"❌ Missing critical routes: {missing_routes}")
-            else:
-                logger.info(f"✅ All critical routes registered: {critical_routes}")
-                
-            logger.info(f"📊 Total routes registered: {len(registered_routes)}")
-    except Exception as e:
-        logger.error(f"❌ Route verification failed: {e}")
+# Route verification (for debugging)
+# print("🔧 Registered routes:")
+# for rule in app.url_map.iter_rules():
+#     print(f"  - {rule.endpoint}: {rule.rule}")
 
-# 🚀 App ready
-logger.info("🚀 Smart Påminner Pro app initialization complete")
+# Specific verification for noteboards
+# noteboards_exists = any(rule.endpoint == 'noteboards' for rule in app.url_map.iter_rules())
+# print(f"🔧 noteboards route exists: {noteboards_exists}")
+
+if __name__ == '__main__':
+    print("🚀 Starting Flask app...")
+    app.run(debug=True, host='0.0.0.0', port=8080)

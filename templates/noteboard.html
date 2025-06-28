@@ -13,7 +13,7 @@
         <button class="btn btn-outline-primary me-2" onclick="shareBoardLink('{{ board.access_code }}')">
             <i class="fas fa-share"></i> Del tavle
         </button>
-        <a href="{{ url_for('noteboards') }}" class="btn btn-outline-secondary">
+        <a href="{{ safe_url_for('noteboards') }}" class="btn btn-outline-secondary">
             <i class="fas fa-arrow-left"></i> Tilbake
         </a>
     </div>
