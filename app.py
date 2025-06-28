@@ -178,12 +178,51 @@ def nl2br_filter(text):
         # Fallback if markupsafe is not available
         return result
 
-# Register the filter in multiple ways to ensure it works
+def safe_url_for(endpoint, **values):
+    """Safely generate URL with fallback to direct path"""
+    try:
+        from flask import url_for
+        return url_for(endpoint, **values)
+    except Exception as e:
+        logger.warning(f"url_for failed for endpoint '{endpoint}': {e}")
+        # Fallback to direct path construction
+        endpoint_to_path = {
+            'dashboard': '/dashboard',
+            'noteboards': '/noteboards',
+            'focus_modes': '/focus-modes',
+            'email_settings': '/email-settings',
+            'login': '/login',
+            'logout': '/logout'
+        }
+        return endpoint_to_path.get(endpoint, '/')
+
+def as_datetime_filter(date_string):
+    """Convert ISO date string to datetime object"""
+    if not date_string:
+        return None
+    try:
+        if isinstance(date_string, str):
+            # Handle different date formats
+            for fmt in ['%Y-%m-%d %H:%M:%S', '%Y-%m-%dT%H:%M:%S', '%Y-%m-%d %H:%M', '%Y-%m-%dT%H:%M:%S.%f']:
+                try:
+                    return datetime.strptime(date_string.split('.')[0] if '.' in date_string else date_string, fmt)
+                except ValueError:
+                    continue
+        return date_string
+    except Exception:
+        return None
+
+# Register the filters
 app.template_filter('nl2br')(nl2br_filter)
 app.jinja_env.filters['nl2br'] = nl2br_filter
+app.template_filter('as_datetime')(as_datetime_filter)
+app.jinja_env.filters['as_datetime'] = as_datetime_filter
 
-# Verify filter registration
-print(f"🔧 nl2br filter registered: {'nl2br' in app.jinja_env.filters}")
+# Context processor for safe URL generation
+@app.context_processor
+def inject_safe_url_for():
+    """Inject safe_url_for into template context"""
+    return dict(safe_url_for=safe_url_for)
 
 # Extensions
 csrf = CSRFProtect(app)
@@ -279,7 +318,28 @@ dm = DataManager()
 
 # Initialize services after dm is created
 email_service = EmailService(mail, dm)
-noteboard_manager = NoteboardManager(dm)
+
+# Initialize noteboard manager with error handling
+try:
+    noteboard_manager = NoteboardManager(dm)
+    logger.info("✅ NoteboardManager initialized successfully")
+except Exception as e:
+    logger.error(f"❌ Failed to initialize NoteboardManager: {e}")
+    # Create a fallback manager
+    class FallbackNoteboardManager:
+        def __init__(self, dm):
+            self.dm = dm
+        def get_user_boards(self, email):
+            return []
+        def create_board(self, title, description, creator_email):
+            return None
+        def get_board_by_id(self, board_id):
+            return None
+        def join_board(self, access_code, email):
+            return None
+        def save_board(self, board):
+            pass
+    noteboard_manager = FallbackNoteboardManager(dm)
 
 # 📧 E-post funksjoner
 def send_email(to, subject, template, **kwargs):
@@ -928,3 +988,310 @@ def send_calendar_invitation_email(reminder, shared_by, recipient_email, persona
     )
     
     mail.send(msg)
+
+# 📝 Noteboard Routes
+@app.route('/noteboards')
+@login_required
+def noteboards():
+    """Display all noteboards for the current user"""
+    try:
+        boards = noteboard_manager.get_user_boards(current_user.email)
+        return render_template('noteboards.html', boards=boards)
+    except Exception as e:
+        logger.error(f"Error loading noteboards: {e}")
+        flash('Feil ved lasting av tavler', 'error')
+        return redirect(url_for('dashboard'))
+
+@app.route('/create-board', methods=['POST'])
+@login_required
+def create_board():
+    """Create a new noteboard"""
+    try:
+        title = request.form.get('title', '').strip()
+        description = request.form.get('description', '').strip()
+        
+        if not title:
+            flash('Tavletittel er påkrevd', 'error')
+            return redirect(url_for('noteboards'))
+        
+        board = noteboard_manager.create_board(title, description, current_user.email)
+        flash(f'Tavle "{title}" opprettet! Tilgangskode: {board.access_code}', 'success')
+        return redirect(url_for('view_board', board_id=board.board_id))
+        
+    except Exception as e:
+        logger.error(f"Error creating board: {e}")
+        flash('Feil ved opprettelse av tavle', 'error')
+        return redirect(url_for('noteboards'))
+
+@app.route('/join-board', methods=['GET', 'POST'])
+@login_required
+def join_board():
+    """Join a noteboard using access code"""
+    if request.method == 'GET':
+        # Handle join via URL with code parameter
+        access_code = request.args.get('code')
+        if access_code:
+            try:
+                board = noteboard_manager.join_board(access_code, current_user.email)
+                if board:
+                    flash(f'Du har blitt med på tavlen "{board.title}"!', 'success')
+                    return redirect(url_for('view_board', board_id=board.board_id))
+                else:
+                    flash('Ugyldig tilgangskode', 'error')
+            except Exception as e:
+                logger.error(f"Error joining board: {e}")
+                flash('Feil ved tilkobling til tavle', 'error')
+        
+        return redirect(url_for('noteboards'))
+    
+    # Handle POST request from form
+    try:
+        access_code = request.form.get('access_code', '').strip().upper()
+        
+        if not access_code:
+            flash('Tilgangskode er påkrevd', 'error')
+            return redirect(url_for('noteboards'))
+        
+        board = noteboard_manager.join_board(access_code, current_user.email)
+        if board:
+            flash(f'Du har blitt med på tavlen "{board.title}"!', 'success')
+            return redirect(url_for('view_board', board_id=board.board_id))
+        else:
+            flash('Ugyldig tilgangskode', 'error')
+            return redirect(url_for('noteboards'))
+            
+    except Exception as e:
+        logger.error(f"Error joining board: {e}")
+        flash('Feil ved tilkobling til tavle', 'error')
+        return redirect(url_for('noteboards'))
+
+@app.route('/board/<board_id>')
+@app.route('/noteboard/<board_id>')
+@login_required 
+def view_board(board_id):
+    """View a specific noteboard"""
+    try:
+        board = noteboard_manager.get_board_by_id(board_id)
+        
+        if not board:
+            flash('Tavle ikke funnet', 'error')
+            return redirect(url_for('noteboards'))
+        
+        # Check if user has access to this board
+        if current_user.email not in board.members:
+            flash('Du har ikke tilgang til denne tavlen', 'error')
+            return redirect(url_for('noteboards'))
+        
+        return render_template('noteboard.html', board=board)
+        
+    except Exception as e:
+        logger.error(f"Error viewing board {board_id}: {e}")
+        flash('Feil ved lasting av tavle', 'error')
+        return redirect(url_for('noteboards'))
+
+@app.route('/add-note-to-board/<board_id>', methods=['POST'])
+@login_required
+def add_note_to_board(board_id):
+    """Add a note to a noteboard"""
+    try:
+        board = noteboard_manager.get_board_by_id(board_id)
+        
+        if not board or current_user.email not in board.members:
+            if request.is_json:
+                return jsonify({'success': False, 'error': 'Access denied'}), 403
+            flash('Du har ikke tilgang til denne tavlen', 'error')
+            return redirect(url_for('noteboards'))
+        
+        if request.is_json:
+            # Handle JSON request (from JavaScript)
+            data = request.get_json()
+            content = data.get('content', '').strip()
+            color = data.get('color', 'warning')
+            x = data.get('x', 0)
+            y = data.get('y', 0)
+        else:
+            # Handle form request
+            content = request.form.get('content', '').strip()
+            color = request.form.get('color', 'warning')
+            x = 0
+            y = 0
+        
+        if not content:
+            if request.is_json:
+                return jsonify({'success': False, 'error': 'Content is required'}), 400
+            flash('Innhold er påkrevd', 'error')
+            return redirect(url_for('view_board', board_id=board_id))
+        
+        # Add note to board
+        note = board.add_note(content, current_user.email, color=color)
+        if x or y:
+            note['position'] = {'x': x, 'y': y}
+        
+        # Save board
+        noteboard_manager.save_board(board)
+        
+        if request.is_json:
+            return jsonify({'success': True, 'note_id': note['id']})
+        else:
+            flash('Notat lagt til!', 'success')
+            return redirect(url_for('view_board', board_id=board_id))
+            
+    except Exception as e:
+        logger.error(f"Error adding note to board {board_id}: {e}")
+        if request.is_json:
+            return jsonify({'success': False, 'error': str(e)}), 500
+        flash('Feil ved tillegging av notat', 'error')
+        return redirect(url_for('view_board', board_id=board_id))
+
+@app.route('/api/update-note-position/<note_id>', methods=['POST'])
+@login_required
+def api_update_note_position(note_id):
+    """Update note position via API"""
+    try:
+        data = request.get_json()
+        x = data.get('x', 0)
+        y = data.get('y', 0)
+        
+        # Find the board containing this note
+        boards = noteboard_manager.dm.load_data('shared_noteboards')
+        for board_data in boards.values():
+            if current_user.email in board_data.get('members', []):
+                board = noteboard_manager.get_board_by_id(board_data['board_id'])
+                if board:
+                    updated_note = board.update_note(note_id, position={'x': x, 'y': y})
+                    if updated_note:
+                        noteboard_manager.save_board(board)
+                        return jsonify({'success': True})
+        
+        return jsonify({'success': False, 'error': 'Note not found'}), 404
+        
+    except Exception as e:
+        logger.error(f"Error updating note position: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/edit-note/<note_id>', methods=['POST'])
+@login_required  
+def api_edit_note(note_id):
+    """Edit note content via API"""
+    try:
+        data = request.get_json()
+        content = data.get('content', '').strip()
+        
+        if not content:
+            return jsonify({'success': False, 'error': 'Content is required'}), 400
+        
+        # Find the board containing this note
+        boards = noteboard_manager.dm.load_data('shared_noteboards')
+        for board_data in boards.values():
+            if current_user.email in board_data.get('members', []):
+                board = noteboard_manager.get_board_by_id(board_data['board_id'])
+                if board:
+                    # Check if user can edit this note
+                    for note in board.notes:
+                        if note['id'] == note_id:
+                            if note['author'] == current_user.email or board.created_by == current_user.email:
+                                updated_note = board.update_note(note_id, content=content)
+                                if updated_note:
+                                    noteboard_manager.save_board(board)
+                                    return jsonify({'success': True})
+                            else:
+                                return jsonify({'success': False, 'error': 'Permission denied'}), 403
+        
+        return jsonify({'success': False, 'error': 'Note not found'}), 404
+        
+    except Exception as e:
+        logger.error(f"Error editing note: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/delete-note/<note_id>', methods=['DELETE'])
+@login_required
+def api_delete_note(note_id):
+    """Delete note via API"""
+    try:
+        # Find the board containing this note
+        boards = noteboard_manager.dm.load_data('shared_noteboards')
+        for board_data in boards.values():
+            if current_user.email in board_data.get('members', []):
+                board = noteboard_manager.get_board_by_id(board_data['board_id'])
+                if board:
+                    if board.delete_note(note_id, current_user.email):
+                        noteboard_manager.save_board(board)
+                        return jsonify({'success': True})
+        
+        return jsonify({'success': False, 'error': 'Note not found or permission denied'}), 404
+        
+    except Exception as e:
+        logger.error(f"Error deleting note: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+# Email settings route
+@app.route('/email-settings', methods=['GET', 'POST'])
+@login_required
+def email_settings():
+    """Email settings page"""
+    if request.method == 'POST':
+        # Handle email settings form
+        flash('E-postinnstillinger oppdatert!', 'success')
+        return redirect(url_for('email_settings'))
+    
+    return render_template('email_settings.html')
+
+# Offline page route
+@app.route('/offline')
+def offline():
+    """Offline page for PWA"""
+    return render_template('offline.html')
+
+# Focus modes route
+@app.route('/focus-modes', methods=['GET', 'POST'])
+@login_required
+def focus_modes():
+    """Focus modes page"""
+    if request.method == 'POST':
+        # Handle focus mode update
+        focus_mode = request.form.get('focus_mode', 'normal')
+        
+        # Update user's focus mode
+        users = dm.load_data('users')
+        for user_data in users.values():
+            if user_data['email'] == current_user.email:
+                user_data['focus_mode'] = focus_mode
+                break
+        dm.save_data('users', users)
+        
+        flash('Fokusmodus oppdatert!', 'success')
+        return redirect(url_for('focus_modes'))
+    
+    # Get current user's focus mode
+    users = dm.load_data('users')
+    current_focus_mode = 'normal'
+    for user_data in users.values():
+        if user_data['email'] == current_user.email:
+            current_focus_mode = user_data.get('focus_mode', 'normal')
+            break
+    
+    return render_template('focus_modes.html', current_focus_mode=current_focus_mode)
+
+# 🔍 Debug: Verify route registration
+if not os.environ.get('TESTING'):
+    try:
+        with app.app_context():
+            registered_routes = [rule.endpoint for rule in app.url_map.iter_rules()]
+            critical_routes = ['dashboard', 'noteboards', 'focus_modes', 'email_settings']
+            
+            missing_routes = []
+            for route in critical_routes:
+                if route not in registered_routes:
+                    missing_routes.append(route)
+            
+            if missing_routes:
+                logger.error(f"❌ Missing critical routes: {missing_routes}")
+            else:
+                logger.info(f"✅ All critical routes registered: {critical_routes}")
+                
+            logger.info(f"📊 Total routes registered: {len(registered_routes)}")
+    except Exception as e:
+        logger.error(f"❌ Route verification failed: {e}")
+
+# 🚀 App ready
+logger.info("🚀 Smart Påminner Pro app initialization complete")
