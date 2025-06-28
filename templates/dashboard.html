@@ -9,7 +9,7 @@
         <div class="card stats-card">
             <div class="card-body text-center">
                 <i class="fas fa-bell fa-2x mb-2"></i>
-                <h3 id="my-count">{{ stats.total }}</h3>
+                <h3 id="my-count" data-count="my">{{ stats.total }}</h3>
                 <small>Mine påminnelser</small>
             </div>
         </div>
@@ -27,7 +27,7 @@
         <div class="card bg-info text-white">
             <div class="card-body text-center">
                 <i class="fas fa-share fa-2x mb-2"></i>
-                <h3 id="shared-count">{{ stats.shared_count }}</h3>
+                <h3 id="shared-count" data-count="shared">{{ stats.shared_count }}</h3>
                 <small>Delt med meg</small>
             </div>
         </div>
@@ -499,16 +499,29 @@ function shareReminder(reminderId, reminderTitle) {
     }, false);
 })();
 
-// Auto-refresh reminder count every 5 minutes
-setInterval(function() {
+// Update reminder count
+function updateReminderCount() {
     fetch('/api/reminder-count')
         .then(response => response.json())
         .then(data => {
-            // Update UI if needed
-            console.log('Reminder count updated:', data);
+            if (data.my_count !== undefined) {
+                const myCountEl = document.querySelector('[data-count="my"]');
+                if (myCountEl) myCountEl.textContent = data.my_count;
+            }
+            if (data.shared_count !== undefined) {
+                const sharedCountEl = document.querySelector('[data-count="shared"]');
+                if (sharedCountEl) sharedCountEl.textContent = data.shared_count;
+            }
+            if (data.total_count !== undefined) {
+                const totalCountEl = document.querySelector('[data-count="total"]');
+                if (totalCountEl) totalCountEl.textContent = data.total_count;
+            }
         })
         .catch(error => console.log('Error updating reminder count:', error));
-}, 300000);
+}
+
+// Auto-refresh reminder count every 5 minutes
+setInterval(updateReminderCount, 300000);
 
 // Quick reminder modal functions
 function showQuickReminderModal(startDate, endDate, allDay) {
@@ -700,11 +713,14 @@ function updateReminderDateTime(eventId, newStart, newEnd) {
     const newDate = newStart.toISOString().split('T')[0];
     const newTime = newStart.toTimeString().slice(0, 5);
     
+    // Get CSRF token from any form on the page
+    const csrfToken = document.querySelector('input[name=csrf_token]').value;
+    
     fetch('/api/update-reminder-datetime', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
-            'X-CSRFToken': document.querySelector('[name=csrf_token]').value
+            'X-CSRFToken': csrfToken
         },
         body: JSON.stringify({
             reminder_id: cleanId,
@@ -712,19 +728,24 @@ function updateReminderDateTime(eventId, newStart, newEnd) {
             time: newTime
         })
     })
-    .then(response => response.json())
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        return response.json();
+    })
     .then(data => {
         if (data.success) {
             showToastNotification('📅 Påminnelse oppdatert!', 'success');
         } else {
-            showToastNotification('❌ Kunne ikke oppdatere påminnelse', 'error');
+            showToastNotification('❌ Kunne ikke oppdatere påminnelse: ' + (data.error || 'Ukjent feil'), 'error');
             // Revert calendar if needed
             calendar.refetchEvents();
         }
     })
     .catch(error => {
         console.error('Error updating reminder:', error);
-        showToastNotification('❌ Feil ved oppdatering', 'error');
+        showToastNotification('❌ Feil ved oppdatering: ' + error.message, 'error');
         calendar.refetchEvents();
     });
 }
@@ -740,8 +761,8 @@ function completeReminder(reminderId) {
         if (response.ok) {
             showToastNotification('✅ Påminnelse fullført!', 'success');
             calendar.refetchEvents();
-            // Refresh page to update stats
-            setTimeout(() => location.reload(), 1000);
+            // Update reminder count instead of reloading
+            updateReminderCount();
         } else {
             showToastNotification('❌ Kunne ikke fullføre påminnelse', 'error');
         }
@@ -759,29 +780,37 @@ document.getElementById('quickReminderForm').addEventListener('submit', function
     const formData = new FormData(this);
     const data = Object.fromEntries(formData.entries());
     
+    // Get CSRF token specifically from this form
+    const csrfToken = this.querySelector('[name=csrf_token]').value;
+    
     fetch('/add_reminder', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
-            'X-CSRFToken': document.querySelector('[name=csrf_token]').value
+            'X-CSRFToken': csrfToken
         },
         body: JSON.stringify(data)
     })
-    .then(response => response.json())
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        return response.json();
+    })
     .then(data => {
         if (data.success) {
             showToastNotification('✅ Påminnelse opprettet!', 'success');
             bootstrap.Modal.getInstance(document.getElementById('quickReminderModal')).hide();
             calendar.refetchEvents();
-            // Refresh page to update stats
-            setTimeout(() => location.reload(), 1000);
+            // Update reminder count
+            updateReminderCount();
         } else {
-            showToastNotification('❌ Kunne ikke opprette påminnelse', 'error');
+            showToastNotification('❌ Kunne ikke opprette påminnelse: ' + (data.error || 'Ukjent feil'), 'error');
         }
     })
     .catch(error => {
         console.error('Error creating reminder:', error);
-        showToastNotification('❌ Feil ved opprettelse', 'error');
+        showToastNotification('❌ Feil ved opprettelse: ' + error.message, 'error');
     });
 });
 

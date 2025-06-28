@@ -748,9 +748,10 @@ def api_reminder_count():
         completed_count = len([r for r in reminders if r['user_id'] == current_user.email and r['completed']])
         
         return jsonify({
-            'my_reminders': my_count,
-            'shared_reminders': shared_count,
-            'completed': completed_count
+            'my_count': my_count,
+            'shared_count': shared_count,
+            'completed_count': completed_count,
+            'total_count': my_count + shared_count
         })
     except Exception as e:
         logger.error(f"API error: {e}")
@@ -1365,7 +1366,45 @@ def email_settings():
         flash('E-postinnstillinger oppdatert!', 'success')
         return redirect(url_for('email_settings'))
     
-    return render_template('email_settings.html')
+    # Get email statistics
+    email_log = dm.load_data('email_log')
+    total_sent = len([e for e in email_log if e.get('status') == 'sent'])
+    total_failed = len([e for e in email_log if e.get('status') == 'failed'])
+    total_emails = len(email_log)
+    success_rate = round((total_sent / total_emails * 100) if total_emails > 0 else 0)
+    recent_emails = sorted(email_log, key=lambda x: x.get('timestamp', ''), reverse=True)[:10]
+    
+    email_stats = {
+        'total_sent': total_sent,
+        'total_failed': total_failed,
+        'success_rate': success_rate,
+        'recent_emails': recent_emails
+    }
+    
+    return render_template('email_settings.html', email_stats=email_stats, config=app.config)
+
+@app.route('/test-email', methods=['POST'])
+@login_required
+def test_email():
+    """Send test email"""
+    try:
+        email = request.form.get('email')
+        if not email:
+            flash('E-post adresse er påkrevet', 'error')
+            return redirect(url_for('email_settings'))
+        
+        # Send test email
+        success = email_service.send_test_email(email)
+        if success:
+            flash(f'Test-e-post sendt til {email}!', 'success')
+        else:
+            flash('Kunne ikke sende test-e-post', 'error')
+            
+    except Exception as e:
+        logger.error(f"Error sending test email: {e}")
+        flash('Feil ved sending av test-e-post', 'error')
+    
+    return redirect(url_for('email_settings'))
 
 # Offline page route
 @app.route('/offline')
