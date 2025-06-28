@@ -183,6 +183,8 @@ def as_datetime_filter(date_string):
     if not date_string:
         return None
     try:
+        if isinstance(date_string, datetime):
+            return date_string
         if isinstance(date_string, str):
             # Handle different date formats
             for fmt in ['%Y-%m-%d %H:%M:%S', '%Y-%m-%dT%H:%M:%S', '%Y-%m-%d %H:%M', '%Y-%m-%dT%H:%M:%S.%f']:
@@ -191,14 +193,34 @@ def as_datetime_filter(date_string):
                 except ValueError:
                     continue
         return date_string
-    except Exception:
+    except Exception as e:
+        logger.warning(f"as_datetime filter error: {e}")
         return None
+
+def strftime_filter(date_obj, format_string='%Y-%m-%d %H:%M'):
+    """Format datetime object to string"""
+    if not date_obj:
+        return 'Ikke satt'
+    try:
+        if isinstance(date_obj, str):
+            # If it's already a string, try to parse it first
+            date_obj = as_datetime_filter(date_obj)
+            if not date_obj:
+                return 'Ugyldig dato'
+        if hasattr(date_obj, 'strftime'):
+            return date_obj.strftime(format_string)
+        return str(date_obj)
+    except Exception as e:
+        logger.warning(f"strftime filter error: {e}")
+        return 'Ugyldig dato'
 
 # Register the filters
 app.template_filter('nl2br')(nl2br_filter)
 app.jinja_env.filters['nl2br'] = nl2br_filter
 app.template_filter('as_datetime')(as_datetime_filter)
 app.jinja_env.filters['as_datetime'] = as_datetime_filter
+app.template_filter('strftime')(strftime_filter)
+app.jinja_env.filters['strftime'] = strftime_filter
 
 # Add safe url_for function
 def safe_url_for(endpoint, **values):
@@ -210,9 +232,10 @@ def safe_url_for(endpoint, **values):
 
 app.jinja_env.globals['safe_url_for'] = safe_url_for
 
-# Verification prints
+# Verification prints (for debugging)
 print(f"🔧 nl2br filter registered: {'nl2br' in app.jinja_env.filters}")
 print(f"🔧 as_datetime filter registered: {'as_datetime' in app.jinja_env.filters}")
+print(f"🔧 strftime filter registered: {'strftime' in app.jinja_env.filters}")
 
 # Extensions
 csrf = CSRFProtect(app)
@@ -1239,7 +1262,33 @@ def focus_modes():
             current_focus_mode = user_data.get('focus_mode', 'normal')
             break
     
-    return render_template('focus_modes.html', current_focus_mode=current_focus_mode)
+    # Get available focus modes
+    try:
+        focus_modes_dict = FocusModeManager.get_all_modes()
+    except:
+        # Fallback if FocusModeManager doesn't work
+        focus_modes_dict = {
+            'normal': type('obj', (object,), {
+                'name': 'Normal',
+                'description': 'Standard modus for daglig bruk'
+            }),
+            'silent': type('obj', (object,), {
+                'name': 'Stillemodus', 
+                'description': 'Reduserte notifikasjoner'
+            }),
+            'adhd': type('obj', (object,), {
+                'name': 'ADHD-modus',
+                'description': 'Økt fokus og struktur'
+            }),
+            'elderly': type('obj', (object,), {
+                'name': 'Modus for eldre',
+                'description': 'Forenklet grensesnitt'
+            })
+        }
+    
+    return render_template('focus_modes.html', 
+                         current_focus_mode=current_focus_mode,
+                         focus_modes=focus_modes_dict)
 
 # Route verification (for debugging)
 # print("🔧 Registered routes:")

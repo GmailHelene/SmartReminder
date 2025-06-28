@@ -1,6 +1,6 @@
 {
-  "name": "Smart Påminner Pro",
-  "short_name": "Påminner Pro",
+  "name": "SmartReminder Pro",
+  "short_name": "SmartReminder",
   "description": "Smart påminnelser med deling og notifikasjoner",
   "start_url": "/",
   "display": "standalone",
