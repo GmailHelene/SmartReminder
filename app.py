@@ -212,11 +212,28 @@ def as_datetime_filter(date_string):
     except Exception:
         return None
 
+def strftime_filter(date_obj, format_string):
+    """Format datetime object using strftime"""
+    if not date_obj:
+        return ''
+    try:
+        if isinstance(date_obj, str):
+            # Convert string to datetime first
+            date_obj = as_datetime_filter(date_obj)
+        if date_obj:
+            return date_obj.strftime(format_string)
+        return ''
+    except Exception as e:
+        logger.warning(f"strftime filter error: {e}")
+        return str(date_obj) if date_obj else ''
+
 # Register the filters
 app.template_filter('nl2br')(nl2br_filter)
 app.jinja_env.filters['nl2br'] = nl2br_filter
 app.template_filter('as_datetime')(as_datetime_filter)
 app.jinja_env.filters['as_datetime'] = as_datetime_filter
+app.template_filter('strftime')(strftime_filter)
+app.jinja_env.filters['strftime'] = strftime_filter
 
 # Context processor for safe URL generation
 @app.context_processor
@@ -936,58 +953,99 @@ def send_calendar_invitation_email(reminder, shared_by, recipient_email, persona
     Send a calendar invitation (ICS) for a reminder via email.
     """
     from flask_mail import Message
-    import pytz
     from email.utils import formataddr
-    import base64
+    from flask import current_app
     
     # Prepare event details
     event_title = reminder.get('title', 'Påminnelse')
     event_description = reminder.get('description', '')
     event_start = reminder.get('datetime')
-    event_end = reminder.get('datetime')
     event_category = reminder.get('category', '')
     event_priority = reminder.get('priority', 'Medium')
     
-    # Parse start/end time
+    # Parse start/end time with better error handling
     try:
-        start_dt = datetime.strptime(event_start, '%Y-%m-%d %H:%M')
+        if isinstance(event_start, str):
+            start_dt = datetime.strptime(event_start, '%Y-%m-%d %H:%M')
+        else:
+            start_dt = datetime.now()
         end_dt = start_dt + timedelta(minutes=30)
-    except Exception:
+    except Exception as e:
+        logger.warning(f"Could not parse datetime '{event_start}': {e}")
         start_dt = datetime.now()
         end_dt = start_dt + timedelta(minutes=30)
     
-    # ICS content
-    dtstamp = start_dt.strftime('%Y%m%dT%H%M%SZ')
-    dtstart = start_dt.strftime('%Y%m%dT%H%M%SZ')
-    dtend = end_dt.strftime('%Y%m%dT%H%M%SZ')
-    uid = f"{reminder.get('id')}@smartreminder"
+    # Format for ICS (UTC time)
+    dtstamp = datetime.utcnow().strftime('%Y%m%dT%H%M%SZ')
+    dtstart = start_dt.strftime('%Y%m%dT%H%M%S')
+    dtend = end_dt.strftime('%Y%m%dT%H%M%S')
+    uid = f"{reminder.get('id', 'unknown')}@smartreminder"
     
-    ics = f"""BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//SmartReminder//EN\nCALSCALE:GREGORIAN\nBEGIN:VEVENT\nUID:{uid}\nDTSTAMP:{dtstamp}\nDTSTART:{dtstart}\nDTEND:{dtend}\nSUMMARY:{event_title}\nDESCRIPTION:{event_description}\nCATEGORIES:{event_category}\nPRIORITY:{'1' if event_priority=='Høy' else '5' if event_priority=='Medium' else '9'}\nEND:VEVENT\nEND:VCALENDAR"""
+    # Create properly formatted ICS file
+    ics_lines = [
+        "BEGIN:VCALENDAR",
+        "VERSION:2.0",
+        "PRODID:-//SmartReminder//SmartReminder Pro//NO",
+        "CALSCALE:GREGORIAN",
+        "METHOD:REQUEST",
+        "BEGIN:VEVENT",
+        f"UID:{uid}",
+        f"DTSTAMP:{dtstamp}",
+        f"DTSTART:{dtstart}",
+        f"DTEND:{dtend}",
+        f"SUMMARY:{event_title}",
+        f"DESCRIPTION:{event_description.replace(',', '\\,').replace(';', '\\;').replace('\\n', '\\n')}",
+        f"CATEGORIES:{event_category}",
+        f"PRIORITY:{'1' if event_priority=='Høy' else '5' if event_priority=='Medium' else '9'}",
+        f"ORGANIZER:MAILTO:{shared_by}",
+        f"ATTENDEE;CN={recipient_email};RSVP=TRUE:MAILTO:{recipient_email}",
+        "STATUS:CONFIRMED",
+        "TRANSP:OPAQUE",
+        "END:VEVENT",
+        "END:VCALENDAR"
+    ]
+    
+    ics = "\r\n".join(ics_lines)
+    
+    # Get base URL for the app link
+    base_url = current_app.config.get('SERVER_NAME') or 'smartremind-production.up.railway.app'
+    if not base_url.startswith('http'):
+        base_url = f"https://{base_url}"
     
     # Email body
     html_body = render_template(
         'emails/calendar_invitation.html',
         reminder=reminder,
         shared_by=shared_by,
-        personal_message=personal_message or ''
+        personal_message=personal_message or '',
+        app_url=base_url
     )
     
+    # Email sender configuration with fallback
+    mail_default_sender = current_app.config.get('MAIL_DEFAULT_SENDER') or current_app.config.get('MAIL_USERNAME') or shared_by
+    if not mail_default_sender:
+        mail_default_sender = 'noreply@smartreminder.com'
+    
     msg = Message(
-        subject=f"Delt kalenderhendelse: {event_title}",
+        subject=f"📅 Kalenderinvitasjon: {event_title}",
         recipients=[recipient_email],
         html=html_body
     )
-    msg.body = f"{event_title}\n\n{event_description}\n\nTid: {event_start}"
-    msg.sender = formataddr(("SmartReminder", current_app.config.get('MAIL_DEFAULT_SENDER', shared_by)))
+    msg.body = f"{event_title}\n\n{event_description}\n\nTid: {event_start}\n\nDenne kalenderinvitasjonen ble sendt av {shared_by} via SmartReminder Pro."
+    msg.sender = formataddr(("SmartReminder Pro", mail_default_sender))
     
-    # Attach ICS
+    # Attach ICS file
     msg.attach(
-        filename="invitasjon.ics",
+        filename="kalender_invitasjon.ics",
         content_type="text/calendar; charset=utf-8; method=REQUEST",
         data=ics
     )
     
-    mail.send(msg)
+    # Send email only if not suppressed for testing
+    if not current_app.config.get('MAIL_SUPPRESS_SEND', False):
+        mail.send(msg)
+    else:
+        logger.info(f"📧 Email sending suppressed for testing. Would send calendar invitation to {recipient_email}")
 
 # 📝 Noteboard Routes
 @app.route('/noteboards')
