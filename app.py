@@ -894,6 +894,117 @@ def add_reminder():
             flash('Feil ved opprettelse av påminnelse', 'error')
             return redirect(url_for('dashboard'))
 
+@app.route('/share_reminder', methods=['POST'])
+@login_required
+def share_reminder():
+    """Handle sharing reminders via email"""
+    try:
+        reminder_id = request.form.get('reminder_id')
+        email_addresses = request.form.get('email_addresses', '')
+        personal_message = request.form.get('personal_message', '')
+        
+        if not reminder_id or not email_addresses:
+            flash('Påminnelse ID og e-post adresser er påkrevd', 'error')
+            return redirect(url_for('dashboard'))
+        
+        # Find the reminder to share
+        reminders = dm.load_data('reminders')
+        reminder_to_share = None
+        for reminder in reminders:
+            if reminder['id'] == reminder_id and reminder['user_id'] == current_user.email:
+                reminder_to_share = reminder
+                break
+        
+        if not reminder_to_share:
+            flash('Påminnelse ikke funnet eller du har ikke tilgang', 'error')
+            return redirect(url_for('dashboard'))
+        
+        # Parse email addresses (split by comma, semicolon, or whitespace)
+        import re
+        emails = re.split(r'[,;\s]+', email_addresses.strip())
+        emails = [email.strip() for email in emails if email.strip()]
+        
+        if not emails:
+            flash('Ingen gyldig e-post adresser funnet', 'error')
+            return redirect(url_for('dashboard'))
+        
+        # Validate email addresses
+        valid_emails = []
+        for email in emails:
+            if '@' in email and '.' in email.split('@')[1]:
+                valid_emails.append(email)
+            else:
+                flash(f'Ugyldig e-post adresse: {email}', 'warning')
+        
+        if not valid_emails:
+            flash('Ingen gyldige e-post adresser å sende til', 'error')
+            return redirect(url_for('dashboard'))
+        
+        # Load shared reminders
+        shared_reminders = dm.load_data('shared_reminders')
+        shared_count = 0
+        
+        # Create shared reminder entries and send notifications
+        for email in valid_emails:
+            # Check if already shared with this email
+            already_shared = False
+            for shared in shared_reminders:
+                if (shared['original_id'] == reminder_id and 
+                    shared['shared_with'] == email):
+                    already_shared = True
+                    break
+            
+            if not already_shared:
+                # Create shared reminder entry
+                shared_reminder = {
+                    'id': str(uuid.uuid4()),
+                    'original_id': reminder_id,
+                    'user_id': reminder_to_share['user_id'],
+                    'shared_by': current_user.email,
+                    'shared_with': email,
+                    'title': reminder_to_share['title'],
+                    'description': reminder_to_share['description'],
+                    'datetime': reminder_to_share['datetime'],
+                    'priority': reminder_to_share['priority'],
+                    'category': reminder_to_share['category'],
+                    'completed': False,
+                    'shared_date': datetime.now().isoformat(),
+                    'personal_message': personal_message
+                }
+                
+                shared_reminders.append(shared_reminder)
+                
+                # Send notification email
+                try:
+                    email_sent = send_shared_reminder_notification(
+                        reminder_to_share, 
+                        current_user.email, 
+                        email
+                    )
+                    if email_sent:
+                        shared_count += 1
+                    else:
+                        flash(f'Kunne ikke sende e-post til {email}', 'warning')
+                except Exception as e:
+                    logger.error(f"Error sending email to {email}: {e}")
+                    flash(f'Feil ved sending av e-post til {email}', 'warning')
+            else:
+                flash(f'Påminnelse allerede delt med {email}', 'info')
+        
+        # Save shared reminders
+        if shared_count > 0:
+            dm.save_data('shared_reminders', shared_reminders)
+            flash(f'Påminnelse delt med {shared_count} person(er)', 'success')
+        else:
+            flash('Ingen nye delinger ble opprettet', 'info')
+        
+        return redirect(url_for('dashboard'))
+        
+    except Exception as e:
+        logger.error(f"Error sharing reminder: {e}")
+        flash('Feil ved deling av påminnelse', 'error')
+        return redirect(url_for('dashboard'))
+
 @app.route('/api/share-calendar-event', methods=['POST'])
 @login_required
 def api_share_calendar_event():
