@@ -742,8 +742,13 @@ function updateReminderDateTime(eventId, newStart, newEnd) {
             showToastNotification('❌ Kunne ikke oppdatere påminnelse: ' + (data.error || 'Ukjent feil'), 'error');
             // Revert calendar if needed
             if (window.calendar && typeof window.calendar.getEvents === 'function') {
-                window.calendar.removeAllEvents();
-                window.calendar.addEventSource(eventsData);
+                fetch('/api/calendar-events')
+                  .then(response => response.json())
+                  .then(events => {
+                      eventsData = events;
+                      window.calendar.removeAllEvents();
+                      window.calendar.addEventSource(eventsData);
+                  });
             }
         }
     })

@@ -1390,7 +1390,7 @@ def test_email():
     try:
         email = request.form.get('email')
         if not email:
-            flash('E-post adresse er påkrevet', 'error')
+            flash('E-post adresse er påkrevd', 'error')
             return redirect(url_for('email_settings'))
         
         # Send test email
@@ -1467,6 +1467,45 @@ def focus_modes():
     return render_template('focus_modes.html', 
                          current_focus_mode=current_focus_mode,
                          focus_modes=focus_modes_dict)
+
+@app.route('/api/calendar-events')
+@login_required
+def api_calendar_events():
+    """API endpoint to get all calendar events for the current user (my + shared)"""
+    my_reminders = dm.get_user_reminders(current_user.email)
+    shared_with_me = dm.get_shared_reminders(current_user.email)
+    events_json = []
+    for reminder in my_reminders:
+        color = '#dc3545' if reminder['priority'] == 'Høy' else '#fd7e14' if reminder['priority'] == 'Medium' else '#198754'
+        events_json.append({
+            'id': reminder['id'],
+            'title': reminder['title'],
+            'start': reminder['datetime'],
+            'backgroundColor': color,
+            'borderColor': color,
+            'extendedProps': {
+                'description': reminder.get('description', ''),
+                'category': reminder.get('category', ''),
+                'priority': reminder.get('priority', ''),
+                'type': 'my'
+            }
+        })
+    for reminder in shared_with_me:
+        events_json.append({
+            'id': f"shared_{reminder['id']}",
+            'title': f"{reminder['title']} ({reminder.get('shared_by', 'Ukjent')})",
+            'start': reminder['datetime'],
+            'backgroundColor': '#6f42c1',
+            'borderColor': '#6f42c1',
+            'extendedProps': {
+                'description': reminder.get('description', ''),
+                'category': reminder.get('category', ''),
+                'priority': reminder.get('priority', ''),
+                'sharedBy': reminder.get('shared_by', ''),
+                'type': 'shared'
+            }
+        })
+    return jsonify(events_json)
 
 # Route verification (for debugging)
 # print("🔧 Registered routes:")
