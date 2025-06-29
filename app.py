@@ -619,17 +619,17 @@ def dashboard():
     shared_reminders = dm.load_data('shared_reminders')
     users = dm.load_data('users')
     
-    # Filtrer påminnelser
-    my_reminders = [r for r in reminders if r['user_id'] == current_user.email and not r['completed']]
-    shared_with_me = [r for r in shared_reminders if r['shared_with'] == current_user.email and not r['completed']]
+    # Filtrer påminnelser (safely handle missing completed field)
+    my_reminders = [r for r in reminders if r.get('user_id') == current_user.email and not r.get('completed', False)]
+    shared_with_me = [r for r in shared_reminders if r.get('shared_with') == current_user.email and not r.get('completed', False)]
     
     # Sorter etter dato
     my_reminders.sort(key=lambda x: x['datetime'])
     shared_with_me.sort(key=lambda x: x['datetime'])
     
-    # Statistikk
-    total_my = len([r for r in reminders if r['user_id'] == current_user.email])
-    completed_my = len([r for r in reminders if r['user_id'] == current_user.email and r['completed']])
+    # Statistikk (safely handle missing completed field)
+    total_my = len([r for r in reminders if r.get('user_id') == current_user.email])
+    completed_my = len([r for r in reminders if r.get('user_id') == current_user.email and r.get('completed', False)])
     completion_rate = (completed_my / total_my * 100) if total_my > 0 else 0
     
     # Tilgjengelige brukere for deling
@@ -1476,40 +1476,59 @@ def focus_modes():
 @login_required
 def api_calendar_events():
     """API endpoint to get all calendar events for the current user (my + shared)"""
-    my_reminders = dm.get_user_reminders(current_user.email)
-    shared_with_me = dm.get_shared_reminders(current_user.email)
-    events_json = []
-    for reminder in my_reminders:
-        color = '#dc3545' if reminder['priority'] == 'Høy' else '#fd7e14' if reminder['priority'] == 'Medium' else '#198754'
-        events_json.append({
-            'id': reminder['id'],
-            'title': reminder['title'],
-            'start': reminder['datetime'],
-            'backgroundColor': color,
-            'borderColor': color,
-            'extendedProps': {
-                'description': reminder.get('description', ''),
-                'category': reminder.get('category', ''),
-                'priority': reminder.get('priority', ''),
-                'type': 'my'
-            }
-        })
-    for reminder in shared_with_me:
-        events_json.append({
-            'id': f"shared_{reminder['id']}",
-            'title': f"{reminder['title']} ({reminder.get('shared_by', 'Ukjent')})",
-            'start': reminder['datetime'],
-            'backgroundColor': '#6f42c1',
-            'borderColor': '#6f42c1',
-            'extendedProps': {
-                'description': reminder.get('description', ''),
-                'category': reminder.get('category', ''),
-                'priority': reminder.get('priority', ''),
-                'sharedBy': reminder.get('shared_by', ''),
-                'type': 'shared'
-            }
-        })
-    return jsonify(events_json)
+    try:
+        # Get all reminders
+        all_reminders = dm.load_data('reminders')
+        shared_reminders = dm.load_data('shared_reminders')
+        
+        # Filter for current user's reminders
+        my_reminders = [r for r in all_reminders if r.get('user_id') == current_user.email]
+        
+        # Filter shared reminders that are shared with current user
+        shared_with_me = [r for r in shared_reminders if r.get('shared_with') == current_user.email]
+        
+        events_json = []
+        
+        # Add my reminders
+        for reminder in my_reminders:
+            color = '#dc3545' if reminder['priority'] == 'Høy' else '#fd7e14' if reminder['priority'] == 'Medium' else '#198754'
+            events_json.append({
+                'id': reminder['id'],
+                'title': reminder['title'],
+                'start': reminder['datetime'],
+                'backgroundColor': color,
+                'borderColor': color,
+                'extendedProps': {
+                    'description': reminder.get('description', ''),
+                    'category': reminder.get('category', ''),
+                    'priority': reminder.get('priority', ''),
+                    'type': 'my'
+                }
+            })
+        
+        # Add shared reminders
+        for reminder in shared_with_me:
+            events_json.append({
+                'id': f"shared_{reminder['id']}",
+                'title': f"{reminder['title']} ({reminder.get('shared_by', 'Ukjent')})",
+                'start': reminder['datetime'],
+                'backgroundColor': '#6f42c1',
+                'borderColor': '#6f42c1',
+                'extendedProps': {
+                    'description': reminder.get('description', ''),
+                    'category': reminder.get('category', ''),
+                    'priority': reminder.get('priority', ''),
+                    'sharedBy': reminder.get('shared_by', ''),
+                    'type': 'shared'
+                }
+            })
+        
+        logger.info(f"Calendar API: Returning {len(events_json)} events for user {current_user.email}")
+        return jsonify(events_json)
+        
+    except Exception as e:
+        logger.error(f"Error in calendar API: {e}")
+        return jsonify({'error': 'Failed to load calendar events'}), 500
 
 # Add URL security check to prevent JSON data in URLs
 @app.before_request

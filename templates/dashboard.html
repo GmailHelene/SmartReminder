@@ -449,11 +449,30 @@ document.addEventListener('DOMContentLoaded', function() {
         aspectRatio: window.innerWidth < 768 ? 1.2 : 1.35,
         events: {
             url: '/api/calendar-events',
-            failure: function() {
-                console.error('Failed to load calendar events');
+            failure: function(error) {
+                console.error('Failed to load calendar events:', error);
+                
+                // Show detailed error information
+                const fallbackEl = document.getElementById('calendar-fallback');
+                if (fallbackEl) {
+                    fallbackEl.innerHTML = `
+                        <div class="text-center p-4">
+                            <i class="fas fa-exclamation-triangle fa-3x text-warning mb-3"></i>
+                            <h5>Kunne ikke laste kalenderdata</h5>
+                            <p class="text-muted">API-feil: ${error.status || 'Ukjent feil'}</p>
+                            <p class="text-muted small">Sjekk nettverkstilkoblingen eller prøv igjen senere.</p>
+                            <button class="btn btn-primary btn-sm" onclick="location.reload()">
+                                <i class="fas fa-refresh"></i> Prøv igjen
+                            </button>
+                        </div>
+                    `;
+                    fallbackEl.style.display = 'block';
+                }
+                
                 // Hide loading indicator
                 const loadingEl = document.getElementById('calendar-loading');
                 if (loadingEl) loadingEl.style.display = 'none';
+                
                 // Continue with empty calendar rather than white screen
                 return [];
             }
@@ -1078,5 +1097,15 @@ function showToastNotification(message, type = 'info') {
         }
     }, 5000);
 }
+
+// Kalender fallback: vis feilmelding hvis lasting tar for lang tid
+setTimeout(function() {
+    const loadingEl = document.getElementById('calendar-loading');
+    const calendarEl = document.getElementById('calendar');
+    if (loadingEl && loadingEl.style.display !== 'none') {
+        loadingEl.innerHTML = '<div class="alert alert-danger mt-3">Kunne ikke laste kalender-data. Sjekk innlogging eller prøv å laste siden på nytt.</div>';
+        if (calendarEl) calendarEl.style.display = 'none';
+    }
+}, 7000);
 </script>
 {% endblock %}
