@@ -249,6 +249,19 @@
                     </div>
                     <p class="mt-2 text-muted">Laster kalender...</p>
                 </div>
+                
+                <!-- Mobile calendar fallback -->
+                <div id="calendar-fallback" class="text-center p-4" style="display: none; min-height: 400px; background: white; border: 1px solid #dee2e6; border-radius: 0.375rem;">
+                    <div class="mt-5">
+                        <i class="fas fa-calendar-alt fa-3x text-muted mb-3"></i>
+                        <h5 class="text-muted">Kalender utilgjengelig</h5>
+                        <p class="text-muted small">Kalenderen kunne ikke lastes. Prøv å oppdatere siden.</p>
+                        <button onclick="location.reload()" class="btn btn-outline-primary btn-sm">
+                            <i class="fas fa-refresh"></i> Oppdater side
+                        </button>
+                    </div>
+                </div>
+                
                 <div id="calendar" style="min-height: 400px; background: white;"></div>
             </div>
         </div>
@@ -447,10 +460,24 @@ document.addEventListener('DOMContentLoaded', function() {
         },
         loading: function(isLoading) {
             const loadingEl = document.getElementById('calendar-loading');
+            const fallbackEl = document.getElementById('calendar-fallback');
+            
             if (loadingEl) {
                 loadingEl.style.display = isLoading ? 'block' : 'none';
             }
+            
             console.log('Calendar loading:', isLoading);
+            
+            // Mobile-specific loading timeout check
+            if (isLoading && window.innerWidth < 768) {
+                setTimeout(() => {
+                    if (loadingEl && loadingEl.style.display !== 'none') {
+                        console.warn('Calendar taking too long to load on mobile, showing fallback');
+                        loadingEl.style.display = 'none';
+                        if (fallbackEl) fallbackEl.style.display = 'block';
+                    }
+                }, 10000); // 10 second timeout
+            }
         },
         headerToolbar: {
             left: window.innerWidth < 768 ? 'prev,next' : 'prev,next today',
@@ -498,21 +525,74 @@ document.addEventListener('DOMContentLoaded', function() {
     calendar.render();
     window.calendar = calendar;
     
-    // Debug logging for mobile calendar issues
+    // Enhanced mobile calendar debugging and fixes
+    const isMobile = window.innerWidth < 768;
     console.log('Calendar initialized:', {
         width: window.innerWidth,
         height: window.innerHeight,
-        isMobile: window.innerWidth < 768,
+        isMobile: isMobile,
         calendarElement: calendarEl,
-        calendarHeight: calendar.getOption('height')
+        calendarHeight: calendar.getOption('height'),
+        calendarView: calendar.view.type
     });
     
-    // Force a re-render on mobile after a short delay
-    if (window.innerWidth < 768) {
+    // Force calendar to be visible on mobile with multiple render attempts
+    if (isMobile) {
+        console.log('Applying mobile calendar fixes...');
+        
+        // Immediate fixes
+        calendarEl.style.minHeight = '400px';
+        calendarEl.style.background = 'white';
+        calendarEl.style.display = 'block';
+        calendarEl.style.visibility = 'visible';
+        
+        // Multiple render attempts for mobile
         setTimeout(() => {
-            console.log('Mobile calendar re-render');
+            console.log('Mobile calendar render attempt 1');
             calendar.updateSize();
             calendar.render();
+        }, 100);
+        
+        setTimeout(() => {
+            console.log('Mobile calendar render attempt 2');
+            calendar.updateSize();
+            
+            // Force show calendar if still not visible
+            const fcView = calendarEl.querySelector('.fc-view-harness');
+            if (fcView) {
+                fcView.style.background = 'white';
+                fcView.style.minHeight = '400px';
+                fcView.style.display = 'block';
+            }
+        }, 500);
+        
+        setTimeout(() => {
+            console.log('Mobile calendar render attempt 3');
+            
+            // Final check and force visibility
+            const fcElements = calendarEl.querySelectorAll('.fc, .fc-view-harness, .fc-scrollgrid');
+            fcElements.forEach(el => {
+                el.style.background = 'white';
+                el.style.display = 'block';
+                el.style.visibility = 'visible';
+            });
+            
+            calendar.updateSize();
+            
+            // Final visibility check - if calendar is still not properly visible, show fallback
+            setTimeout(() => {
+                const fcView = calendarEl.querySelector('.fc-view-harness');
+                const fcScrollGrid = calendarEl.querySelector('.fc-scrollgrid');
+                
+                if (!fcView || !fcScrollGrid || fcView.offsetHeight < 50) {
+                    console.warn('Calendar still not visible after all attempts, showing fallback');
+                    const fallbackEl = document.getElementById('calendar-fallback');
+                    if (fallbackEl) {
+                        calendarEl.style.display = 'none';
+                        fallbackEl.style.display = 'block';
+                    }
+                }
+            }, 500);
         }, 1000);
     }
     
