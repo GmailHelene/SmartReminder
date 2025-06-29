@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, session
+from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, session, abort
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
 from flask_mail import Mail, Message
 from flask_wtf import FlaskForm
@@ -795,12 +795,16 @@ def api_update_reminder_datetime():
 def add_reminder():
     """Handle both form and JSON requests for creating reminders"""
     try:
+        logger.info(f"add_reminder called - is_json: {request.is_json}, content_type: {request.content_type}")
+        
         # Check if it's a JSON request (from calendar)
         if request.is_json:
             data = request.get_json()
+            logger.info(f"JSON data received: {data}")
             
             # Validate required fields
             if not data.get('title') or not data.get('date') or not data.get('time'):
+                logger.warning(f"Missing required fields in JSON data: {data}")
                 return jsonify({'success': False, 'error': 'Missing required fields'}), 400
             
             # Create reminder from JSON data
@@ -1506,6 +1510,43 @@ def api_calendar_events():
             }
         })
     return jsonify(events_json)
+
+# Add URL security check to prevent JSON data in URLs
+@app.before_request
+def check_malformed_urls():
+    """Check for malformed URLs that might contain JSON data"""
+    path = request.path
+    # Check if URL contains JSON-like patterns that should not be in URLs
+    if path.startswith('/[{') or '"id":' in path or '{"title":' in path:
+        logger.warning(f"Malformed URL detected: {path} from IP: {request.remote_addr}")
+        logger.warning(f"Request method: {request.method}, User-Agent: {request.headers.get('User-Agent', 'Unknown')}")
+        logger.warning(f"Referer: {request.headers.get('Referer', 'Unknown')}")
+        
+        # If this looks like calendar data that got misrouted, redirect to dashboard
+        if current_user.is_authenticated:
+            flash('Det oppstod et problem med forespørselen. Prøv igjen.', 'warning')
+            return redirect(url_for('dashboard'))
+        else:
+            return redirect(url_for('index'))
+
+# Fallback route for malformed URLs that might contain JSON data
+@app.route('/<path:path>')
+def catch_malformed_urls(path):
+    """Catch-all route for malformed URLs"""
+    # Check if this looks like misrouted JSON data
+    if path.startswith('[{') or '"id":' in path or '{"title":' in path:
+        logger.warning(f"Caught malformed URL: /{path}")
+        logger.warning(f"User: {current_user.email if current_user.is_authenticated else 'Anonymous'}")
+        logger.warning(f"User-Agent: {request.headers.get('User-Agent', 'Unknown')}")
+        
+        if current_user.is_authenticated:
+            flash('URL-feil oppdaget. Du er omdirigert til dashboard.', 'warning')
+            return redirect(url_for('dashboard'))
+        else:
+            return redirect(url_for('index'))
+    
+    # For other 404s, show normal error page
+    abort(404)
 
 # Route verification (for debugging)
 # print("🔧 Registered routes:")

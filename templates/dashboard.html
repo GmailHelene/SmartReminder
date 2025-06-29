@@ -300,7 +300,7 @@
                 <h5 class="modal-title">⚡ Hurtig påminnelse</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
-            <form id="quickReminderForm">
+            <form id="quickReminderForm" action="/add_reminder" method="POST">
                 <div class="modal-body">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <input type="hidden" id="quickDate" name="date">
@@ -403,17 +403,19 @@
 <script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.js'></script>
 
 <script>
-// Prepare events data from server-side
-var eventsData = {{ events_json|tojson|safe }};
-
 // Calendar initialization
 document.addEventListener('DOMContentLoaded', function() {
     var calendarEl = document.getElementById('calendar');
     
+    // Prevent multiple calendar initialization
+    if (window.calendar) {
+        window.calendar.destroy();
+    }
+    
     var calendar = new FullCalendar.Calendar(calendarEl, {
         initialView: 'dayGridMonth',
         height: 600,
-        events: eventsData,
+        events: '/api/calendar-events',
         headerToolbar: {
             left: 'prev,next today',
             center: 'title',
@@ -448,7 +450,7 @@ document.addEventListener('DOMContentLoaded', function() {
         eventDidMount: function(info) {
             // Add tooltip and context menu
             info.el.setAttribute('title', info.event.extendedProps.description || '');
- x             
+             
             // Legg til høyreklikk for deling
             info.el.addEventListener('contextmenu', function(e) {
                 e.preventDefault();
@@ -472,6 +474,13 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     });
+    
+    // Quick reminder form event listener (only add once)
+    const quickForm = document.getElementById('quickReminderForm');
+    if (quickForm && !quickForm.hasAttribute('data-listener-added')) {
+        quickForm.setAttribute('data-listener-added', 'true');
+        quickForm.addEventListener('submit', handleQuickReminderSubmit);
+    }
 });
 
 // Share reminder function
@@ -528,20 +537,38 @@ setInterval(updateReminderCount, 300000);
 function showQuickReminderModal(startDate, endDate, allDay) {
     const modal = new bootstrap.Modal(document.getElementById('quickReminderModal'));
     
+    // Ensure we have valid dates
+    if (!startDate) {
+        console.error('showQuickReminderModal called without startDate');
+        return;
+    }
+    
     // Set date and time values
     const date = new Date(startDate);
+    if (isNaN(date.getTime())) {
+        console.error('Invalid date provided to showQuickReminderModal:', startDate);
+        return;
+    }
+    
     const dateStr = date.toISOString().split('T')[0];
     const timeStr = allDay ? '09:00' : date.toTimeString().slice(0, 5);
     
     document.getElementById('quickDate').value = dateStr;
     document.getElementById('quickTime').value = timeStr;
-    document.getElementById('selectedDateDisplay').textContent = 
-        date.toLocaleDateString('nb-NO', { 
-            weekday: 'long', 
-            year: 'numeric', 
-            month: 'long', 
-            day: 'numeric' 
-        }) + (allDay ? '' : ` kl. ${timeStr}`);
+    
+    // Safe date formatting
+    try {
+        document.getElementById('selectedDateDisplay').textContent = 
+            date.toLocaleDateString('nb-NO', { 
+                weekday: 'long', 
+                year: 'numeric', 
+                month: 'long', 
+                day: 'numeric' 
+            }) + (allDay ? '' : ` kl. ${timeStr}`);
+    } catch (e) {
+        console.error('Error formatting date:', e);
+        document.getElementById('selectedDateDisplay').textContent = `${dateStr} ${timeStr}`;
+    }
     
     // Clear form
     document.getElementById('quickTitle').value = '';
@@ -741,23 +768,16 @@ function updateReminderDateTime(eventId, newStart, newEnd) {
         } else {
             showToastNotification('❌ Kunne ikke oppdatere påminnelse: ' + (data.error || 'Ukjent feil'), 'error');
             // Revert calendar if needed
-            if (window.calendar && typeof window.calendar.getEvents === 'function') {
-                fetch('/api/calendar-events')
-                  .then(response => response.json())
-                  .then(events => {
-                      eventsData = events;
-                      window.calendar.removeAllEvents();
-                      window.calendar.addEventSource(eventsData);
-                  });
+            if (window.calendar) {
+                window.calendar.refetchEvents();
             }
         }
     })
     .catch(error => {
         console.error('Error updating reminder:', error);
         showToastNotification('❌ Feil ved oppdatering: ' + error.message, 'error');
-        if (window.calendar && typeof window.calendar.getEvents === 'function') {
-            window.calendar.removeAllEvents();
-            window.calendar.addEventSource(eventsData);
+        if (window.calendar) {
+            window.calendar.refetchEvents();
         }
     });
 }
@@ -772,9 +792,8 @@ function completeReminder(reminderId) {
     .then(response => {
         if (response.ok) {
             showToastNotification('✅ Påminnelse fullført!', 'success');
-            if (window.calendar && typeof window.calendar.getEvents === 'function') {
-                window.calendar.removeAllEvents();
-                window.calendar.addEventSource(eventsData);
+            if (window.calendar) {
+                window.calendar.refetchEvents();
             }
             // Update reminder count instead of reloading
             updateReminderCount();
@@ -788,15 +807,40 @@ function completeReminder(reminderId) {
     });
 }
 
-// Quick reminder form submission
-document.getElementById('quickReminderForm').addEventListener('submit', function(e) {
+// Quick reminder form submission handler
+function handleQuickReminderSubmit(e) {
     e.preventDefault();
+    e.stopPropagation();
     
-    const formData = new FormData(this);
+    const form = e.target;
+    const formData = new FormData(form);
     const data = Object.fromEntries(formData.entries());
     
+    // Validate required fields
+    if (!data.title || !data.date || !data.time) {
+        showToastNotification('❌ Tittel, dato og tid er påkrevd', 'error');
+        return false;
+    }
+    
+    // Extra validation for data integrity
+    if (data.title.length > 200) {
+        showToastNotification('❌ Tittel er for lang (maks 200 tegn)', 'error');
+        return false;
+    }
+    
     // Get CSRF token specifically from this form
-    const csrfToken = this.querySelector('[name=csrf_token]').value;
+    const csrfToken = form.querySelector('[name=csrf_token]').value;
+    if (!csrfToken) {
+        showToastNotification('❌ Sikkerhetsfeil - prøv å last siden på nytt', 'error');
+        return false;
+    }
+    
+    // Disable submit button to prevent double submission
+    const submitBtn = form.querySelector('button[type="submit"]');
+    if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Oppretter...';
+    }
     
     fetch('/add_reminder', {
         method: 'POST',
@@ -816,9 +860,10 @@ document.getElementById('quickReminderForm').addEventListener('submit', function
         if (data.success) {
             showToastNotification('✅ Påminnelse opprettet!', 'success');
             bootstrap.Modal.getInstance(document.getElementById('quickReminderModal')).hide();
-            if (window.calendar && typeof window.calendar.getEvents === 'function') {
-                window.calendar.removeAllEvents();
-                window.calendar.addEventSource(eventsData);
+            
+            // Properly refresh calendar events
+            if (window.calendar) {
+                window.calendar.refetchEvents();
             }
             // Update reminder count
             updateReminderCount();
@@ -829,8 +874,20 @@ document.getElementById('quickReminderForm').addEventListener('submit', function
     .catch(error => {
         console.error('Error creating reminder:', error);
         showToastNotification('❌ Feil ved opprettelse: ' + error.message, 'error');
+    })
+    .finally(() => {
+        // Re-enable submit button
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '<i class="fas fa-plus"></i> Opprett påminnelse';
+        }
     });
-});
+    
+    return false; // Extra safety
+}
+
+// Deprecated - keeping old listener removal for safety
+document.getElementById('quickReminderForm')?.removeEventListener('submit', handleQuickReminderSubmit);
 
 // Notification function (if not already defined)
 function showToastNotification(message, type = 'info') {
