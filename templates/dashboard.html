@@ -404,7 +404,7 @@
 
 <script>
 // Prepare events data from server-side
-var eventsData = {{ events_json|safe }};
+var eventsData = {{ events_json|tojson|safe }};
 
 // Calendar initialization
 document.addEventListener('DOMContentLoaded', function() {
@@ -458,6 +458,7 @@ document.addEventListener('DOMContentLoaded', function() {
     });
     
     calendar.render();
+    window.calendar = calendar;
     
     // Calendar view switcher
     document.querySelectorAll('input[name="calendarView"]').forEach(radio => {
@@ -740,13 +741,19 @@ function updateReminderDateTime(eventId, newStart, newEnd) {
         } else {
             showToastNotification('❌ Kunne ikke oppdatere påminnelse: ' + (data.error || 'Ukjent feil'), 'error');
             // Revert calendar if needed
-            calendar.refetchEvents();
+            if (window.calendar && typeof window.calendar.getEvents === 'function') {
+                window.calendar.removeAllEvents();
+                window.calendar.addEventSource(eventsData);
+            }
         }
     })
     .catch(error => {
         console.error('Error updating reminder:', error);
         showToastNotification('❌ Feil ved oppdatering: ' + error.message, 'error');
-        calendar.refetchEvents();
+        if (window.calendar && typeof window.calendar.getEvents === 'function') {
+            window.calendar.removeAllEvents();
+            window.calendar.addEventSource(eventsData);
+        }
     });
 }
 
@@ -760,7 +767,10 @@ function completeReminder(reminderId) {
     .then(response => {
         if (response.ok) {
             showToastNotification('✅ Påminnelse fullført!', 'success');
-            calendar.refetchEvents();
+            if (window.calendar && typeof window.calendar.getEvents === 'function') {
+                window.calendar.removeAllEvents();
+                window.calendar.addEventSource(eventsData);
+            }
             // Update reminder count instead of reloading
             updateReminderCount();
         } else {
@@ -801,7 +811,10 @@ document.getElementById('quickReminderForm').addEventListener('submit', function
         if (data.success) {
             showToastNotification('✅ Påminnelse opprettet!', 'success');
             bootstrap.Modal.getInstance(document.getElementById('quickReminderModal')).hide();
-            calendar.refetchEvents();
+            if (window.calendar && typeof window.calendar.getEvents === 'function') {
+                window.calendar.removeAllEvents();
+                window.calendar.addEventSource(eventsData);
+            }
             // Update reminder count
             updateReminderCount();
         } else {
