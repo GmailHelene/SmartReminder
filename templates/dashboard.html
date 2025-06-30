@@ -422,100 +422,133 @@
 <script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.js'></script>
 
 <script>
-// Check if user is authenticated before initializing calendar
-function checkUserAuthentication() {
-    // Simple way to check if user is logged in by testing a protected endpoint
-    return fetch('/api/reminder-count', {
-        method: 'GET',
-        credentials: 'same-origin'
-    }).then(response => {
-        return response.ok; // Will be true if user is authenticated
-    }).catch(() => {
-        return false; // Assume not authenticated if request fails
-    });
-}
-
-// Calendar data loading function
-async function loadCalendarEvents() {
-    // Show loading indicator
+// Simplified calendar initialization - no complex auth checking
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('🎯 Starting simplified calendar initialization...');
+    
+    const calendarEl = document.getElementById('calendar');
     const loadingEl = document.getElementById('calendar-loading');
     const fallbackEl = document.getElementById('calendar-fallback');
     
-    if (loadingEl) loadingEl.style.display = 'block';
-    if (fallbackEl) fallbackEl.style.display = 'none';
+    if (!calendarEl) {
+        console.error('❌ Calendar element not found');
+        return;
+    }
     
-    try {
-        console.log('Loading calendar events...');
-        const response = await fetch('/api/calendar-events', {
-            method: 'GET',
-            credentials: 'same-origin', // Include cookies for authentication
-            headers: {
-                'Content-Type': 'application/json',
-                'X-Requested-With': 'XMLHttpRequest'
+    // Show loading initially
+    if (loadingEl) {
+        loadingEl.style.display = 'block';
+    }
+    
+    // Hide fallback initially  
+    if (fallbackEl) {
+        fallbackEl.style.display = 'none';
+    }
+    
+    // Initialize calendar with direct URL
+    const calendar = new FullCalendar.Calendar(calendarEl, {
+        initialView: 'dayGridMonth',
+        height: window.innerWidth < 768 ? 400 : 600,
+        
+        // Simple events loading
+        events: '/api/calendar-events',
+        
+        // Loading callback
+        loading: function(isLoading) {
+            console.log('📅 Calendar loading state:', isLoading);
+            if (loadingEl) {
+                loadingEl.style.display = isLoading ? 'block' : 'none';
             }
-        });
+        },
         
-        console.log('Calendar API response status:', response.status);
-        
-        if (!response.ok) {
-            // Check if it's an authentication error
-            if (response.status === 401 || response.status === 302) {
-                throw new Error('AUTHENTICATION_REQUIRED');
-            }
-            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-        }
-        
-        const events = await response.json();
-        console.log('Calendar events loaded:', events.length);
-        
-        // Hide loading indicator on success
-        if (loadingEl) loadingEl.style.display = 'none';
-        
-        return events;
-        
-    } catch (error) {
-        console.error('Error loading calendar events:', error);
-        
-        // Show error message to user
-        if (fallbackEl) {
-            if (error.message === 'AUTHENTICATION_REQUIRED') {
+        // Event source error callback
+        eventSourceFailure: function(error) {
+            console.error('❌ Calendar event loading failed:', error);
+            if (fallbackEl) {
                 fallbackEl.innerHTML = `
-                    <div class="text-center p-4">
-                        <i class="fas fa-lock fa-3x text-danger mb-3"></i>
-                        <h5>Du må logge inn</h5>
-                        <p class="text-muted">Kalenderen krever innlogging for å laste data.</p>
-                        <div class="d-flex gap-2 justify-content-center">
-                            <button class="btn btn-primary btn-sm" onclick="location.reload()">
-                                <i class="fas fa-refresh"></i> Last på nytt
-                            </button>
-                            <a href="/login" class="btn btn-secondary btn-sm">
-                                <i class="fas fa-sign-in-alt"></i> Logg inn
-                            </a>
-                        </div>
-                    </div>
-                `;
-            } else {
-                fallbackEl.innerHTML = `
-                    <div class="text-center p-4">
+                    <div class="text-center p-4 mt-5">
                         <i class="fas fa-exclamation-triangle fa-3x text-warning mb-3"></i>
-                        <h5>Kunne ikke laste kalenderdata</h5>
-                        <p class="text-muted">Feil: ${error.message}</p>
-                        <p class="text-muted small">Kontroller at du er logget inn og prøv igjen.</p>
-                        <button class="btn btn-primary btn-sm" onclick="location.reload()">
-                            <i class="fas fa-refresh"></i> Prøv igjen
+                        <h5 class="text-muted">Kunne ikke laste kalenderdata</h5>
+                        <p class="text-muted small">Sjekk at du er logget inn og prøv igjen.</p>
+                        <button onclick="location.reload()" class="btn btn-outline-primary btn-sm">
+                            <i class="fas fa-refresh"></i> Last på nytt
                         </button>
                     </div>
                 `;
+                fallbackEl.style.display = 'block';
             }
-            fallbackEl.style.display = 'block';
+            if (loadingEl) {
+                loadingEl.style.display = 'none';
+            }
+        },
+        
+        // Basic responsive header
+        headerToolbar: {
+            left: window.innerWidth < 768 ? 'prev,next' : 'prev,next today',
+            center: 'title',
+            right: window.innerWidth < 768 ? 'dayGridMonth' : 'dayGridMonth,timeGridWeek,timeGridDay'
+        },
+        
+        // Enable interactions
+        selectable: true,
+        editable: true,
+        
+        // Event handlers
+        dateClick: function(info) {
+            console.log('📅 Date clicked:', info.dateStr);
+            showQuickReminderModal(info.date, null, true);
+        },
+        
+        eventClick: function(info) {
+            console.log('📋 Event clicked:', info.event.title);
+            showEventDetailsModal(info.event);
         }
-        
-        // Hide loading indicator
-        if (loadingEl) loadingEl.style.display = 'none';
-        
-        return [];
+    });
+    
+    // Render calendar
+    console.log('🎨 Rendering calendar...');
+    calendar.render();
+    
+    // Store globally for other functions
+    window.calendar = calendar;
+    
+    // Force visibility for mobile
+    if (window.innerWidth < 768) {
+        setTimeout(() => {
+            console.log('📱 Applying mobile calendar fixes...');
+            calendarEl.style.minHeight = '400px';
+            calendarEl.style.background = 'white';
+            calendarEl.style.display = 'block';
+            calendarEl.style.visibility = 'visible';
+            calendar.updateSize();
+        }, 500);
     }
-}
+    
+    // Timeout fallback - show error if calendar doesn't load within 10 seconds
+    setTimeout(() => {
+        if (loadingEl && loadingEl.style.display !== 'none') {
+            console.warn('⏰ Calendar loading timeout - showing fallback');
+            if (fallbackEl) {
+                fallbackEl.innerHTML = `
+                    <div class="text-center p-4 mt-5">
+                        <i class="fas fa-clock fa-3x text-warning mb-3"></i>
+                        <h5 class="text-muted">Kalenderen tar litt tid å laste</h5>
+                        <p class="text-muted small">Prøv å oppdatere siden hvis problemet vedvarer.</p>
+                        <button onclick="location.reload()" class="btn btn-outline-primary btn-sm">
+                            <i class="fas fa-refresh"></i> Oppdater siden
+                        </button>
+                    </div>
+                `;
+                fallbackEl.style.display = 'block';
+            }
+            if (loadingEl) {
+                loadingEl.style.display = 'none';
+            }
+        }
+    }, 10000);
+    
+    console.log('✅ Calendar initialization completed');
+});
 
 // Calendar initialization
 document.addEventListener('DOMContentLoaded', function() {
@@ -774,8 +807,8 @@ function initializeCalendar() {
         quickForm.setAttribute('data-listener-added', 'true');
         quickForm.addEventListener('submit', handleQuickReminderSubmit);
     }
-});
-
+}
+    
 // Share reminder function
 function shareReminder(reminderId, reminderTitle) {
     document.getElementById('shareReminderIdInput').value = reminderId;
