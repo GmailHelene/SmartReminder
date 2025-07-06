@@ -99,14 +99,22 @@ function doBackgroundSync() {
 
 // Push notifications
 self.addEventListener('push', event => {
+  let data = {};
+  try {
+    data = event.data.json();
+  } catch {
+    data = { body: event.data ? event.data.text() : 'Ny påminnelse!' };
+  }
+  const badgeCount = data.badgeCount || 1;
   const options = {
-    body: event.data ? event.data.text() : 'Ny påminnelse!',
+    body: data.body || 'Ny påminnelse!',
     icon: '/static/images/icon-192x192.png',
-    badge: '/static/images/icon-192x192.png',
+    badge: '/static/images/badge-96x96.png',
     vibrate: [100, 50, 100],
     data: {
       dateOfArrival: Date.now(),
-      primaryKey: 1
+      primaryKey: 1,
+      badgeCount: badgeCount
     },
     actions: [
       {
@@ -121,7 +129,6 @@ self.addEventListener('push', event => {
       }
     ]
   };
-  
   event.waitUntil(
     self.registration.showNotification('Smart Påminner Pro', options)
   );

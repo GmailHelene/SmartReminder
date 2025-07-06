@@ -181,6 +181,29 @@ class StudyMode(FocusMode):
             }
         )
 
+class DrivingSchoolMode(FocusMode):
+    """Kjøreskolemodus - Eier og instruktører kan sende påminnelser til hverandre"""
+    def __init__(self):
+        super().__init__(
+            name="Kjøreskolemodus",
+            description="Eier og instruktører kan sende påminnelser til hverandre. Spesialtilpasset for kjøreskoler.",
+            settings={
+                'notifications': {
+                    'email_enabled': True,
+                    'sound_enabled': True,
+                    'allow_instructor_to_owner': True,
+                    'allow_owner_to_instructor': True
+                },
+                'display': {
+                    'show_instructor_tools': True,
+                    'show_owner_tools': True
+                }
+            }
+        )
+    def apply_to_reminders(self, reminders):
+        # Ingen spesiell filtrering, men kan utvides
+        return reminders
+
 # Focus Mode Manager
 class FocusModeManager:
     """Håndterer fokusmoduser for brukere"""
@@ -191,14 +214,15 @@ class FocusModeManager:
         'adhd': ADHDMode(),
         'elderly': ElderlyMode(),
         'work': WorkMode(),
-        'study': StudyMode()
+        'study': StudyMode(),
+        'driving_school': DrivingSchoolMode()
     }
     
     def __init__(self):
         self.current_mode = None
 
     def set_mode(self, mode):
-        valid_modes = ['stillemodus', 'ADHD-modus', 'modus for eldre', 'jobbmodus', 'studiemodus']
+        valid_modes = ['stillemodus', 'ADHD-modus', 'modus for eldre', 'jobbmodus', 'studiemodus', 'kjøreskolemodus']
         if mode in valid_modes:
             self.current_mode = mode
         else:

@@ -3,6 +3,27 @@
 {% block title %}Dashboard - {{ super() }}{% endblock %}
 
 {% block content %}
+<!-- Focus Mode Selector -->
+<div class="row mb-3">
+    <div class="col-md-4">
+        <form method="POST" action="{{ url_for('set_focus_mode') }}">
+            <div class="input-group">
+                <label class="input-group-text" for="focusModeSelect">Fokusmodus</label>
+                <select class="form-select" id="focusModeSelect" name="focus_mode">
+                    <option value="normal">Normal</option>
+                    <option value="focus">Fokus</option>
+                    <option value="break">Pause</option>
+                    <option value="silent">Stillemodus</option>
+                    <option value="adhd">ADHD-modus</option>
+                    <option value="driving_school">Kjøreskolemodus</option>
+                </select>
+                <button class="btn btn-outline-primary" type="submit">Bytt</button>
+            </div>
+        </form>
+    </div>
+</div>
+<!-- End Focus Mode Selector -->
+
 <!-- Stats Cards -->
 <div class="row mb-4">
     <div class="col-md-2 mb-3">
@@ -52,6 +73,7 @@
             </div>
         </a>
     </div>
+    {% if current_user.email == 'helene721@gmail.com' %}
     <div class="col-md-2 mb-3">
         <a href="{{ url_for('email_settings') }}" class="text-decoration-none">
             <div class="card bg-secondary text-white hover-shadow">
@@ -63,6 +85,7 @@
             </div>
         </a>
     </div>
+    {% endif %}
 </div>
 
 <!-- Mine Tavler Section -->
@@ -197,6 +220,17 @@
                     <div class="form-floating mb-3">
                         {{ form.priority(class="form-select") }}
                         {{ form.priority.label(class="form-label") }}
+                    </div>
+                </div>
+                <div class="col-lg-4 col-md-12 col-sm-12">
+                    <div class="form-floating mb-3">
+                        <select class="form-select" name="sound" id="soundSelect">
+                            <option value="pristine.mp3">Standard</option>
+                            <option value="ding.mp3">Ding</option>
+                            <option value="chime.mp3">Chime</option>
+                            <option value="alert.mp3">Alert</option>
+                        </select>
+                        <label for="soundSelect">Varsellyd</label>
                     </div>
                 </div>
             </div>
@@ -518,6 +552,114 @@
         <i class="fas fa-trash"></i> Slett
     </a>
 </div>
+
+{% if current_focus_mode == 'driving_school' %}
+<!-- KJØRESKOLEMODUS WIDGETS -->
+<div class="card mb-4">
+  <div class="card-header bg-success text-white">
+    <i class="fas fa-car"></i> Kjøreskole: Instruktørstatus
+  </div>
+  <div class="card-body">
+    <form method="POST" action="{{ url_for('set_instructor_status') }}" class="row g-2 align-items-center">
+      <div class="col-auto">
+        <label for="statusSelect" class="form-label mb-0">Status:</label>
+      </div>
+      <div class="col-auto">
+        <select class="form-select" id="statusSelect" name="status">
+          <option value="ledig">Ledig</option>
+          <option value="opptatt">Opptatt</option>
+          <option value="på_vei">På vei</option>
+          <option value="pause">Pause</option>
+        </select>
+      </div>
+      <div class="col-auto">
+        <button class="btn btn-outline-success" type="submit">Oppdater</button>
+      </div>
+    </form>
+    <div class="mt-3">
+      <strong>Alle instruktører:</strong>
+      <ul class="list-unstyled mb-0">
+        {% for instr in instructors %}
+        <li>{{ instr.name }}: <span class="badge bg-info">{{ instr.status }}</span></li>
+        {% endfor %}
+      </ul>
+    </div>
+  </div>
+</div>
+
+<div class="card mb-4">
+  <div class="card-header bg-primary text-white">
+    <i class="fas fa-bolt"></i> Hurtigbeskjed
+  </div>
+  <div class="card-body">
+    <form method="POST" action="{{ url_for('send_quick_message') }}" class="row g-2 align-items-center">
+      <div class="col-auto">
+        <select class="form-select" name="template">
+          <option value="Husk å fylle drivstoff">Husk å fylle drivstoff</option>
+          <option value="Ta med lærebok">Ta med lærebok</option>
+          <option value="Ring kontoret etter timen">Ring kontoret etter timen</option>
+        </select>
+      </div>
+      <div class="col-auto">
+        <button class="btn btn-outline-primary" type="submit">Send</button>
+      </div>
+    </form>
+    <div class="mt-2">
+      <strong>Raske svar:</strong>
+      <button class="btn btn-sm btn-outline-secondary me-1" onclick="sendQuickReply('OK')">OK</button>
+      <button class="btn btn-sm btn-outline-secondary me-1" onclick="sendQuickReply('På vei')">På vei</button>
+      <button class="btn btn-sm btn-outline-secondary" onclick="sendQuickReply('Trenger mer tid')">Trenger mer tid</button>
+    </div>
+  </div>
+</div>
+
+<div class="card mb-4">
+  <div class="card-header bg-warning text-dark">
+    <i class="fas fa-clock"></i> Blir forsinket
+  </div>
+  <div class="card-body">
+    <form method="POST" action="{{ url_for('notify_delay') }}" class="row g-2 align-items-center">
+      <div class="col-auto">
+        <label for="delayMinutes" class="form-label mb-0">Antall minutter:</label>
+      </div>
+      <div class="col-auto">
+        <input type="number" min="1" max="60" class="form-control" id="delayMinutes" name="minutes" value="5">
+      </div>
+      <div class="col-auto">
+        <button class="btn btn-outline-warning" type="submit">Send forsinkelse</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="card mb-4">
+  <div class="card-header bg-info text-white">
+    <i class="fas fa-book"></i> Kjøretime-logg
+  </div>
+  <div class="card-body">
+    <form method="POST" action="{{ url_for('log_lesson') }}" class="row g-2 align-items-center">
+      <div class="col-auto">
+        <label for="lessonNote" class="form-label mb-0">Notat:</label>
+      </div>
+      <div class="col-auto">
+        <input type="text" class="form-control" id="lessonNote" name="note" placeholder="Startet time, Avsluttet, Avvik...">
+      </div>
+      <div class="col-auto">
+        <button class="btn btn-outline-info" type="submit">Logg</button>
+      </div>
+    </form>
+    <div class="mt-2">
+      <strong>Siste logg:</strong>
+      <ul class="list-unstyled mb-0">
+        {% for entry in lesson_log %}
+        <li>{{ entry.timestamp }}: {{ entry.note }}</li>
+        {% endfor %}
+      </ul>
+    </div>
+  </div>
+</div>
+<!-- SLUTT KJØRESKOLEMODUS WIDGETS -->
+{% endif %}
 
 {% endblock %}
 

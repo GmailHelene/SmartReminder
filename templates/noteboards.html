@@ -123,20 +123,19 @@
 {% block scripts %}
 <script>
 function shareBoardLink(accessCode) {
-    const link = `${window.location.origin}/join-board?code=${accessCode}`;
+    const shareMessage = `Bli med på min SmartReminder tavle! Bruk koden: ${accessCode}`;
     
     if (navigator.share) {
         navigator.share({
             title: 'Bli med på delt tavle',
-            text: 'Bli med på min delte tavle i Smart Påminner Pro',
-            url: link
+            text: shareMessage
         });
     } else {
         // Fallback - copy to clipboard
-        navigator.clipboard.writeText(link).then(() => {
-            alert('Link kopiert til utklippstavle!');
+        navigator.clipboard.writeText(shareMessage).then(() => {
+            alert('Tilgangskode kopiert til utklippstavle!');
         }).catch(() => {
-            prompt('Kopier denne linken:', link);
+            prompt('Del denne tilgangskoden:', accessCode);
         });
     }
 }

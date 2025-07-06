@@ -157,13 +157,21 @@ function urlBase64ToUint8Array(base64String) {
 }
 
 // Board notifications
-function notifyBoardUpdate(boardId, updateType, noteContent) {
+function notifyBoardUpdate(boardId, updateType, noteContent, sound = 'pristine.mp3') {
     if ('Notification' in window && Notification.permission === 'granted') {
         new Notification('Tavle oppdatert', {
             body: `${updateType}: ${noteContent?.substring(0, 50)}...`,
             icon: '/static/icon-192x192.png',
-            tag: `board-${boardId}`
+            tag: `board-${boardId}`,
+            sound: sound,
+            silent: !sound
         });
+        
+        // Play sound
+        if (sound) {
+            const audio = new Audio(`/static/sounds/${sound}`);
+            audio.play().catch(error => console.log('Could not play notification sound:', error));
+        }
     }
 }
 

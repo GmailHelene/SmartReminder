@@ -53,11 +53,11 @@
                             </div>
                             <div class="note-actions">
                                 {% if note.author == current_user.email or board.created_by == current_user.email %}
-                                <button class="btn btn-sm text-dark note-action-btn" onclick="editNote('{{ note.id }}', event)" style="border: none; background: none; padding: 2px; opacity: 0.7;">
-                                    <i class="fas fa-edit" style="font-size: 0.8em;"></i>
+                                <button class="btn btn-sm btn-light note-action-btn" onclick="editNote('{{ note.id }}', event)" style="border: 1px solid rgba(0,0,0,0.1); padding: 4px 8px; margin-right: 4px; border-radius: 4px;">
+                                    <i class="fas fa-edit" style="font-size: 1.1em;"></i>
                                 </button>
-                                <button class="btn btn-sm text-danger note-action-btn" onclick="deleteNote('{{ note.id }}')" style="border: none; background: none; padding: 2px; opacity: 0.7;">
-                                    <i class="fas fa-times" style="font-size: 0.8em;"></i>
+                                <button class="btn btn-sm btn-light text-danger note-action-btn" onclick="deleteNote('{{ note.id }}')" style="border: 1px solid rgba(0,0,0,0.1); padding: 4px 8px; border-radius: 4px;">
+                                    <i class="fas fa-times" style="font-size: 1.1em;"></i>
                                 </button>
                                 {% endif %}
                             </div>
@@ -351,20 +351,19 @@ function showEmptyBoardMessage() {
 }
 
 function shareBoardLink(accessCode) {
-    const link = `${window.location.origin}/join-board?code=${accessCode}`;
+    const shareMessage = `Bli med på min SmartReminder tavle! Bruk koden: ${accessCode}`;
     
     if (navigator.share) {
         navigator.share({
             title: 'Bli med på delt tavle',
-            text: 'Bli med på min delte tavle i SmartReminder',
-            url: link
+            text: shareMessage
         });
     } else {
         // Fallback - copy to clipboard
-        navigator.clipboard.writeText(link).then(() => {
-            alert('Link kopiert til utklippstavle!');
+        navigator.clipboard.writeText(shareMessage).then(() => {
+            alert('Tilgangskode kopiert til utklippstavle!');
         }).catch(() => {
-            prompt('Kopier denne linken:', link);
+            prompt('Del denne tilgangskoden:', accessCode);
         });
     }
 }
