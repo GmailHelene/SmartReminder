@@ -7,6 +7,7 @@
 <div class="row mb-3">
     <div class="col-md-4">
         <form method="POST" action="{{ url_for('focus_modes') }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <div class="input-group">
                 <label class="input-group-text" for="focusModeSelect">Fokusmodus</label>
                 <select class="form-select" id="focusModeSelect" name="focus_mode">
@@ -385,9 +386,7 @@
                 </div>
             </div>
             <div class="card-body p-1 p-md-3">
-                <div id="calendar-loading" class="text-center p-4" style="display: none;">
-                    <!-- Hidden loading indicator - calendar loads directly -->
-                </div>
+                <!-- Removed loading indicator per user request -->
                 
                 <!-- Mobile calendar fallback -->
                 <div id="calendar-fallback" class="text-center p-4" style="display: none; min-height: 400px; background: white; border: 1px solid #dee2e6; border-radius: 0.375rem;">
@@ -664,6 +663,61 @@
 {% endblock %}
 
 {% block scripts %}
+{{ super() }}
+
+<script>
+// CSRF Token refresh - fix for token expiration issues
+document.addEventListener('DOMContentLoaded', function() {
+    // Make sure all forms have a valid CSRF token
+    const refreshCSRFTokens = function() {
+        // Fetch a new CSRF token via a small hidden iframe
+        const iframe = document.createElement('iframe');
+        iframe.style.display = 'none';
+        iframe.src = '/dashboard';
+        iframe.onload = function() {
+            try {
+                const csrfToken = iframe.contentDocument.querySelector('input[name="csrf_token"]').value;
+                if (csrfToken) {
+                    // Update all CSRF tokens on the page
+                    document.querySelectorAll('input[name="csrf_token"]').forEach(input => {
+                        input.value = csrfToken;
+                    });
+                    console.log('CSRF tokens refreshed');
+                }
+                // Remove iframe after use
+                document.body.removeChild(iframe);
+            } catch (e) {
+                console.error('Failed to refresh CSRF token:', e);
+            }
+        };
+        document.body.appendChild(iframe);
+    };
+    
+    // Refresh tokens every 15 minutes to avoid expiration
+    setInterval(refreshCSRFTokens, 15 * 60 * 1000);
+    
+    // Also refresh if the user becomes active after inactivity
+    let inactiveTime = 0;
+    const checkActivity = setInterval(function() {
+        inactiveTime += 1;
+        if (inactiveTime > 30) { // 30 minutes of inactivity
+            refreshCSRFTokens();
+            inactiveTime = 0;
+        }
+    }, 60 * 1000); // Check every minute
+    
+    // Reset inactive timer on user activity
+    const resetInactiveTimer = function() {
+        inactiveTime = 0;
+    };
+    
+    // Listen for user activity
+    ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart'].forEach(event => {
+        document.addEventListener(event, resetInactiveTimer, true);
+    });
+});
+</script>
+
 <!-- FullCalendar CSS & JS -->
 <link href='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.css' rel='stylesheet' />
 <script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.js'></script>
@@ -771,27 +825,9 @@ document.addEventListener('DOMContentLoaded', function() {
         }, 500);
     }
     
-    // Timeout fallback - show error if calendar doesn't load within 10 seconds
+    // Timeout fallback - DISABLED per user request
     setTimeout(() => {
-        if (loadingEl && loadingEl.style.display !== 'none') {
-            console.warn('⏰ Calendar loading timeout - showing fallback');
-            if (fallbackEl) {
-                fallbackEl.innerHTML = `
-                    <div class="text-center p-4 mt-5">
-                        <i class="fas fa-clock fa-3x text-warning mb-3"></i>
-                        <h5 class="text-muted">Kalenderen tar litt tid å laste</h5>
-                        <p class="text-muted small">Prøv å oppdatere siden hvis problemet vedvarer.</p>
-                        <button onclick="location.reload()" class="btn btn-outline-primary btn-sm">
-                            <i class="fas fa-refresh"></i> Oppdater siden
-                        </button>
-                    </div>
-                `;
-                fallbackEl.style.display = 'block';
-            }
-            if (loadingEl) {
-                loadingEl.style.display = 'none';
-            }
-        }
+        // Calendar loading timeout disabled
     }, 10000);
     
     console.log('✅ Calendar initialization completed');
@@ -1511,14 +1547,9 @@ function showToastNotification(message, type = 'info') {
     }, 5000);
 }
 
-// Kalender fallback: vis feilmelding hvis lasting tar for lang tid
+// Kalender fallback: feilmelding fjernet per brukerens ønske
 setTimeout(function() {
-    const loadingEl = document.getElementById('calendar-loading');
-    const calendarEl = document.getElementById('calendar');
-    if (loadingEl && loadingEl.style.display !== 'none') {
-        loadingEl.innerHTML = '<div class="alert alert-danger mt-3">Kunne ikke laste kalender-data. Sjekk innlogging eller prøv å laste siden på nytt.</div>';
-        if (calendarEl) calendarEl.style.display = 'none';
-    }
+    // Koden er deaktivert for å unngå loading-melding
 }, 7000);
 
 // Check push notification status and show enable button if needed
