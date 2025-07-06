@@ -32,13 +32,25 @@ class SharedNoteboard:
     
     def add_note(self, content, author, note_type='text', color='yellow'):
         """Legg til en ny notis på tavlen"""
+        # Calculate position to avoid overlap
+        notes_count = len(self.notes)
+        grid_cols = 4  # Number of columns in grid
+        
+        # Calculate grid position
+        col = notes_count % grid_cols
+        row = notes_count // grid_cols
+        
+        # Position with spacing (220px wide + 30px margin)
+        x = 50 + (col * 250)
+        y = 50 + (row * 230)
+        
         note = {
             'id': str(uuid.uuid4()),
             'content': content,
             'author': author,
             'type': note_type,  # text, checklist, image, link
             'color': color,
-            'position': {'x': 0, 'y': 0},
+            'position': {'x': x, 'y': y},
             'created_at': datetime.now().isoformat(),
             'updated_at': datetime.now().isoformat(),
             'tags': [],
@@ -211,3 +223,65 @@ class NoteboardManager:
             self.save_board(board)
             return board
         return None
+    
+    def notify_board_update(self, board_id, update_type, updated_by, note_content=None):
+        """Send email and push notifications to board members about updates"""
+        try:
+            from email_service import send_email
+            board = self.get_board_by_id(board_id)
+            if not board:
+                return False
+            
+            # Get all members except the one who made the update
+            recipients = [member for member in board.members if member != updated_by]
+            
+            if not recipients:
+                return True  # No one to notify
+            
+            # Prepare email content
+            subject = f"Oppdatering på tavlen '{board.title}'"
+            
+            # Send push notifications first (faster)
+            try:
+                from push_service import send_push_notification
+                for recipient in recipients:
+                    send_push_notification(
+                        user_email=recipient,
+                        title=f"📋 {board.title}",
+                        body=f"{update_type} av {updated_by.split('@')[0]}",
+                        data={
+                            'board_id': board_id,
+                            'board_title': board.title,
+                            'update_type': update_type
+                        },
+                        dm=self.dm
+                    )
+            except Exception as e:
+                print(f"Failed to send push notifications: {e}")
+            
+            # Send email notifications
+            for recipient in recipients:
+                try:
+                    email_data = {
+                        'recipient': recipient,
+                        'subject': subject,
+                        'template': 'emails/noteboard_update.html',
+                        'context': {
+                            'board': board,
+                            'update_type': update_type,
+                            'updated_by': updated_by,
+                            'note_content': note_content,
+                            'update_time': datetime.now(),
+                            'app_url': 'https://smartremind-production.up.railway.app',
+                            'board_url': f'https://smartremind-production.up.railway.app/board/{board.board_id}'
+                        }
+                    }
+                    send_email(email_data)
+                except Exception as e:
+                    print(f"Failed to send notification to {recipient}: {e}")
+                    continue
+            
+            return True
+        except Exception as e:
+            print(f"Error sending board update notifications: {e}")
+            return False

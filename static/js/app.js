@@ -11,6 +11,9 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // PWA features
     initializePWAFeatures();
+    
+    // Push notifications
+    initializePushNotifications();
 });
 
 function initializeApp() {
@@ -63,8 +66,108 @@ function initializePWAFeatures() {
             }
         }, 5000);
     }
+    
+    // Initialize push notifications
+    initializePushNotifications();
 }
 
+function initializePushNotifications() {
+    if ('serviceWorker' in navigator && 'PushManager' in window) {
+        navigator.serviceWorker.ready.then(function(registration) {
+            // Check if user is already subscribed
+            return registration.pushManager.getSubscription();
+        }).then(function(subscription) {
+            if (subscription) {
+                console.log('✅ Already subscribed to push notifications');
+                // Update server with subscription
+                sendSubscriptionToServer(subscription);
+            } else {
+                // Ask for permission and subscribe
+                requestPushPermission();
+            }
+        });
+    }
+}
+
+function requestPushPermission() {
+    if ('Notification' in window) {
+        Notification.requestPermission().then(function(permission) {
+            if (permission === 'granted') {
+                subscribeToPush();
+                // Hide the enable button
+                const enableBtn = document.getElementById('enablePushBtn');
+                if (enableBtn) {
+                    enableBtn.style.display = 'none';
+                }
+            }
+        });
+    }
+}
+
+function subscribeToPush() {
+    // First get the VAPID public key from server
+    fetch('/api/vapid-public-key')
+        .then(response => response.json())
+        .then(data => {
+            const applicationServerKey = urlBase64ToUint8Array(data.public_key);
+            
+            return navigator.serviceWorker.ready.then(function(registration) {
+                return registration.pushManager.subscribe({
+                    userVisibleOnly: true,
+                    applicationServerKey: applicationServerKey
+                });
+            });
+        })
+        .then(function(subscription) {
+            console.log('✅ Subscribed to push notifications');
+            sendSubscriptionToServer(subscription);
+        })
+        .catch(function(error) {
+            console.error('❌ Push subscription failed:', error);
+        });
+}
+
+function sendSubscriptionToServer(subscription) {
+    fetch('/api/subscribe-push', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': document.querySelector('meta[name=csrf-token]')?.content
+        },
+        body: JSON.stringify(subscription)
+    }).then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            console.log('✅ Push subscription sent to server');
+        }
+    }).catch(error => {
+        console.error('❌ Failed to send subscription to server:', error);
+    });
+}
+
+function urlBase64ToUint8Array(base64String) {
+    const padding = '='.repeat((4 - base64String.length % 4) % 4);
+    const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+    const rawData = window.atob(base64);
+    const outputArray = new Uint8Array(rawData.length);
+    for (let i = 0; i < rawData.length; ++i) {
+        outputArray[i] = rawData.charCodeAt(i);
+    }
+    return outputArray;
+}
+
+// Board notifications
+function notifyBoardUpdate(boardId, updateType, noteContent) {
+    if ('Notification' in window && Notification.permission === 'granted') {
+        new Notification('Tavle oppdatert', {
+            body: `${updateType}: ${noteContent?.substring(0, 50)}...`,
+            icon: '/static/icon-192x192.png',
+            tag: `board-${boardId}`
+        });
+    }
+}
+
+// Connection status
 function updateConnectionStatus() {
     const statusElement = document.getElementById('connectionStatus');
     if (statusElement) {
@@ -78,6 +181,7 @@ function updateConnectionStatus() {
     }
 }
 
+// Reminder counts
 function updateReminderCounts() {
     fetch('/api/reminder-count')
         .then(response => response.json())

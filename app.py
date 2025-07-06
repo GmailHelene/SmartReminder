@@ -636,6 +636,13 @@ def dashboard():
     available_users = [user_data['email'] for user_data in users.values() 
                       if user_data['email'] != current_user.email]
     
+    # Get boards count
+    try:
+        boards = noteboard_manager.get_user_boards(current_user.email)
+        boards_count = len(boards)
+    except:
+        boards_count = 0
+    
     # Former
     form = ReminderForm()
     
@@ -688,6 +695,7 @@ def dashboard():
                              'completion_rate': completion_rate,
                              'shared_count': len(shared_with_me)
                          },
+                         boards_count=boards_count,
                          available_users=available_users,
                          current_time=datetime.now(),
                          events_json=json.dumps(events_json))
@@ -1266,6 +1274,17 @@ def add_note_to_board(board_id):
         # Save board
         noteboard_manager.save_board(board)
         
+        # Send notification to other board members
+        try:
+            noteboard_manager.notify_board_update(
+                board_id, 
+                'Nytt notat lagt til', 
+                current_user.email, 
+                note_content=content
+            )
+        except Exception as e:
+            logger.error(f"Error sending board update notification: {e}")
+        
         if request.is_json:
             return jsonify({'success': True, 'note_id': note['id']})
         else:
@@ -1329,6 +1348,18 @@ def api_edit_note(note_id):
                                 updated_note = board.update_note(note_id, content=content)
                                 if updated_note:
                                     noteboard_manager.save_board(board)
+                                    
+                                    # Send notifications
+                                    try:
+                                        noteboard_manager.notify_board_update(
+                                            board.board_id,
+                                            'Notat oppdatert',
+                                            current_user.email,
+                                            note_content=content
+                                        )
+                                    except Exception as e:
+                                        logger.error(f"Error sending update notification: {e}")
+                                    
                                     return jsonify({'success': True})
                             else:
                                 return jsonify({'success': False, 'error': 'Permission denied'}), 403
@@ -1352,6 +1383,17 @@ def api_delete_note(note_id):
                 if board:
                     if board.delete_note(note_id, current_user.email):
                         noteboard_manager.save_board(board)
+                        
+                        # Send notifications
+                        try:
+                            noteboard_manager.notify_board_update(
+                                board.board_id,
+                                'Notat slettet',
+                                current_user.email
+                            )
+                        except Exception as e:
+                            logger.error(f"Error sending delete notification: {e}")
+                        
                         return jsonify({'success': True})
         
         return jsonify({'success': False, 'error': 'Note not found or permission denied'}), 404
@@ -1530,52 +1572,76 @@ def api_calendar_events():
         logger.error(f"Error in calendar API: {e}")
         return jsonify({'error': 'Failed to load calendar events'}), 500
 
-# Add URL security check to prevent JSON data in URLs
-@app.before_request
-def check_malformed_urls():
-    """Check for malformed URLs that might contain JSON data"""
-    path = request.path
-    # Check if URL contains JSON-like patterns that should not be in URLs
-    if path.startswith('/[{') or '"id":' in path or '{"title":' in path:
-        logger.warning(f"Malformed URL detected: {path} from IP: {request.remote_addr}")
-        logger.warning(f"Request method: {request.method}, User-Agent: {request.headers.get('User-Agent', 'Unknown')}")
-        logger.warning(f"Referer: {request.headers.get('Referer', 'Unknown')}")
+# Push notification routes
+@app.route('/api/subscribe-push', methods=['POST'])
+@login_required
+def subscribe_push_notifications():
+    """Subscribe user to push notifications"""
+    try:
+        subscription_data = request.get_json()
         
-        # If this looks like calendar data that got misrouted, redirect to dashboard
-        if current_user.is_authenticated:
-            flash('Det oppstod et problem med forespørselen. Prøv igjen.', 'warning')
-            return redirect(url_for('dashboard'))
-        else:
-            return redirect(url_for('index'))
-
-# Fallback route for malformed URLs that might contain JSON data
-@app.route('/<path:path>')
-def catch_malformed_urls(path):
-    """Catch-all route for malformed URLs"""
-    # Check if this looks like misrouted JSON data
-    if path.startswith('[{') or '"id":' in path or '{"title":' in path:
-        logger.warning(f"Caught malformed URL: /{path}")
-        logger.warning(f"User: {current_user.email if current_user.is_authenticated else 'Anonymous'}")
-        logger.warning(f"User-Agent: {request.headers.get('User-Agent', 'Unknown')}")
+        # Store subscription in user data
+        subscriptions = dm.load_data('push_subscriptions')
+        user_email = current_user.email
         
-        if current_user.is_authenticated:
-            flash('URL-feil oppdaget. Du er omdirigert til dashboard.', 'warning')
-            return redirect(url_for('dashboard'))
+        if user_email not in subscriptions:
+            subscriptions[user_email] = []
+        
+        # Check if subscription already exists
+        existing = False
+        for sub in subscriptions[user_email]:
+            if sub.get('endpoint') == subscription_data.get('endpoint'):
+                existing = True
+                break
+        
+        if not existing:
+            subscription_data['created_at'] = datetime.now().isoformat()
+            subscriptions[user_email].append(subscription_data)
+            dm.save_data('push_subscriptions', subscriptions)
+        
+        return jsonify({'success': True, 'message': 'Push notifications enabled'})
+        
+    except Exception as e:
+        logger.error(f"Error subscribing to push notifications: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/send-test-notification', methods=['POST'])
+@login_required
+def send_test_notification():
+    """Send test push notification"""
+    try:
+        # Import push service
+        try:
+            from push_service import send_push_notification
+        except ImportError:
+            logger.warning("Push service not available")
+            return jsonify({'success': False, 'error': 'Push notifications not configured'})
+        
+        success = send_push_notification(
+            current_user.email,
+            "Test notifikasjon",
+            "Dette er en test-notifikasjon fra SmartReminder!",
+            dm=dm
+        )
+        
+        if success:
+            return jsonify({'success': True, 'message': 'Test notification sent'})
         else:
-            return redirect(url_for('index'))
-    
-    # For other 404s, show normal error page
-    abort(404)
+            return jsonify({'success': False, 'error': 'Failed to send notification'})
+            
+    except Exception as e:
+        logger.error(f"Error sending test notification: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
 
-# Route verification (for debugging)
-# print("🔧 Registered routes:")
-# for rule in app.url_map.iter_rules():
-#     print(f"  - {rule.endpoint}: {rule.rule}")
-
-# Specific verification for noteboards
-# noteboards_exists = any(rule.endpoint == 'noteboards' for rule in app.url_map.iter_rules())
-# print(f"🔧 noteboards route exists: {noteboards_exists}")
+# VAPID public key endpoint for push notifications
+@app.route('/api/vapid-public-key')
+def get_vapid_public_key():
+    """Get VAPID public key for push notifications"""
+    try:
+        from push_service import VAPID_PUBLIC_KEY
+        return jsonify({'public_key': VAPID_PUBLIC_KEY})
+    except ImportError:
+        return jsonify({'error': 'Push notifications not configured'}), 500
 
 if __name__ == '__main__':
-    print("🚀 Starting Flask app...")
-    app.run(debug=True, host='0.0.0.0', port=8080)
+    app.run(debug=True, host='0.0.0.0', port=5000)

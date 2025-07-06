@@ -5,52 +5,145 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Oppdatering på delt tavle</title>
     <style>
-        body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background-color: #f8f9fa; }
-        .container { max-width: 600px; margin: 0 auto; background: white; border-radius: 8px; overflow: hidden; }
-        .header { background: #17a2b8; color: white; padding: 20px; text-align: center; }
-        .content { padding: 30px; }
-        .update-box { background: #f8f9fa; border-left: 4px solid #17a2b8; padding: 20px; margin: 20px 0; }
-        .footer { background: #f8f9fa; padding: 20px; text-align: center; color: #6c757d; }
-        .btn { display: inline-block; padding: 12px 24px; background: #17a2b8; color: white; text-decoration: none; border-radius: 4px; }
-        .note-preview { background: #fff3cd; border: 1px solid #ffeaa7; padding: 10px; border-radius: 4px; margin: 10px 0; }
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
+            line-height: 1.6; 
+            color: #333; 
+            margin: 0; 
+            padding: 0; 
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        .container { 
+            max-width: 600px; 
+            margin: 20px auto; 
+            background: white; 
+            border-radius: 15px; 
+            overflow: hidden;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+        }
+        .header {
+            background: linear-gradient(135deg, #17a2b8, #138496);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        .content { 
+            padding: 30px; 
+            color: #333;
+        }
+        .update-box { 
+            background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+            border-left: 5px solid #17a2b8; 
+            padding: 25px; 
+            margin: 20px 0; 
+            border-radius: 12px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        .footer { 
+            background: #f8f9fa; 
+            padding: 20px; 
+            text-align: center; 
+            color: #6c757d; 
+            font-size: 0.9rem;
+        }
+        .btn { 
+            display: inline-block; 
+            padding: 15px 30px; 
+            background: linear-gradient(135deg, #17a2b8, #138496); 
+            color: white; 
+            text-decoration: none; 
+            border-radius: 25px; 
+            font-weight: bold;
+            font-size: 1.1rem;
+        }
+        .btn:hover {
+            background: linear-gradient(135deg, #138496, #17a2b8);
+        }
+        .note-preview { 
+            background: #fff3cd; 
+            border: 2px solid #ffc107; 
+            padding: 15px; 
+            border-radius: 8px; 
+            margin: 15px 0; 
+            color: #856404;
+        }
+        .board-type-badge {
+            display: inline-block;
+            background: linear-gradient(135deg, #28a745, #20c997);
+            color: white;
+            padding: 8px 15px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            font-weight: bold;
+            margin-bottom: 15px;
+        }
+        .update-meta {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            border: 2px solid #17a2b8;
+            margin: 15px 0;
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
-            <h1>📋 Tavle oppdatert</h1>
+            <h1 style="margin: 0; font-size: 1.8rem;">📋 Delt tavle oppdatert</h1>
+            <p style="margin: 10px 0 0 0; opacity: 0.9;">Samarbeidsvarsel</p>
         </div>
         
         <div class="content">
-            <h2>Hei!</h2>
-            <p>Det har skjedd en oppdatering på tavlen "<strong>{{ board.title }}</strong>":</p>
+            <div class="board-type-badge">
+                🤝 DELT TAVLE
+            </div>
+            
+            <h2 style="color: #333; margin-top: 0;">Hei!</h2>
+            <p style="font-size: 1.1rem;">Det har skjedd en oppdatering på den <strong>delte tavlen</strong> "<strong>{{ board.title }}</strong>":</p>
             
             <div class="update-box">
-                <h3>{{ update_type }}</h3>
-                <p><strong>Av:</strong> {{ updated_by }}</p>
-                <p><strong>Tidspunkt:</strong> {{ update_time | strftime('%d.%m.%Y %H:%M') }}</p>
+                <h3 style="color: #17a2b8; margin-top: 0;">{{ update_type }}</h3>
                 
-                {% if update_type == "Ny notis lagt til" and note %}
-                <div class="note-preview">
-                    <strong>Ny notis:</strong> {{ note.content[:100] }}{% if note.content|length > 100 %}...{% endif %}
+                <div class="update-meta">
+                    <p style="margin: 5px 0;"><strong>👤 Oppdatert av:</strong> {{ updated_by.split('@')[0] }}</p>
+                    <p style="margin: 5px 0;"><strong>🕒 Tidspunkt:</strong> {{ update_time.strftime('%d.%m.%Y %H:%M') if update_time else 'Ukjent' }}</p>
+                    <p style="margin: 5px 0;"><strong>📋 Tavle:</strong> {{ board.title }} (Delt tavle)</p>
                 </div>
-                {% elif update_type == "Notis oppdatert" and note %}
+                
+                {% if update_type == "Nytt notat lagt til" and note_content %}
                 <div class="note-preview">
-                    <strong>Oppdatert notis:</strong> {{ note.content[:100] }}{% if note.content|length > 100 %}...{% endif %}
+                    <strong>📝 Nytt notat:</strong><br>
+                    {{ note_content[:150] }}{% if note_content|length > 150 %}...{% endif %}
                 </div>
-                {% elif update_type == "Notis slettet" %}
-                <p><em>En notis ble slettet fra tavlen</em></p>
+                {% elif update_type == "Notat oppdatert" and note_content %}
+                <div class="note-preview">
+                    <strong>✏️ Oppdatert notat:</strong><br>
+                    {{ note_content[:150] }}{% if note_content|length > 150 %}...{% endif %}
+                </div>
+                {% elif update_type == "Notat slettet" %}
+                <div class="note-preview">
+                    <strong>🗑️ Slettet:</strong> Et notat ble fjernet fra den delte tavlen
+                </div>
                 {% endif %}
             </div>
             
             <div style="text-align: center; margin: 30px 0;">
-                <a href="{{ board_url }}" class="btn">📋 Se tavlen</a>
+                <a href="{{ board_url if board_url else 'https://smartremind-production.up.railway.app/noteboards' }}" class="btn">
+                    📋 Åpne den delte tavlen
+                </a>
             </div>
+            
+            <p style="color: #666; font-size: 0.95rem; margin-top: 30px;">
+                💡 <strong>Tips:</strong> Du kan samarbeide på denne delte tavlen ved å legge til egne notater, flytte på eksisterende notater og se andres endringer i sanntid!
+            </p>
         </div>
         
         <div class="footer">
-            <p>Smart Påminner Pro © 2024</p>
-            <p><small>Du får dette varselet fordi du er medlem av tavlen "{{ board.title }}"</small></p>
+            <p><strong>Smart Påminner Pro © 2024</strong></p>
+            <p><small>Du får dette varselet fordi du er medlem av den delte tavlen "<strong>{{ board.title }}</strong>"</small></p>
+            <p style="font-size: 0.8rem; color: #999; margin-top: 10px;">
+                Dette er et automatisk varsel om aktivitet på delt tavle - ikke en påminnelse
+            </p>
         </div>
     </div>
 </body>

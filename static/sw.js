@@ -71,34 +71,82 @@ self.addEventListener('activate', event => {
   );
 });
 
-// Push notification event
-self.addEventListener('push', event => {
-  if (event.data) {
-    const data = event.data.json();
+// Push notification handling
+self.addEventListener('push', function(event) {
+    console.log('[Service Worker] Push Received.');
+    
     const options = {
-      body: data.body,
-      icon: '/static/images/icon-192x192.png',
-      badge: '/static/images/icon-192x192.png',
-      vibrate: [100, 50, 100],
-      data: {
-        dateOfArrival: Date.now(),
-        primaryKey: data.primaryKey
-      }
+        body: 'Du har en ny påminnelse!',
+        icon: '/static/icon-192x192.png',
+        badge: '/static/icon-192x192.png',
+        vibrate: [100, 50, 100],
+        data: {
+            dateOfArrival: Date.now(),
+            primaryKey: '2'
+        },
+        actions: [
+            {
+                action: 'explore',
+                title: 'Åpne app',
+                icon: '/static/icon-192x192.png'
+            },
+            {
+                action: 'close',
+                title: 'Lukk',
+                icon: '/static/icon-192x192.png'
+            }
+        ]
     };
-
-    event.waitUntil(
-      self.registration.showNotification(data.title, options)
-    );
-  }
+    
+    if (event.data) {
+        try {
+            const data = event.data.json();
+            options.body = data.message || options.body;
+            options.title = data.title || 'SmartReminder';
+            if (data.url) {
+                options.data.url = data.url;
+            }
+        } catch (e) {
+            console.error('Error parsing push data:', e);
+        }
+    }
+    
+    event.waitUntil(self.registration.showNotification('SmartReminder', options));
 });
 
 // Notification click event
-self.addEventListener('notificationclick', event => {
-  console.log('Notification click received.');
-
-  event.notification.close();
-
-  event.waitUntil(
-    clients.openWindow('/')
-  );
+self.addEventListener('notificationclick', function(event) {
+    console.log('[Service Worker] Notification click Received.');
+    
+    event.notification.close();
+    
+    if (event.action === 'explore') {
+        // Open the app
+        event.waitUntil(clients.openWindow('/dashboard'));
+    } else if (event.action === 'close') {
+        // Just close the notification
+        return;
+    } else {
+        // Default action - open the app
+        event.waitUntil(clients.openWindow('/dashboard'));
+    }
 });
+
+// Background sync for board updates
+self.addEventListener('sync', function(event) {
+    if (event.tag === 'board-update-sync') {
+        event.waitUntil(syncBoardUpdates());
+    }
+});
+
+function syncBoardUpdates() {
+    // Sync offline board updates when connection is restored
+    return fetch('/api/sync-board-updates', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        }
+    }).catch(error => {
+        console.error('Background sync failed:', error);
+    });
+}

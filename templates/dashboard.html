@@ -5,7 +5,7 @@
 {% block content %}
 <!-- Stats Cards -->
 <div class="row mb-4">
-    <div class="col-md-3 mb-3">
+    <div class="col-md-2 mb-3">
         <div class="card stats-card">
             <div class="card-body text-center">
                 <i class="fas fa-bell fa-2x mb-2"></i>
@@ -14,7 +14,7 @@
             </div>
         </div>
     </div>
-    <div class="col-md-3 mb-3">
+    <div class="col-md-2 mb-3">
         <div class="card bg-success text-white">
             <div class="card-body text-center">
                 <i class="fas fa-check-circle fa-2x mb-2"></i>
@@ -23,7 +23,7 @@
             </div>
         </div>
     </div>
-    <div class="col-md-3 mb-3">
+    <div class="col-md-2 mb-3">
         <div class="card bg-info text-white">
             <div class="card-body text-center">
                 <i class="fas fa-share fa-2x mb-2"></i>
@@ -32,13 +32,121 @@
             </div>
         </div>
     </div>
-    <div class="col-md-3 mb-3">
+    <div class="col-md-2 mb-3">
         <div class="card bg-warning text-white">
             <div class="card-body text-center">
                 <i class="fas fa-percent fa-2x mb-2"></i>
                 <h3>{{ "%.0f"|format(stats.completion_rate) }}%</h3>
                 <small>Fullføringsrate</small>
             </div>
+        </div>
+    </div>
+    <div class="col-md-2 mb-3">
+        <a href="{{ url_for('noteboards') }}" class="text-decoration-none">
+            <div class="card bg-primary text-white hover-shadow">
+                <div class="card-body text-center">
+                    <i class="fas fa-chalkboard fa-2x mb-2"></i>
+                    <h3 id="boards-count">{{ boards_count|default(0) }}</h3>
+                    <small>Mine tavler</small>
+                </div>
+            </div>
+        </a>
+    </div>
+    <div class="col-md-2 mb-3">
+        <a href="{{ url_for('focus_mode') }}" class="text-decoration-none">
+            <div class="card bg-secondary text-white hover-shadow">
+                <div class="card-body text-center">
+                    <i class="fas fa-brain fa-2x mb-2"></i>
+                    <h3><i class="fas fa-cog"></i></h3>
+                    <small>Fokusmoduser</small>
+                </div>
+            </div>
+        </a>
+    </div>
+</div>
+
+<!-- Mine Tavler Section -->
+<div class="card mb-4" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border: none;">
+    <div class="card-header bg-transparent border-0">
+        <h5 class="mb-0 text-white">
+            <i class="fas fa-chalkboard-teacher"></i> Mine tavler
+        </h5>
+    </div>
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-6 mb-3">
+                <a href="{{ url_for('noteboards') }}" class="text-decoration-none">
+                    <div class="card bg-white text-dark hover-shadow h-100" style="transition: all 0.3s ease;">
+                        <div class="card-body text-center d-flex flex-column justify-content-center">
+                            <i class="fas fa-clipboard-list fa-3x text-primary mb-3"></i>
+                            <h6 class="card-title mb-2">Private tavler</h6>
+                            <p class="card-text text-muted small mb-0">
+                                <span class="badge bg-primary">{{ boards_count|default(0) }}</span> tavler tilgjengelig
+                            </p>
+                        </div>
+                    </div>
+                </a>
+            </div>
+            <div class="col-md-6 mb-3">
+                <a href="{{ url_for('noteboards') }}" class="text-decoration-none">
+                    <div class="card bg-white text-dark hover-shadow h-100" style="transition: all 0.3s ease;">
+                        <div class="card-body text-center d-flex flex-column justify-content-center">
+                            <i class="fas fa-users fa-3x text-success mb-3"></i>
+                            <h6 class="card-title mb-2">Delte tavler</h6>
+                            <p class="card-text text-muted small mb-0">
+                                <span class="badge bg-success">{{ shared_boards_count|default(0) }}</span> delte tavler
+                            </p>
+                        </div>
+                    </div>
+                </a>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-12 text-center">
+                <a href="{{ url_for('noteboards') }}" class="btn btn-light btn-sm me-2">
+                    <i class="fas fa-plus"></i> Opprett ny tavle
+                </a>
+                <button class="btn btn-outline-light btn-sm me-2" onclick="showJoinBoardModal()">
+                    <i class="fas fa-sign-in-alt"></i> Bli med på tavle
+                </button>
+                <button id="enablePushBtn" class="btn btn-outline-light btn-sm" onclick="requestPushPermission()" style="display: none;">
+                    <i class="fas fa-bell"></i> Aktiver varsler
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Quick Board Join Modal -->
+<div class="modal fade" id="quickJoinBoardModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-sign-in-alt"></i> Bli med på tavle
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST" action="{{ url_for('join_board') }}">
+                <div class="modal-body">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <div class="form-floating mb-3">
+                        <input type="text" name="access_code" class="form-control" 
+                               placeholder="TAVLE123" required style="text-transform: uppercase;">
+                        <label>Tilgangskode</label>
+                    </div>
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle"></i>
+                        Skriv inn tilgangskoden du mottok for å bli med på en delt tavle.
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Avbryt</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-sign-in-alt"></i> Bli med
+                    </button>
+                </div>
+            </form>
         </div>
     </div>
 </div>
@@ -244,10 +352,7 @@
             </div>
             <div class="card-body p-1 p-md-3">
                 <div id="calendar-loading" class="text-center p-4" style="display: none;">
-                    <div class="spinner-border text-primary" role="status">
-                        <span class="visually-hidden">Laster kalender...</span>
-                    </div>
-                    <p class="mt-2 text-muted">Laster kalender...</p>
+                    <!-- Hidden loading indicator - calendar loads directly -->
                 </div>
                 
                 <!-- Mobile calendar fallback -->
@@ -435,10 +540,10 @@ document.addEventListener('DOMContentLoaded', function() {
         return;
     }
     
-    // Show loading initially
-    if (loadingEl) {
-        loadingEl.style.display = 'block';
-    }
+    // Show loading initially - DISABLED per user request
+    // if (loadingEl) {
+    //     loadingEl.style.display = 'block';
+    // }
     
     // Hide fallback initially  
     if (fallbackEl) {
@@ -453,13 +558,13 @@ document.addEventListener('DOMContentLoaded', function() {
         // Simple events loading
         events: '/api/calendar-events',
         
-        // Loading callback
-        loading: function(isLoading) {
-            console.log('📅 Calendar loading state:', isLoading);
-            if (loadingEl) {
-                loadingEl.style.display = isLoading ? 'block' : 'none';
-            }
-        },
+        // Loading callback - DISABLED per user request
+        // loading: function(isLoading) {
+        //     console.log('📅 Calendar loading state:', isLoading);
+        //     if (loadingEl) {
+        //         loadingEl.style.display = isLoading ? 'block' : 'none';
+        //     }
+        // },
         
         // Event source error callback
         eventSourceFailure: function(error) {
@@ -809,6 +914,27 @@ function initializeCalendar() {
     }
 }
     
+// Show join board modal
+function showJoinBoardModal() {
+    const modal = new bootstrap.Modal(document.getElementById('quickJoinBoardModal'));
+    modal.show();
+    
+    // Focus on access code input
+    setTimeout(() => {
+        document.querySelector('#quickJoinBoardModal input[name="access_code"]').focus();
+    }, 500);
+}
+
+// Auto-uppercase access code input
+document.addEventListener('DOMContentLoaded', function() {
+    const accessCodeInput = document.querySelector('#quickJoinBoardModal input[name="access_code"]');
+    if (accessCodeInput) {
+        accessCodeInput.addEventListener('input', function() {
+            this.value = this.value.toUpperCase();
+        });
+    }
+});
+
 // Share reminder function
 function shareReminder(reminderId, reminderTitle) {
     document.getElementById('shareReminderIdInput').value = reminderId;
@@ -1252,5 +1378,19 @@ setTimeout(function() {
         if (calendarEl) calendarEl.style.display = 'none';
     }
 }, 7000);
+
+// Check push notification status and show enable button if needed
+document.addEventListener('DOMContentLoaded', function() {
+    if ('serviceWorker' in navigator && 'PushManager' in window) {
+        navigator.serviceWorker.ready.then(function(registration) {
+            return registration.pushManager.getSubscription();
+        }).then(function(subscription) {
+            const enableBtn = document.getElementById('enablePushBtn');
+            if (!subscription && Notification.permission !== 'granted' && enableBtn) {
+                enableBtn.style.display = 'inline-block';
+            }
+        });
+    }
+});
 </script>
 {% endblock %}
