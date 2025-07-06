@@ -479,6 +479,11 @@ class ReminderForm(FlaskForm):
         ('Jobb', 'Jobb'), ('Privat', 'Privat'), ('Helse', 'Helse'), 
         ('Familie', 'Familie'), ('Annet', 'Annet')
     ])
+    sound = SelectField('Lyd', choices=[
+        ('pristine.mp3', 'Standard lyd'), 
+        ('ding.mp3', 'Ding! lyd'),
+        ('beep.mp3', 'Beep lyd')
+    ], default='pristine.mp3')
     submit = SubmitField('Opprett påminnelse')
 
 # 👤 User Class (forbedret)
@@ -855,6 +860,7 @@ def add_reminder():
                     'datetime': f"{form.date.data} {form.time.data}",
                     'priority': form.priority.data,
                     'category': form.category.data,
+                    'sound': request.form.get('sound', 'pristine.mp3'),
                     'completed': False,
                     'created': datetime.now().isoformat(),
                     'shared_with': share_with
@@ -880,6 +886,7 @@ def add_reminder():
                             'datetime': f"{form.date.data} {form.time.data}",
                             'priority': form.priority.data,
                             'category': form.category.data,
+                            'sound': request.form.get('sound', 'pristine.mp3'),
                             'completed': False,
                             'created': datetime.now().isoformat(),
                             'is_shared': True
@@ -1264,6 +1271,7 @@ def add_note_to_board(board_id):
             if request.is_json:
                 return jsonify({'success': False, 'error': 'Content is required'}), 400
             flash('Innhold er påkrevd', 'error')
+            flash('Innhold er påkrevd', 'error')
             return redirect(url_for('view_board', board_id=board_id))
         
         # Add note to board
@@ -1538,16 +1546,9 @@ def api_calendar_events():
                 'id': reminder['id'],
                 'title': reminder['title'],
                 'start': reminder['datetime'],
-                'backgroundColor': color,
-                'borderColor': color,
-                'extendedProps': {
-                    'description': reminder.get('description', ''),
-                    'category': reminder.get('category', ''),
-                    'priority': reminder.get('priority', ''),
-                    'type': 'my'
-                }
+                'color': color
             })
-        
+
         # Add shared reminders
         for reminder in shared_with_me:
             events_json.append({
@@ -1643,5 +1644,102 @@ def get_vapid_public_key():
     except ImportError:
         return jsonify({'error': 'Push notifications not configured'}), 500
 
-if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=5000)
+@app.route('/set-instructor-status', methods=['POST'])
+@login_required
+def set_instructor_status():
+    status = request.form.get('status')
+    users = dm.load_data('users')
+    user = users.get(current_user.email, {})
+    user['status'] = status
+    users[current_user.email] = user
+    dm.save_data('users', users)
+    # Varsle eier (eller alle instruktører unntatt deg selv)
+    owner_email = user.get('owner')
+    if owner_email and owner_email != current_user.email:
+        send_push_notification(
+            owner_email,
+            title="Instruktørstatus oppdatert",
+            body=f"{current_user.email} satte status til '{status}'",
+            data={"type": "instructor_status", "status": status, "by": current_user.email},
+            dm=dm
+        )
+    flash(f'Status oppdatert til {status}', 'success')
+    return redirect(url_for('dashboard'))
+
+@app.route('/send-quick-message', methods=['POST'])
+@login_required
+def send_quick_message():
+    template = request.form.get('template')
+    # Send til alle instruktører (unntatt deg selv)
+    users = dm.load_data('users')
+    recipients = [u['email'] for u in users.values() if u.get('role') == 'instructor' and u['email'] != current_user.email]
+    for email in recipients:
+        send_push_notification(
+            email,
+            title="Hurtigbeskjed fra kjøreskole",
+            body=template,
+            data={"type": "quick_message", "from": current_user.email, "message": template},
+            dm=dm
+        )
+    flash(f'Hurtigbeskjed sendt: {template}', 'info')
+    return redirect(url_for('dashboard'))
+
+@app.route('/api/send-quick-reply', methods=['POST'])
+@login_required
+def api_send_quick_reply():
+    reply = request.json.get('reply')
+    # Varsle eier (eller instruktør)
+    users = dm.load_data('users')
+    user = users.get(current_user.email, {})
+    owner_email = user.get('owner')
+    if owner_email and owner_email != current_user.email:
+        send_push_notification(
+            owner_email,
+            title="Hurtigsvar fra elev",
+            body=reply,
+            data={"type": "quick_reply", "from": current_user.email, "reply": reply},
+            dm=dm
+        )
+    return jsonify({'success': True, 'message': f'Reply sent: {reply}'})
+
+@app.route('/notify-delay', methods=['POST'])
+@login_required
+def notify_delay():
+    minutes = request.form.get('minutes')
+    # Varsle eier (eller instruktør)
+    users = dm.load_data('users')
+    user = users.get(current_user.email, {})
+    owner_email = user.get('owner')
+    if owner_email and owner_email != current_user.email:
+        send_push_notification(
+            owner_email,
+            title="Forsinkelse varslet",
+            body=f"{current_user.email} er forsinket {minutes} min",
+            data={"type": "delay", "minutes": minutes, "by": current_user.email},
+            dm=dm
+        )
+    flash(f'Forsinkelse sendt: {minutes} min', 'warning')
+    return redirect(url_for('dashboard'))
+
+@app.route('/log-lesson', methods=['POST'])
+@login_required
+def log_lesson():
+    note = request.form.get('note')
+    # Append to lesson log (could be per user)
+    lesson_log = dm.load_data('lesson_log') or []
+    lesson_log.append({'user': current_user.email, 'timestamp': datetime.now().strftime('%d.%m.%Y %H:%M'), 'note': note})
+    dm.save_data('lesson_log', lesson_log)
+    # Varsle eier (eller instruktør)
+    users = dm.load_data('users')
+    user = users.get(current_user.email, {})
+    owner_email = user.get('owner')
+    if owner_email and owner_email != current_user.email:
+        send_push_notification(
+            owner_email,
+            title="Kjøretime logget",
+            body=f"{current_user.email}: {note}",
+            data={"type": "lesson_log", "by": current_user.email, "note": note},
+            dm=dm
+        )
+    flash('Kjøretime logget!', 'success')
+    return redirect(url_for('dashboard'))
