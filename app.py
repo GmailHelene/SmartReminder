@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, session, abort
+from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, session, abort, send_from_directory
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
 from flask_mail import Mail, Message
 from flask_wtf import FlaskForm
@@ -502,8 +502,9 @@ class ReminderForm(FlaskForm):
     ])
     sound = SelectField('Lyd', choices=[
         ('pristine.mp3', 'Standard lyd'), 
-        ('ding.mp3', 'Ding! lyd'),
-        ('beep.mp3', 'Beep lyd')
+        ('ding.mp3', 'Ding lyd'),
+        ('chime.mp3', 'Chime lyd'),
+        ('alert.mp3', 'Alert lyd')
     ], default='pristine.mp3')
     submit = SubmitField('Opprett påminnelse')
 
@@ -851,6 +852,7 @@ def add_reminder():
                 'datetime': f"{data.get('date')} {data.get('time')}",
                 'priority': data.get('priority', 'Medium'),
                 'category': data.get('category', 'Annet'),
+                'sound': data.get('sound', 'pristine.mp3'),  # Add sound parameter
                 'completed': False,
                 'created': datetime.now().isoformat(),
                 'shared_with': []
@@ -1639,9 +1641,12 @@ def subscribe_push_notifications():
 
 @app.route('/api/send-test-notification', methods=['POST'])
 @login_required
-def send_test_notification():
-    """Send test push notification"""
+def send_test_notification_with_sound():
+    """Send test push notification with sound"""
     try:
+        data = request.get_json() or {}
+        sound = data.get('sound', 'pristine.mp3')
+        
         # Import push service
         try:
             from push_service import send_push_notification
@@ -1649,15 +1654,23 @@ def send_test_notification():
             logger.warning("Push service not available")
             return jsonify({'success': False, 'error': 'Push notifications not configured'})
         
+        # Create notification data with sound
+        notification_data = {
+            "type": "test",
+            "url": "/dashboard",
+            "sound": sound
+        }
+        
         success = send_push_notification(
             current_user.email,
             "Test notifikasjon",
-            "Dette er en test-notifikasjon fra SmartReminder!",
+            f"Dette er en test-notifikasjon med lyd: {sound}",
+            data=notification_data,
             dm=dm
         )
         
         if success:
-            return jsonify({'success': True, 'message': 'Test notification sent'})
+            return jsonify({'success': True, 'message': 'Test notification sent with sound'})
         else:
             return jsonify({'success': False, 'error': 'Failed to send notification'})
             
@@ -1774,3 +1787,13 @@ def log_lesson():
         )
     flash('Kjøretime logget!', 'success')
     return redirect(url_for('dashboard'))
+
+@app.route('/sound-test')
+def sound_test():
+    """Test page for sound playback"""
+    return render_template('sound_test.html')
+
+@app.route('/sw-test')
+def sw_test():
+    """Test page for service worker sound playback"""
+    return send_from_directory('static', 'sw_sound_test.html')

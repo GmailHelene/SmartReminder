@@ -122,7 +122,59 @@ self.addEventListener('push', function(event) {
         }
     }
     
-    event.waitUntil(self.registration.showNotification('SmartReminder', options));
+    // Show notification first
+    const showNotificationPromise = self.registration.showNotification('SmartReminder', options);
+    
+    // Then trigger sound playback for all clients
+    if (options.data && options.data.sound) {
+        const soundToPlay = options.data.sound;
+        console.log('[Service Worker] Will attempt to play notification sound:', soundToPlay);
+        
+        // Wait for notification to show, then trigger sound playback
+        event.waitUntil(
+            showNotificationPromise.then(() => {
+                return self.clients.matchAll({
+                    includeUncontrolled: true,
+                    type: 'window'
+                });
+            }).then(clients => {
+                console.log('[Service Worker] Found clients:', clients.length);
+                
+                let messageSent = false;
+                
+                if (clients.length > 0) {
+                    // Send message to all clients to play the sound
+                    clients.forEach(client => {
+                        console.log('[Service Worker] Sending play sound message to client', client.id);
+                        client.postMessage({
+                            type: 'PLAY_NOTIFICATION_SOUND',
+                            sound: soundToPlay
+                        });
+                        messageSent = true;
+                    });
+                }
+                
+                // If couldn't send message or no clients, create a fallback mechanism
+                if (!messageSent) {
+                    console.log('[Service Worker] No clients received message, creating a fallback');
+                    // Store for later playback when app opens
+                    return caches.open('sound-notifications').then(cache => {
+                        return cache.put('/pending-sounds', new Response(JSON.stringify({
+                            timestamp: Date.now(),
+                            sound: soundToPlay
+                        }), {
+                            headers: {
+                                'Content-Type': 'application/json'
+                            }
+                        }));
+                    });
+                }
+            })
+        );
+    } else {
+        // Just show the notification if no sound
+        event.waitUntil(showNotificationPromise);
+    }
 });
 
 // Play notification sound (must be called from the main thread)
@@ -140,12 +192,26 @@ self.addEventListener('message', function(event) {
     }
 });
 
-// Notification click event
 self.addEventListener('notificationclick', function(event) {
     console.log('[Service Worker] Notification click Received.');
     
-    event.notification.close();
+    const notification = event.notification;
+    notification.close();
     
+    // Try to play sound again when notification is clicked
+    if (notification.data && notification.data.sound) {
+        console.log('[Service Worker] Playing sound on notification click:', notification.data.sound);
+        self.clients.matchAll().then(clients => {
+            clients.forEach(client => {
+                client.postMessage({
+                    type: 'PLAY_NOTIFICATION_SOUND',
+                    sound: notification.data.sound
+                });
+            });
+        });
+    }
+    
+    // Handle action button or default click
     if (event.action === 'explore') {
         // Open the app
         event.waitUntil(clients.openWindow('/dashboard'));
