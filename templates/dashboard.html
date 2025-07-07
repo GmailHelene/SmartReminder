@@ -11,12 +11,16 @@
             <div class="input-group">
                 <label class="input-group-text" for="focusModeSelect">Fokusmodus</label>
                 <select class="form-select" id="focusModeSelect" name="focus_mode">
-                    <option value="normal">Normal</option>
-                    <option value="focus">Fokus</option>
-                    <option value="break">Pause</option>
-                    <option value="silent">Stillemodus</option>
-                    <option value="adhd">ADHD-modus</option>
-                    <option value="driving_school">Kjøreskolemodus</option>
+                    <option value="normal" {% if current_focus_mode == 'normal' %}selected{% endif %}>Normal</option>
+                    <option value="focus" {% if current_focus_mode == 'focus' %}selected{% endif %}>Fokus</option>
+                    <option value="break" {% if current_focus_mode == 'break' %}selected{% endif %}>Pause</option>
+                    <option value="silent" {% if current_focus_mode == 'silent' %}selected{% endif %}>Stillemodus</option>
+                    <option value="adhd" {% if current_focus_mode == 'adhd' %}selected{% endif %}>ADHD-modus</option>
+                    <option value="driving_school" {% if current_focus_mode == 'driving_school' %}selected{% endif %}>Kjøreskolemodus</option>
+                    <option value="break" {% if current_focus_mode == 'break' %}selected{% endif %}>Pause</option>
+                    <option value="silent" {% if current_focus_mode == 'silent' %}selected{% endif %}>Stillemodus</option>
+                    <option value="adhd" {% if current_focus_mode == 'adhd' %}selected{% endif %}>ADHD-modus</option>
+                    <option value="driving_school" {% if current_focus_mode == 'driving_school' %}selected{% endif %}>Kjøreskolemodus</option>
                 </select>
                 <button class="btn btn-outline-primary" type="submit">Bytt</button>
             </div>
@@ -225,13 +229,16 @@
                 </div>
                 <div class="col-lg-4 col-md-12 col-sm-12">
                     <div class="form-floating mb-3">
-                        <select class="form-select" name="sound" id="soundSelect">
+                        <select class="form-select" name="sound" id="soundSelect" onchange="previewSound(this.value)">
                             <option value="pristine.mp3">Standard</option>
                             <option value="ding.mp3">Ding</option>
                             <option value="chime.mp3">Chime</option>
                             <option value="alert.mp3">Alert</option>
                         </select>
                         <label for="soundSelect">Varsellyd</label>
+                        <button type="button" class="btn btn-sm btn-outline-secondary mt-2" onclick="previewSound(document.getElementById('soundSelect').value)">
+                            <i class="fas fa-volume-up"></i> Test lyd
+                        </button>
                     </div>
                 </div>
             </div>
@@ -693,8 +700,11 @@ document.addEventListener('DOMContentLoaded', function() {
         document.body.appendChild(iframe);
     };
     
-    // Refresh tokens every 15 minutes to avoid expiration
-    setInterval(refreshCSRFTokens, 15 * 60 * 1000);
+    // Refresh tokens immediately on page load
+    refreshCSRFTokens();
+    
+    // Refresh tokens every 5 minutes to avoid expiration
+    setInterval(refreshCSRFTokens, 5 * 60 * 1000);
     
     // Also refresh if the user becomes active after inactivity
     let inactiveTime = 0;
@@ -736,10 +746,13 @@ document.addEventListener('DOMContentLoaded', function() {
         return;
     }
     
-    // Show loading initially - DISABLED per user request
-    // if (loadingEl) {
-    //     loadingEl.style.display = 'block';
-    // }
+    
+    // Show loading briefly then hide it automatically
+    if (loadingEl) {
+        loadingEl.innerHTML = '<div class="text-center"><div class="spinner-border text-primary" role="status"></div><p class="mt-2">Laster kalender...</p></div>';
+        loadingEl.style.display = 'block';
+        // Will be hidden automatically after 500ms by the timeout at the end of the script
+    }
     
     // Hide fallback initially  
     if (fallbackEl) {
@@ -1547,10 +1560,13 @@ function showToastNotification(message, type = 'info') {
     }, 5000);
 }
 
-// Kalender fallback: feilmelding fjernet per brukerens ønske
+// Hide "Kalenderen tar litt tid å laste" message
 setTimeout(function() {
-    // Koden er deaktivert for å unngå loading-melding
-}, 7000);
+    const loadingEl = document.getElementById('calendar-loading');
+    if (loadingEl && loadingEl.style.display !== 'none') {
+        loadingEl.style.display = 'none';
+    }
+}, 500);
 
 // Check push notification status and show enable button if needed
 document.addEventListener('DOMContentLoaded', function() {
@@ -1565,5 +1581,16 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 });
+
+// Add a function to preview sound selection
+function previewSound(soundFile) {
+    if (!soundFile) return;
+    
+    const audio = new Audio(`/static/sounds/${soundFile}`);
+    audio.play().catch(error => {
+        console.error('Could not play sound:', error);
+        showToastNotification('Kunne ikke spille lyd: ' + error.message, 'error');
+    });
+}
 </script>
 {% endblock %}

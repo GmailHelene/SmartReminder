@@ -441,13 +441,34 @@ def check_reminders_for_notifications():
         
         # Send notifikasjoner
         for reminder, recipient_email in all_reminders:
+            # Extract sound setting from reminder
+            sound = reminder.get('sound', 'pristine.mp3')
+            
+            # Import push_service function for direct notification
+            try:
+                from push_service import send_reminder_notification as send_push_reminder
+                # Try to send push notification first (more immediate)
+                push_sent = send_push_reminder(
+                    recipient_email, 
+                    reminder['title'], 
+                    reminder['datetime'], 
+                    sound=sound,
+                    dm=dm
+                )
+                logger.info(f"Push notification {'sent' if push_sent else 'failed'} for {reminder['id']}")
+            except Exception as push_err:
+                logger.error(f"Error sending push notification: {push_err}")
+                push_sent = False
+                
+            # Also send email notification as backup
             if send_reminder_notification(reminder, recipient_email):
                 # Logg notifikasjon
                 notifications.append({
                     'reminder_id': reminder['id'],
                     'recipient': recipient_email,
                     'sent_at': now.isoformat(),
-                    'type': 'reminder_notification'
+                    'type': 'reminder_notification',
+                    'push_sent': push_sent
                 })
         
         # Lagre oppdaterte notifikasjoner
@@ -1414,7 +1435,12 @@ def api_delete_note(note_id):
 @app.route('/email-settings', methods=['GET', 'POST'])
 @login_required
 def email_settings():
-    """Email settings page"""
+    """Email settings page - restricted to admin only"""
+    # Only allow admin access
+    if current_user.email != 'helene721@gmail.com':
+        flash('Du har ikke tilgang til denne siden', 'error')
+        return redirect(url_for('dashboard'))
+        
     if request.method == 'POST':
         # Handle email settings form
         flash('E-postinnstillinger oppdatert!', 'success')
@@ -1440,7 +1466,12 @@ def email_settings():
 @app.route('/test-email', methods=['POST'])
 @login_required
 def test_email():
-    """Send test email"""
+    """Send test email - restricted to admin only"""
+    # Only allow admin access
+    if current_user.email != 'helene721@gmail.com':
+        flash('Du har ikke tilgang til denne funksjonen', 'error')
+        return redirect(url_for('dashboard'))
+        
     try:
         email = request.form.get('email')
         if not email:

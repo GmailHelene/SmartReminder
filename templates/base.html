@@ -77,10 +77,12 @@
                             <i class="fas fa-user"></i> {{ current_user.username }}
                         </a>
                         <ul class="dropdown-menu">
+                            {% if current_user.email == 'helene721@gmail.com' %}
                             <li><a class="dropdown-item" href="{{ url_for('email_settings') }}">
                                 <i class="fas fa-envelope"></i> E-post innstillinger
                             </a></li>
                             <li><hr class="dropdown-divider"></li>
+                            {% endif %}
                             <li><a class="dropdown-item" href="{{ url_for('logout') }}">
                                 <i class="fas fa-sign-out-alt"></i> Logg ut
                             </a></li>

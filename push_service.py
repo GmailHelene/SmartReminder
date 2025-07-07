@@ -29,6 +29,18 @@ def send_push_notification(user_email, title, body, data=None, dm=None):
             logger.info(f"No push subscriptions found for user {user_email}")
             return False
         
+        # Get user preferences for sound
+        users_data = dm.load_data('users')
+        user_data = users_data.get(user_email, {})
+        default_sound = user_data.get('notification_sound', 'pristine.mp3')
+        
+        # Use provided data or create empty dict
+        notification_data = data or {}
+        
+        # Add sound parameter if not already present
+        if 'sound' not in notification_data:
+            notification_data['sound'] = default_sound
+        
         notification_payload = {
             "title": title,
             "body": body,
@@ -36,7 +48,8 @@ def send_push_notification(user_email, title, body, data=None, dm=None):
             "badge": "/static/icons/icon-72x72.png",
             "tag": "smartreminder",
             "renotify": True,
-            "data": data or {},
+            "sound": notification_data.get('sound', default_sound),
+            "data": notification_data,
             "actions": [
                 {
                     "action": "view",
@@ -129,7 +142,7 @@ def send_board_notification(board_id, action, content, exclude_user=None, dm=Non
         logger.error(f"Error sending board notification for {board_id}: {e}")
         return False
 
-def send_reminder_notification(user_email, reminder_title, reminder_time, dm=None):
+def send_reminder_notification(user_email, reminder_title, reminder_time, sound=None, dm=None):
     """Send notification for upcoming reminder"""
     if not dm:
         return False
@@ -143,6 +156,10 @@ def send_reminder_notification(user_email, reminder_title, reminder_time, dm=Non
         "time": reminder_time,
         "url": "/dashboard"
     }
+    
+    # Add sound if provided
+    if sound:
+        notification_data["sound"] = sound
     
     return send_push_notification(user_email, title, body, notification_data, dm)
 

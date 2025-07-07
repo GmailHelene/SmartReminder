@@ -101,10 +101,21 @@ self.addEventListener('push', function(event) {
     if (event.data) {
         try {
             const data = event.data.json();
-            options.body = data.message || options.body;
+            options.body = data.message || data.body || options.body;
             options.title = data.title || 'SmartReminder';
             if (data.url) {
                 options.data.url = data.url;
+            }
+            
+            // Store sound info in the notification data
+            if (data.sound) {
+                options.data.sound = data.sound;
+                options.silent = false;
+            }
+            
+            // Set badge count if provided
+            if (data.badgeCount) {
+                options.badge = data.badgeCount;
             }
         } catch (e) {
             console.error('Error parsing push data:', e);
@@ -112,6 +123,21 @@ self.addEventListener('push', function(event) {
     }
     
     event.waitUntil(self.registration.showNotification('SmartReminder', options));
+});
+
+// Play notification sound (must be called from the main thread)
+self.addEventListener('message', function(event) {
+    if (event.data && event.data.type === 'PLAY_NOTIFICATION_SOUND') {
+        // We'll pass this message to the client to play the sound
+        self.clients.matchAll().then(clients => {
+            clients.forEach(client => {
+                client.postMessage({
+                    type: 'PLAY_NOTIFICATION_SOUND',
+                    sound: event.data.sound || 'pristine.mp3'
+                });
+            });
+        });
+    }
 });
 
 // Notification click event

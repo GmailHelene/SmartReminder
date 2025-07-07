@@ -159,21 +159,52 @@ function urlBase64ToUint8Array(base64String) {
 // Board notifications
 function notifyBoardUpdate(boardId, updateType, noteContent, sound = 'pristine.mp3') {
     if ('Notification' in window && Notification.permission === 'granted') {
+        // Create notification
         new Notification('Tavle oppdatert', {
             body: `${updateType}: ${noteContent?.substring(0, 50)}...`,
             icon: '/static/icon-192x192.png',
             tag: `board-${boardId}`,
             sound: sound,
-            silent: !sound
+            silent: false
         });
         
-        // Play sound
-        if (sound) {
-            const audio = new Audio(`/static/sounds/${sound}`);
-            audio.play().catch(error => console.log('Could not play notification sound:', error));
-        }
+        // Play sound separately (because browser notification sound support is limited)
+        playNotificationSound(sound);
     }
 }
+
+// Play notification sound
+function playNotificationSound(sound) {
+  try {
+    const soundFile = sound || 'pristine.mp3';
+    const audio = new Audio(`/static/sounds/${soundFile}`);
+    
+    // Set up audio to play when ready
+    audio.oncanplaythrough = function() {
+      const playPromise = audio.play();
+      
+      if (playPromise !== undefined) {
+        playPromise.catch(error => {
+          console.error('Error playing notification sound:', error);
+        });
+      }
+    };
+    
+    // Handle errors
+    audio.onerror = function() {
+      console.error('Error loading notification sound:', soundFile);
+    };
+  } catch (error) {
+    console.error('Failed to play notification sound:', error);
+  }
+}
+
+// Listen for messages from service worker
+navigator.serviceWorker.addEventListener('message', function(event) {
+  if (event.data && event.data.type === 'PLAY_NOTIFICATION_SOUND') {
+    playNotificationSound(event.data.sound);
+  }
+});
 
 // Connection status
 function updateConnectionStatus() {
