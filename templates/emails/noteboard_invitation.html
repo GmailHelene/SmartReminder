@@ -154,9 +154,11 @@
         
         <div class="footer">
             <p><strong>Smart Påminner Pro © 2024</strong></p>
-            <p><small>Denne invitasjonen til <strong>delt tavle</strong> ble sendt til {{ recipient_email }}</small></p>
-            <p style="font-size: 0.8rem; color: #999; margin-top: 10px;">
-                Dette er en invitasjon til samarbeid på delt tavle - ikke en påminnelse
+            <p style="background: #fff3cd; padding: 10px; border-radius: 5px; border: 1px solid #ffc107; color: #856404; font-weight: bold;">
+                📋 Du får denne invitasjonen fordi <strong>{{ invited_by }}</strong> har invitert deg til den delte tavlen "<strong>{{ board.title }}</strong>"
+            </p>
+            <p style="font-size: 0.9rem; color: #dc3545; margin-top: 15px; font-weight: bold; background: #f8d7da; padding: 8px; border-radius: 5px;">
+                ⚠️ Dette er en invitasjon til samarbeid - ikke en påminnelse
             </p>
         </div>
     </div>

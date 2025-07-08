@@ -189,6 +189,18 @@ self.addEventListener('message', function(event) {
                 });
             });
         });
+        
+        // Return success response to the client
+        if (event.ports && event.ports[0]) {
+            event.ports[0].postMessage({
+                success: true,
+                message: 'Sound message received'
+            });
+        }
+        
+        return new Response(JSON.stringify({ success: true }), {
+            headers: { 'Content-Type': 'application/json' }
+        });
     }
 });
 
