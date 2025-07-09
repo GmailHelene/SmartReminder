@@ -71,51 +71,67 @@ self.addEventListener('activate', event => {
   );
 });
 
-// Push notification handling
+// Enhanced mobile push notification handling
 self.addEventListener('push', function(event) {
     console.log('[Service Worker] Push Received.');
     
-    const options = {
+    let data = {};
+    let options = {
         body: 'Du har en ny påminnelse!',
-        icon: '/static/icon-192x192.png',
-        badge: '/static/icon-192x192.png',
-        vibrate: [100, 50, 100],
+        icon: '/static/images/icon-192x192.png',
+        badge: '/static/images/badge-96x96.png',
+        vibrate: [200, 100, 200, 100, 200], // Enhanced vibration pattern
         data: {
             dateOfArrival: Date.now(),
-            primaryKey: '2'
+            primaryKey: '1',
+            sound: 'pristine.mp3'
         },
         actions: [
             {
-                action: 'explore',
+                action: 'open',
                 title: 'Åpne app',
-                icon: '/static/icon-192x192.png'
+                icon: '/static/images/icon-192x192.png'
             },
             {
                 action: 'close',
                 title: 'Lukk',
-                icon: '/static/icon-192x192.png'
+                icon: '/static/images/icon-192x192.png'
             }
-        ]
+        ],
+        requireInteraction: true, // Keep notification visible until user interacts
+        silent: false, // Allow system sound
+        tag: 'smartreminder-notification' // Group notifications
     };
     
     if (event.data) {
         try {
-            const data = event.data.json();
+            data = event.data.json();
             options.body = data.message || data.body || options.body;
             options.title = data.title || 'SmartReminder';
             if (data.url) {
                 options.data.url = data.url;
             }
             
-            // Store sound info in the notification data
+            // Enhanced sound handling for mobile
             if (data.sound) {
                 options.data.sound = data.sound;
                 options.silent = false;
+                
+                // Add sound info to notification body for mobile users
+                if (data.sound !== 'pristine.mp3') {
+                    options.body += ` (${data.sound.replace('.mp3', '')})`;
+                }
             }
             
             // Set badge count if provided
             if (data.badgeCount) {
                 options.badge = data.badgeCount;
+            }
+            
+            // Enhanced vibration for important notifications
+            if (data.priority === 'high') {
+                options.vibrate = [300, 100, 300, 100, 300];
+                options.requireInteraction = true;
             }
         } catch (e) {
             console.error('Error parsing push data:', e);
@@ -123,117 +139,119 @@ self.addEventListener('push', function(event) {
     }
     
     // Show notification first
-    const showNotificationPromise = self.registration.showNotification('SmartReminder', options);
+    const showNotificationPromise = self.registration.showNotification(options.title || 'SmartReminder', options);
     
-    // Then trigger sound playback for all clients
-    if (options.data && options.data.sound) {
-        const soundToPlay = options.data.sound;
-        console.log('[Service Worker] Will attempt to play notification sound:', soundToPlay);
-        
-        // Wait for notification to show, then trigger sound playback
-        event.waitUntil(
-            showNotificationPromise.then(() => {
-                return self.clients.matchAll({
-                    includeUncontrolled: true,
-                    type: 'window'
-                });
-            }).then(clients => {
-                console.log('[Service Worker] Found clients:', clients.length);
-                
-                let messageSent = false;
-                
-                if (clients.length > 0) {
-                    // Send message to all clients to play the sound
-                    clients.forEach(client => {
-                        console.log('[Service Worker] Sending play sound message to client', client.id);
-                        client.postMessage({
-                            type: 'PLAY_NOTIFICATION_SOUND',
-                            sound: soundToPlay
-                        });
-                        messageSent = true;
-                    });
-                }
-                
-                // If couldn't send message or no clients, create a fallback mechanism
-                if (!messageSent) {
-                    console.log('[Service Worker] No clients received message, creating a fallback');
-                    // Store for later playback when app opens
-                    return caches.open('sound-notifications').then(cache => {
-                        return cache.put('/pending-sounds', new Response(JSON.stringify({
-                            timestamp: Date.now(),
-                            sound: soundToPlay
-                        }), {
-                            headers: {
-                                'Content-Type': 'application/json'
-                            }
-                        }));
-                    });
-                }
-            })
-        );
-    } else {
-        // Just show the notification if no sound
-        event.waitUntil(showNotificationPromise);
-    }
+    // Enhanced sound handling for mobile
+    const soundToPlay = options.data.sound;
+    console.log('[Service Worker] Will attempt to play notification sound:', soundToPlay);
+    
+    // Wait for notification to show, then trigger sound playback
+    event.waitUntil(
+        showNotificationPromise.then(() => {
+            return playNotificationSoundViaClients(soundToPlay);
+        })
+    );
 });
 
-// Play notification sound (must be called from the main thread)
-self.addEventListener('message', function(event) {
-    if (event.data && event.data.type === 'PLAY_NOTIFICATION_SOUND') {
-        // We'll pass this message to the client to play the sound
-        self.clients.matchAll().then(clients => {
+// Enhanced function to play notification sound via active clients
+function playNotificationSoundViaClients(soundFile) {
+    return self.clients.matchAll({
+        includeUncontrolled: true,
+        type: 'window'
+    }).then(clients => {
+        console.log('[Service Worker] Found clients for sound playback:', clients.length);
+        
+        let messageSent = false;
+        
+        if (clients.length > 0) {
+            // Send message to all clients to play the sound
             clients.forEach(client => {
+                console.log('[Service Worker] Sending play sound message to client', client.id);
                 client.postMessage({
                     type: 'PLAY_NOTIFICATION_SOUND',
-                    sound: event.data.sound || 'pristine.mp3'
+                    sound: soundFile,
+                    timestamp: Date.now(),
+                    isMobile: /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
                 });
-            });
-        });
-        
-        // Return success response to the client
-        if (event.ports && event.ports[0]) {
-            event.ports[0].postMessage({
-                success: true,
-                message: 'Sound message received'
+                messageSent = true;
             });
         }
         
-        return new Response(JSON.stringify({ success: true }), {
-            headers: { 'Content-Type': 'application/json' }
-        });
-    }
-});
+        // Enhanced fallback mechanism for mobile
+        if (!messageSent) {
+            console.log('[Service Worker] No clients received message, creating enhanced fallback');
+            // Store for later playback when app opens
+            return caches.open('sound-notifications').then(cache => {
+                return cache.put('/pending-sounds', new Response(JSON.stringify({
+                    timestamp: Date.now(),
+                    sound: soundFile,
+                    isMobile: true,
+                    notificationId: 'smartreminder-notification'
+                }), {
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                }));
+            });
+        }
+    });
+}
 
+// Enhanced notification click handling
 self.addEventListener('notificationclick', function(event) {
     console.log('[Service Worker] Notification click Received.');
     
     const notification = event.notification;
+    const action = event.action;
+    
     notification.close();
     
-    // Try to play sound again when notification is clicked
+    // Handle different actions
+    if (action === 'close') {
+        console.log('[Service Worker] Notification closed by user');
+        return;
+    }
+    
+    // Default action or 'open' action
+    let urlToOpen = '/dashboard';
+    if (notification.data && notification.data.url) {
+        urlToOpen = notification.data.url;
+    }
+    
+    // Try to play sound again when notification is clicked (for mobile)
     if (notification.data && notification.data.sound) {
         console.log('[Service Worker] Playing sound on notification click:', notification.data.sound);
         self.clients.matchAll().then(clients => {
             clients.forEach(client => {
                 client.postMessage({
                     type: 'PLAY_NOTIFICATION_SOUND',
-                    sound: notification.data.sound
+                    sound: notification.data.sound,
+                    fromClick: true
                 });
             });
         });
     }
     
-    // Handle action button or default click
-    if (event.action === 'explore') {
-        // Open the app
-        event.waitUntil(clients.openWindow('/dashboard'));
-    } else if (event.action === 'close') {
-        // Just close the notification
-        return;
-    } else {
-        // Default action - open the app
-        event.waitUntil(clients.openWindow('/dashboard'));
-    }
+    // Enhanced window handling for mobile
+    event.waitUntil(
+        self.clients.matchAll({
+            type: 'window',
+            includeUncontrolled: true
+        }).then(clientList => {
+            // Check if app is already open
+            for (let i = 0; i < clientList.length; i++) {
+                const client = clientList[i];
+                if (client.url.includes(urlToOpen) && 'focus' in client) {
+                    return client.focus();
+                }
+            }
+            
+            // Open new window if not already open
+            if (self.clients.openWindow) {
+                return self.clients.openWindow(urlToOpen);
+            }
+        })
+    );
 });
 
 // Background sync for board updates
@@ -254,3 +272,47 @@ function syncBoardUpdates() {
         console.error('Background sync failed:', error);
     });
 }
+
+// Message handling for client communication
+self.addEventListener('message', function(event) {
+    console.log('[Service Worker] Message received:', event.data);
+    
+    if (event.data && event.data.type === 'PLAY_NOTIFICATION_SOUND') {
+        // Client is asking us to play a sound
+        const soundFile = event.data.sound || 'pristine.mp3';
+        console.log('[Service Worker] Playing sound requested by client:', soundFile);
+        
+        // Send the sound request back to all clients
+        playNotificationSoundViaClients(soundFile);
+    }
+    
+    if (event.data && event.data.type === 'CLIENT_READY') {
+        // Client is ready to receive messages
+        console.log('[Service Worker] Client is ready for messages');
+        
+        // Check if there are any pending sounds
+        caches.open('sound-notifications').then(cache => {
+            cache.match('/pending-sounds').then(response => {
+                if (response) {
+                    response.json().then(data => {
+                        // Check if the sound notification is recent (last 10 minutes)
+                        const now = Date.now();
+                        const tenMinutesAgo = now - (10 * 60 * 1000);
+                        
+                        if (data.timestamp > tenMinutesAgo) {
+                            console.log('[Service Worker] Playing pending sound for ready client:', data.sound);
+                            event.ports[0].postMessage({
+                                type: 'PLAY_NOTIFICATION_SOUND',
+                                sound: data.sound,
+                                pending: true
+                            });
+                        }
+                        
+                        // Clear the pending sound
+                        cache.delete('/pending-sounds');
+                    });
+                }
+            });
+        });
+    }
+});

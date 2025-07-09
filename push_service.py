@@ -17,7 +17,7 @@ VAPID_PUBLIC_KEY = "BPKg5QjGtlY8n9VJ9VdWUFfaG8FKzX2sQ3ZmFUPvYGJ0qRdKF3XGzjFXQR2v
 VAPID_CLAIMS = {"sub": "mailto:admin@smartreminder.com"}
 
 def send_push_notification(user_email, title, body, data=None, dm=None):
-    """Send push notification to user"""
+    """Send push notification to user with enhanced mobile support"""
     if not dm:
         return False
         
@@ -41,26 +41,36 @@ def send_push_notification(user_email, title, body, data=None, dm=None):
         if 'sound' not in notification_data:
             notification_data['sound'] = default_sound
         
+        # Enhanced mobile-optimized notification payload
         notification_payload = {
             "title": title,
             "body": body,
-            "icon": "/static/icons/icon-192x192.png",
-            "badge": "/static/icons/icon-72x72.png",
-            "tag": "smartreminder",
+            "icon": "/static/images/icon-192x192.png",
+            "badge": "/static/images/badge-96x96.png",
+            "tag": "smartreminder-notification",
             "renotify": True,
+            "requireInteraction": True,  # Keep notification visible until user interacts
             "sound": notification_data.get('sound', default_sound),
+            "vibrate": [200, 100, 200, 100, 200],  # Enhanced vibration pattern
             "data": notification_data,
             "actions": [
                 {
-                    "action": "view",
-                    "title": "Se detaljer"
+                    "action": "open",
+                    "title": "Åpne app",
+                    "icon": "/static/images/icon-192x192.png"
                 },
                 {
-                    "action": "dismiss", 
-                    "title": "Lukk"
+                    "action": "close", 
+                    "title": "Lukk",
+                    "icon": "/static/images/icon-192x192.png"
                 }
             ]
         }
+        
+        # Add priority handling for mobile
+        if notification_data.get('priority') == 'high':
+            notification_payload['vibrate'] = [300, 100, 300, 100, 300]
+            notification_payload['requireInteraction'] = True
         
         success_count = 0
         invalid_subscriptions = []

@@ -6,7 +6,7 @@
     <title>{% block title %}SmartReminder{% endblock %}</title>
     
     <!-- PWA Meta Tags -->
-    <meta name="description" content="Smart påminnelser med deling og notifikasjoner">
+    <meta name="description" content="Smart påminnelser med deling, notifikasjoner og kalender">
     <meta name="theme-color" content="#007bff">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -15,13 +15,44 @@
     <meta name="msapplication-TileColor" content="#007bff">
     <meta name="msapplication-tap-highlight" content="no">
     
+    <!-- Enhanced PWA Support -->
+    <meta name="format-detection" content="telephone=no">
+    <meta name="application-name" content="SmartReminder">
+    <meta name="apple-touch-fullscreen" content="yes">
+    <meta name="apple-mobile-web-app-orientation" content="portrait">
+    
     <!-- PWA Manifest -->
     <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
     
-    <!-- PWA Icons -->
+    <!-- Enhanced PWA Icons -->
+    <link rel="icon" type="image/png" sizes="16x16" href="{{ url_for('static', filename='images/favicon-16x16.png') }}">
+    <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='images/favicon-32x32.png') }}">
+    <link rel="icon" type="image/png" sizes="72x72" href="{{ url_for('static', filename='images/icon-72x72.png') }}">
+    <link rel="icon" type="image/png" sizes="96x96" href="{{ url_for('static', filename='images/icon-96x96.png') }}">
+    <link rel="icon" type="image/png" sizes="128x128" href="{{ url_for('static', filename='images/icon-128x128.png') }}">
+    <link rel="icon" type="image/png" sizes="144x144" href="{{ url_for('static', filename='images/icon-144x144.png') }}">
+    <link rel="icon" type="image/png" sizes="152x152" href="{{ url_for('static', filename='images/icon-152x152.png') }}">
     <link rel="icon" type="image/png" sizes="192x192" href="{{ url_for('static', filename='images/icon-192x192.png') }}">
+    <link rel="icon" type="image/png" sizes="384x384" href="{{ url_for('static', filename='images/icon-384x384.png') }}">
     <link rel="icon" type="image/png" sizes="512x512" href="{{ url_for('static', filename='images/icon-512x512.png') }}">
-    <link rel="apple-touch-icon" href="{{ url_for('static', filename='images/apple-touch-icon.png') }}">
+    
+    <!-- Apple Touch Icons -->
+    <link rel="apple-touch-icon" sizes="180x180" href="{{ url_for('static', filename='images/icon-180x180.png') }}">
+    <link rel="apple-touch-icon" sizes="152x152" href="{{ url_for('static', filename='images/icon-152x152.png') }}">
+    <link rel="apple-touch-icon" sizes="144x144" href="{{ url_for('static', filename='images/icon-144x144.png') }}">
+    <link rel="apple-touch-icon" sizes="120x120" href="{{ url_for('static', filename='images/icon-128x128.png') }}">
+    <link rel="apple-touch-icon" sizes="114x114" href="{{ url_for('static', filename='images/icon-128x128.png') }}">
+    <link rel="apple-touch-icon" sizes="76x76" href="{{ url_for('static', filename='images/icon-72x72.png') }}">
+    <link rel="apple-touch-icon" sizes="72x72" href="{{ url_for('static', filename='images/icon-72x72.png') }}">
+    <link rel="apple-touch-icon" sizes="60x60" href="{{ url_for('static', filename='images/icon-72x72.png') }}">
+    <link rel="apple-touch-icon" sizes="57x57" href="{{ url_for('static', filename='images/icon-72x72.png') }}">
+    
+    <!-- Microsoft Tiles -->
+    <meta name="msapplication-square70x70logo" content="{{ url_for('static', filename='images/icon-72x72.png') }}">
+    <meta name="msapplication-square150x150logo" content="{{ url_for('static', filename='images/icon-152x152.png') }}">
+    <meta name="msapplication-square310x310logo" content="{{ url_for('static', filename='images/icon-384x384.png') }}">
+    
+    <!-- Favicon -->
     <link rel="shortcut icon" href="{{ url_for('static', filename='images/favicon.ico') }}">
     
     <!-- Bootstrap CSS -->

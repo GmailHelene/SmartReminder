@@ -148,8 +148,11 @@
                 <button class="btn btn-outline-light btn-sm me-2" onclick="showJoinBoardModal()">
                     <i class="fas fa-sign-in-alt"></i> Bli med på tavle
                 </button>
-                <button id="enablePushBtn" class="btn btn-outline-light btn-sm" onclick="requestPushPermission()" style="display: none;">
+                <button id="enablePushBtn" class="btn btn-outline-light btn-sm me-2" onclick="requestPushPermission()" style="display: none;">
                     <i class="fas fa-bell"></i> Aktiver varsler
+                </button>
+                <button id="installBtn" class="btn btn-outline-light btn-sm" onclick="installApp()" style="display: none;">
+                    <i class="fas fa-download"></i> Installer app
                 </button>
             </div>
         </div>
@@ -1579,19 +1582,200 @@ setTimeout(function() {
     }
 }, 500);
 
-// Check push notification status and show enable button if needed
+// Enhanced push notification status check and mobile PWA features
 document.addEventListener('DOMContentLoaded', function() {
+    console.log('🚀 Dashboard PWA and notification features initializing...');
+    
+    // Check PWA installation status
+    if (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) {
+        console.log('📱 Running in standalone mode (PWA installed)');
+        // Hide install button since app is already installed
+        const installBtn = document.getElementById('installBtn');
+        if (installBtn) installBtn.style.display = 'none';
+    } else {
+        console.log('🌐 Running in browser mode');
+        // Show install button after a delay
+        setTimeout(() => {
+            const installBtn = document.getElementById('installBtn');
+            if (installBtn && window.deferredPrompt) {
+                installBtn.style.display = 'inline-block';
+            }
+        }, 3000);
+    }
+    
+    // Enhanced push notification status check
     if ('serviceWorker' in navigator && 'PushManager' in window) {
         navigator.serviceWorker.ready.then(function(registration) {
+            console.log('✅ Service Worker ready, checking push subscription...');
             return registration.pushManager.getSubscription();
         }).then(function(subscription) {
             const enableBtn = document.getElementById('enablePushBtn');
-            if (!subscription && Notification.permission !== 'granted' && enableBtn) {
-                enableBtn.style.display = 'inline-block';
+            
+            if (subscription) {
+                console.log('✅ Push subscription exists');
+                if (enableBtn) {
+                    enableBtn.style.display = 'none';
+                    enableBtn.innerHTML = '<i class="fas fa-check"></i> Varsler aktive';
+                }
+            } else {
+                console.log('ℹ️ No push subscription found');
+                if (enableBtn && Notification.permission !== 'granted') {
+                    enableBtn.style.display = 'inline-block';
+                    enableBtn.innerHTML = '<i class="fas fa-bell"></i> Aktiver varsler';
+                }
             }
+        }).catch(function(error) {
+            console.error('❌ Error checking push subscription:', error);
         });
     }
+    
+    // Mobile-specific optimizations
+    if (/Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) {
+        console.log('📱 Mobile device detected, applying mobile optimizations');
+        
+        // Add mobile-specific CSS
+        const mobileStyles = document.createElement('style');
+        mobileStyles.textContent = `
+            .pwa-install-banner {
+                position: fixed !important;
+                bottom: 20px !important;
+                left: 50% !important;
+                transform: translateX(-50%) !important;
+                z-index: 9998 !important;
+                box-shadow: 0 4px 15px rgba(0,0,0,0.3) !important;
+                border-radius: 25px !important;
+                animation: slideInUp 0.3s ease-out !important;
+            }
+            
+            @keyframes slideInUp {
+                from { transform: translateX(-50%) translateY(100px); opacity: 0; }
+                to { transform: translateX(-50%) translateY(0); opacity: 1; }
+            }
+            
+            .mobile-notification-optimized {
+                padding: 15px 25px !important;
+                font-size: 18px !important;
+                min-width: 280px !important;
+                max-width: 90vw !important;
+            }
+        `;
+        document.head.appendChild(mobileStyles);
+        
+        // Enhanced mobile notification handling
+        if ('Notification' in window && Notification.permission === 'default') {
+            setTimeout(() => {
+                if (confirm('🔔 Vil du motta varsler for påminnelser på denne enheten?')) {
+                    requestPushPermission();
+                }
+            }, 8000);
+        }
+    }
 });
+
+// Enhanced push permission request function
+function requestPushPermission() {
+    console.log('🔔 Requesting push notification permission');
+    
+    if (!('Notification' in window)) {
+        showToastNotification('Varslinger støttes ikke på denne enheten', 'error');
+        return;
+    }
+    
+    if (Notification.permission === 'denied') {
+        showToastNotification('Varslinger er blokkert. Aktiver dem i nettleserinnstillingene for å motta påminnelser.', 'warning', 10000);
+        return;
+    }
+    
+    // Request permission
+    Notification.requestPermission().then(permission => {
+        if (permission === 'granted') {
+            console.log('✅ Notification permission granted');
+            showToastNotification('Varslinger aktivert! 🔔', 'success');
+            
+            // Hide the enable button
+            const enableBtn = document.getElementById('enablePushBtn');
+            if (enableBtn) {
+                enableBtn.style.display = 'none';
+            }
+            
+            // Initialize push notifications
+            if ('serviceWorker' in navigator && 'PushManager' in window) {
+                navigator.serviceWorker.ready.then(registration => {
+                    return registration.pushManager.subscribe({
+                        userVisibleOnly: true
+                    });
+                }).then(subscription => {
+                    console.log('✅ Push subscription successful');
+                    // Send subscription to server
+                    fetch('/api/push-subscription', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({ subscription: subscription })
+                    });
+                }).catch(error => {
+                    console.error('❌ Push subscription failed:', error);
+                });
+            }
+        } else {
+            console.log('❌ Notification permission denied');
+            showToastNotification('Varslinger er nødvendig for å motta påminnelser', 'warning');
+        }
+    });
+}
+
+// Enhanced toast notification function
+function showToastNotification(message, type = 'info', duration = 5000) {
+    // Remove existing toasts
+    const existingToasts = document.querySelectorAll('.toast-notification');
+    existingToasts.forEach(toast => toast.remove());
+    
+    // Create toast
+    const toast = document.createElement('div');
+    toast.className = `toast-notification alert alert-${type === 'success' ? 'success' : type === 'error' ? 'danger' : type === 'warning' ? 'warning' : 'info'} alert-dismissible fade show`;
+    toast.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        z-index: 9999;
+        max-width: 400px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        border-radius: 8px;
+        animation: slideInRight 0.3s ease-out;
+    `;
+    
+    toast.innerHTML = `
+        <div class="d-flex align-items-center">
+            <div class="flex-grow-1">${message}</div>
+            <button type="button" class="btn-close" onclick="this.parentElement.parentElement.remove()"></button>
+        </div>
+    `;
+    
+    document.body.appendChild(toast);
+    
+    // Auto-remove
+    setTimeout(() => {
+        if (toast.parentNode) {
+            toast.style.animation = 'slideOutRight 0.3s ease-out';
+            setTimeout(() => toast.remove(), 300);
+        }
+    }, duration);
+    
+    // Add animation styles
+    const style = document.createElement('style');
+    style.textContent = `
+        @keyframes slideInRight {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        @keyframes slideOutRight {
+            from { transform: translateX(0); opacity: 1; }
+            to { transform: translateX(100%); opacity: 0; }
+        }
+    `;
+    document.head.appendChild(style);
+}
 
 // Add a function to preview sound selection
 function previewSound(soundFile) {
