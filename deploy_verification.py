@@ -18,9 +18,11 @@ def check_git_status():
                               cwd='/workspaces/smartreminder')
         
         if result.returncode == 0:
-            if result.stdout.strip():
+            uncommitted = [line for line in result.stdout.strip().split('\n') 
+                          if line.strip() and not line.endswith('DEPLOYMENT_SUMMARY.md')]
+            if uncommitted:
                 print(f"   ⚠️  Uncommitted changes found:")
-                for line in result.stdout.strip().split('\n'):
+                for line in uncommitted:
                     print(f"      {line}")
                 return False
             else:

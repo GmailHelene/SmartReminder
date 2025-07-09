@@ -623,48 +623,8 @@ function updateReminderCounts() {
         });
 }
 
-// PWA Installation
-// deferredPrompt is now declared globally in pwa.js
-let installButton;
-
-// Remove duplicate beforeinstallprompt handler - handled in pwa.js
-// Just listen for the install button click
-document.addEventListener('DOMContentLoaded', function() {
-  installButton = document.getElementById('install-button');
-  if (installButton) {
-    installButton.addEventListener('click', function() {
-      if (window.deferredPrompt) {
-        window.deferredPrompt.prompt();
-        window.deferredPrompt.userChoice.then((result) => {
-          if (result.outcome === 'accepted') {
-            console.log('PWA installasjon akseptert');
-          } else {
-            console.log('PWA installasjon avvist');
-          }
-          window.deferredPrompt = null;
-        });
-      }
-    });
-  }
-});
-
-// Install PWA
-function installPWA() {
-  if (window.deferredPrompt) {
-    window.deferredPrompt.prompt();
-    window.deferredPrompt.userChoice.then((result) => {
-      if (result.outcome === 'accepted') {
-        console.log('PWA installasjon akseptert');
-      } else {
-        console.log('PWA installasjon avvist');
-      }
-      window.deferredPrompt = null;
-      if (installButton) {
-        installButton.style.display = 'none';
-      }
-    });
-  }
-}
+// PWA Installation handled in pwa.js
+// No duplicate deferredPrompt declarations or handlers
 
 // Service Worker registrering
 if ('serviceWorker' in navigator) {

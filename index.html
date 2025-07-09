@@ -857,17 +857,8 @@
             }
         });
         
-        // PWA functionality
-        if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('sw.js');
-        }
-        
-        // Install prompt
-        // deferredPrompt is now declared globally in pwa.js
-        window.addEventListener('beforeinstallprompt', (e) => {
-            window.deferredPrompt = e;
-            // Could show install button here
-        });
+        // PWA functionality - handled in pwa.js
+        // No duplicate beforeinstallprompt handler
     </script>
 </body>
 </html>

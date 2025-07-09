@@ -87,7 +87,7 @@
             registerBtn.addEventListener('click', function() {
                 log('Registering service worker...');
                 
-                navigator.serviceWorker.register('/static/sw.js')
+                navigator.serviceWorker.register('/sw.js')
                     .then(function(registration) {
                         log(`Service Worker registered with scope: ${registration.scope}`);
                         swRegistration = registration;
