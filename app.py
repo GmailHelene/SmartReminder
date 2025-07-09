@@ -1493,6 +1493,12 @@ def test_email():
     
     return redirect(url_for('email_settings'))
 
+# Service Worker route
+@app.route('/sw.js')
+def service_worker():
+    """Serve service worker from root path"""
+    return send_from_directory('.', 'sw.js', mimetype='application/javascript')
+
 # Offline page route
 @app.route('/offline')
 def offline():
