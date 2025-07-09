@@ -863,9 +863,9 @@
         }
         
         // Install prompt
-        let deferredPrompt;
+        // deferredPrompt is now declared globally in pwa.js
         window.addEventListener('beforeinstallprompt', (e) => {
-            deferredPrompt = e;
+            window.deferredPrompt = e;
             // Could show install button here
         });
     </script>

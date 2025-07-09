@@ -1,5 +1,6 @@
 // Enhanced PWA Installation and Updates
-let deferredPrompt;
+// Global variable for PWA install prompt
+window.deferredPrompt = null;
 let isInstalled = false;
 
 // Enhanced mobile detection
@@ -21,7 +22,7 @@ window.addEventListener('beforeinstallprompt', (e) => {
     // Prevent Chrome 67 and earlier from automatically showing the prompt
     e.preventDefault();
     // Stash the event so it can be triggered later
-    deferredPrompt = e;
+    window.deferredPrompt = e;
     // Show enhanced install button
     showInstallButton();
 });
@@ -48,7 +49,7 @@ if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
         console.log('🔧 Registering Service Worker...');
         
-        navigator.serviceWorker.register('/static/sw.js', { 
+        navigator.serviceWorker.register('/sw.js', { 
             scope: '/' 
         }).then((registration) => {
             console.log('✅ Service Worker registered successfully:', registration.scope);
@@ -171,7 +172,7 @@ function installApp() {
     if (isIOSDevice()) {
         // Show iOS installation instructions
         showIOSInstallInstructions();
-    } else if (deferredPrompt) {
+    } else if (window.deferredPrompt) {
         // Android/Chrome installation
         handleAndroidInstall();
     } else {
@@ -201,8 +202,8 @@ function showIOSInstallInstructions() {
 function handleAndroidInstall() {
     console.log('📱 Handling Android installation');
     
-    deferredPrompt.prompt();
-    deferredPrompt.userChoice.then((choiceResult) => {
+    window.deferredPrompt.prompt();
+    window.deferredPrompt.userChoice.then((choiceResult) => {
         if (choiceResult.outcome === 'accepted') {
             console.log('✅ User accepted the install prompt');
             hideInstallButton();
@@ -216,7 +217,7 @@ function handleAndroidInstall() {
             console.log('❌ User dismissed the install prompt');
             showToast('Du kan installere appen senere fra nettlesermenyen', 'info', 5000);
         }
-        deferredPrompt = null;
+        window.deferredPrompt = null;
     });
 }
 
@@ -339,9 +340,9 @@ function showIOSInstallInstructions() {
 
 // Enhanced Android install handling
 function handleAndroidInstall() {
-    if (deferredPrompt) {
-        deferredPrompt.prompt();
-        deferredPrompt.userChoice.then((choiceResult) => {
+    if (window.deferredPrompt) {
+        window.deferredPrompt.prompt();
+        window.deferredPrompt.userChoice.then((choiceResult) => {
             if (choiceResult.outcome === 'accepted') {
                 console.log('User accepted the install prompt');
                 hideInstallButton();
@@ -355,7 +356,7 @@ function handleAndroidInstall() {
                 console.log('User dismissed the install prompt');
                 showToast('Du kan installere appen senere fra nettlesermenyen', 'info');
             }
-            deferredPrompt = null;
+            window.deferredPrompt = null;
         });
     }
 }

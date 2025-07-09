@@ -624,32 +624,41 @@ function updateReminderCounts() {
 }
 
 // PWA Installation
-let deferredPrompt;
+// deferredPrompt is now declared globally in pwa.js
 let installButton;
 
-window.addEventListener('beforeinstallprompt', (e) => {
-  console.log('PWA installasjonsprompt klar');
-  e.preventDefault();
-  deferredPrompt = e;
-  
-  // Vis install-knapp
+// Remove duplicate beforeinstallprompt handler - handled in pwa.js
+// Just listen for the install button click
+document.addEventListener('DOMContentLoaded', function() {
   installButton = document.getElementById('install-button');
   if (installButton) {
-    installButton.style.display = 'block';
+    installButton.addEventListener('click', function() {
+      if (window.deferredPrompt) {
+        window.deferredPrompt.prompt();
+        window.deferredPrompt.userChoice.then((result) => {
+          if (result.outcome === 'accepted') {
+            console.log('PWA installasjon akseptert');
+          } else {
+            console.log('PWA installasjon avvist');
+          }
+          window.deferredPrompt = null;
+        });
+      }
+    });
   }
 });
 
 // Install PWA
 function installPWA() {
-  if (deferredPrompt) {
-    deferredPrompt.prompt();
-    deferredPrompt.userChoice.then((result) => {
+  if (window.deferredPrompt) {
+    window.deferredPrompt.prompt();
+    window.deferredPrompt.userChoice.then((result) => {
       if (result.outcome === 'accepted') {
         console.log('PWA installasjon akseptert');
       } else {
         console.log('PWA installasjon avvist');
       }
-      deferredPrompt = null;
+      window.deferredPrompt = null;
       if (installButton) {
         installButton.style.display = 'none';
       }
@@ -662,7 +671,7 @@ if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     // Wait a bit for other service worker registrations to complete
     setTimeout(() => {
-      navigator.serviceWorker.register('/static/sw.js', { scope: '/' })
+      navigator.serviceWorker.register('/sw.js', { scope: '/' })
         .then((registration) => {
           console.log('Service Worker registrert:', registration.scope);
         })
