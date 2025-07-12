@@ -1780,10 +1780,15 @@ function showToastNotification(message, type = 'info', duration = 5000) {
 // Add a function to preview sound selection
 function previewSound(soundFile) {
     if (!soundFile) return;
+    // Mark that the user has interacted for mobile playback
+    window.userInteracted = true;
     
     const audio = new Audio(`/static/sounds/${soundFile}`);
-    audio.play().catch(error => {
-        console.error('Could not play sound:', error);
+    audio.volume = 0.5;
+    audio.play().then(() => {
+        showToastNotification('Lyd avspilt! 🎵', 'success');
+    }).catch(error => {
+        console.error('Kunne ikke spille lyd:', error);
         showToastNotification('Kunne ikke spille lyd: ' + error.message, 'error');
     });
 }

@@ -37,6 +37,12 @@
                     </div>
                 </form>
 
+                <div class="text-center">
+                    <a href="#" id="forgot-password-link" class="forgot-password-link">
+                        Glemt passord?
+                    </a>
+                </div>
+
                 <hr>
                 
                 <div class="text-center">
@@ -84,6 +90,22 @@
         </div>
     </div>
 </div>
+
+<!-- Forgot Password Modal -->
+<div id="forgot-password-modal" class="modal" style="display: none;">
+    <div class="modal-content">
+        <span class="close">&times;</span>
+        <h2>Tilbakestill passord</h2>
+        <form id="forgot-password-form">
+            <div class="form-group">
+                <label for="reset-email">E-post adresse:</label>
+                <input type="email" id="reset-email" name="email" required>
+            </div>
+            <button type="submit" class="btn btn-primary">Send tilbakestillingslenke</button>
+        </form>
+        <div id="reset-message" class="message" style="display: none;"></div>
+    </div>
+</div>
 {% endblock %}
 
 {% block scripts %}
@@ -94,6 +116,35 @@ document.addEventListener('DOMContentLoaded', function() {
     if (firstInput) {
         firstInput.focus();
     }
+});
+
+document.getElementById('forgot-password-link').addEventListener('click', function(e) {
+    e.preventDefault();
+    document.getElementById('forgot-password-modal').style.display = 'block';
+});
+
+document.querySelector('.close').addEventListener('click', function() {
+    document.getElementById('forgot-password-modal').style.display = 'none';
+});
+
+document.getElementById('forgot-password-form').addEventListener('submit', function(e) {
+    e.preventDefault();
+    const email = document.getElementById('reset-email').value;
+    
+    fetch('/forgot-password', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({email: email})
+    })
+    .then(response => response.json())
+    .then(data => {
+        const messageDiv = document.getElementById('reset-message');
+        messageDiv.style.display = 'block';
+        messageDiv.textContent = data.message;
+        messageDiv.className = data.success ? 'message success' : 'message error';
+    });
 });
 </script>
 {% endblock %}

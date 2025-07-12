@@ -301,6 +301,7 @@ function playNotificationSound(sound) {
                 if (playPromise !== undefined) {
                     playPromise.then(() => {
                         console.log('✅ Mobile sound played successfully');
+                        showToastNotification('Lyd avspilt! 🎵', 'success');
                         // Add haptic feedback if available
                         if ('vibrate' in navigator) {
                             navigator.vibrate([100, 50, 100]);

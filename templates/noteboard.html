@@ -39,7 +39,7 @@
                 {% for note in board.notes %}
                 <div class="sticky-note draggable-note" id="note-{{ note.id }}" 
                      data-note-id="{{ note.id }}"
-                     style="position: absolute; left: {{ note.position.x|default(50 + (loop.index0 % 4) * 250) }}px; top: {{ note.position.y|default(50 + (loop.index0 // 4) * 230) }}px;">
+                     style="position: absolute; left: {{ note.position.x if note.position and note.position.x is not none else (50 + (loop.index0 % 4) * 250) }}px; top: {{ note.position.y if note.position and note.position.y is not none else (50 + (loop.index0 // 4) * 230) }}px;">
                     <div class="note-content bg-{{ note.color|default('warning') }} shadow-lg border-0" 
                          style="width: 200px; min-height: 200px; cursor: move; border-radius: 15px; transform: rotate({{ (loop.index0 % 5 - 2) * 2 }}deg); transition: all 0.3s ease; position: relative; z-index: {{ 100 + loop.index0 }};">
                         

@@ -33,6 +33,7 @@ class SilentMode(FocusMode):
                 'notifications': {
                     'email_enabled': False,
                     'sound_enabled': False,
+                    'sound': 'silent.mp3',
                     'priority_filter': ['Høy'],
                     'quiet_hours': {'start': '22:00', 'end': '08:00'}
                 },
@@ -59,6 +60,7 @@ class ADHDMode(FocusMode):
                 'notifications': {
                     'email_enabled': True,
                     'sound_enabled': True,
+                    'sound': 'alert.mp3',
                     'extra_reminders': True,
                     'reminder_intervals': [60, 30, 15, 5],  # minutter før
                     'color_coding': True
@@ -114,6 +116,7 @@ class ElderlyMode(FocusMode):
                 'notifications': {
                     'email_enabled': True,
                     'sound_enabled': True,
+                    'sound': 'chime.mp3',
                     'repeat_notifications': True,
                     'large_text': True
                 },
@@ -209,7 +212,7 @@ class FocusModeManager:
     """Håndterer fokusmoduser for brukere"""
     
     AVAILABLE_MODES = {
-        'normal': FocusMode("Normal", "Standard innstillinger", {}),
+        'normal': FocusMode("Normal", "Standard innstillinger", {'notifications': {'sound_enabled': True, 'sound': 'pristine.mp3'}}),
         'silent': SilentMode(),
         'adhd': ADHDMode(),
         'elderly': ElderlyMode(),
@@ -219,35 +222,32 @@ class FocusModeManager:
     }
     
     def __init__(self):
-        self.current_mode = None
+        self.current_mode = 'normal'
 
-    def set_mode(self, mode):
-        valid_modes = ['stillemodus', 'ADHD-modus', 'modus for eldre', 'jobbmodus', 'studiemodus', 'kjøreskolemodus']
-        if mode in valid_modes:
-            self.current_mode = mode
-        else:
-            raise ValueError('Ugyldig modus valgt')
+    def set_mode(self, mode_key):
+        """Set focus mode by key"""
+        if mode_key in self.AVAILABLE_MODES:
+            self.current_mode = mode_key
+            return True
+        return False
 
     def get_mode(self):
+        """Get current focus mode"""
         return self.current_mode
     
-    @classmethod
-    def get_mode_by_name(cls, mode_name):
-        """Hent en spesifikk fokumodus"""
-        return cls.AVAILABLE_MODES.get(mode_name, cls.AVAILABLE_MODES['normal'])
+    def get_current_mode_object(self):
+        """Get current focus mode object"""
+        return self.AVAILABLE_MODES.get(self.current_mode, self.AVAILABLE_MODES['normal'])
     
-    @classmethod
-    def get_all_modes(cls):
-        """Hent alle tilgjengelige moduser"""
-        return cls.AVAILABLE_MODES
+    def get_current_notification_sound(self):
+        """Get notification sound for current mode"""
+        current_mode = self.get_current_mode_object()
+        return current_mode.settings.get('notifications', {}).get('sound', 'pristine.mp3')
     
-    @classmethod
-    def apply_mode_to_reminders(cls, reminders, mode_name):
-        """Apply focus mode to reminders"""
-        mode = cls.get_mode_by_name(mode_name)
-        return mode.apply_to_reminders(reminders)
-    
-    @classmethod
+    def is_sound_enabled(self):
+        """Check if sound is enabled in current mode"""
+        current_mode = self.get_current_mode_object()
+        return current_mode.settings.get('notifications', {}).get('sound_enabled', True)
     def get_mode_settings(cls, mode_name):
         """Get settings for a specific mode"""
         mode = cls.get_mode_by_name(mode_name)

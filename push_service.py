@@ -242,3 +242,35 @@ def unsubscribe_user_from_push(user_email, endpoint, dm=None):
     except Exception as e:
         logger.error(f"Error unsubscribing user {user_email}: {e}")
         return False
+
+def send_password_reset_notification(user_email, reset_token, dm=None):
+    """Send password reset notification to user"""
+    if not dm:
+        return False
+        
+    title = "🔐 Tilbakestill passord"
+    body = "Klikk for å tilbakestille passordet ditt"
+    
+    notification_data = {
+        "type": "password_reset",
+        "reset_token": reset_token,
+        "url": f"/reset-password?token={reset_token}",
+        "sound": "pristine.mp3"
+    }
+    
+    return send_push_notification(user_email, title, body, notification_data, dm)
+
+def send_password_reset_confirmation(user_email, dm=None):
+    """Send confirmation when password has been reset"""
+    if not dm:
+        return False
+        
+    title = "✅ Passord oppdatert"
+    body = "Passordet ditt har blitt oppdatert"
+    
+    notification_data = {
+        "type": "password_reset_success",
+        "url": "/login"
+    }
+    
+    return send_push_notification(user_email, title, body, notification_data, dm)

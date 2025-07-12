@@ -16,21 +16,38 @@
             <h2>🎯 Fokusmoduser</h2>
             <p class="text-muted">Velg en fokusmodus som passer din arbeidsstil</p>
             
-            <form method="POST" action="{{ url_for('focus_modes') }}">
+            <!-- Success/Error Messages -->
+            {% if message %}
+                <div class="alert alert-{{ 'success' if success else 'danger' }} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            {% endif %}
+            
+            <form method="POST" action="{{ url_for('focus_modes') }}" id="focus-mode-form">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <div class="row">
                     {% for mode_key, mode in focus_modes.items() %}
-                    <div class="col-md-4 mb-3">
-                        <div class="card {% if mode_key == current_focus_mode %}border-primary{% endif %}">
-                            <div class="card-body text-center">
+                    <div class="col-md-6 mb-3">
+                        <div class="card focus-mode-card {% if mode_key == current_focus_mode %}border-primary bg-light{% endif %}" 
+                             data-mode="{{ mode_key }}">
+                            <div class="card-body">
                                 <div class="form-check">
                                     <input class="form-check-input" type="radio" 
                                            name="focus_mode" value="{{ mode_key }}" 
                                            id="mode_{{ mode_key }}"
                                            {% if mode_key == current_focus_mode %}checked{% endif %}>
-                                    <label class="form-check-label" for="mode_{{ mode_key }}">
-                                        <h5>{{ mode.name }}</h5>
-                                        <p class="text-muted">{{ mode.description }}</p>
+                                    <label class="form-check-label w-100" for="mode_{{ mode_key }}">
+                                        <h5 class="card-title">{{ mode.name }}</h5>
+                                        <p class="card-text text-muted">{{ mode.description }}</p>
+                                        
+                                        <!-- Sound Test Button -->
+                                        {% if mode.settings.get('notifications', {}).get('sound_enabled', True) %}
+                                        <button type="button" class="btn btn-sm btn-outline-primary test-sound" 
+                                                data-sound="{{ mode.settings.get('notifications', {}).get('sound', 'pristine.mp3') }}">
+                                            🔊 Test lyd
+                                        </button>
+                                        {% endif %}
                                     </label>
                                 </div>
                             </div>
@@ -38,14 +55,129 @@
                     </div>
                     {% endfor %}
                 </div>
-                <div class="text-center mt-3">
-                    <button type="submit" class="btn btn-primary">Lagre fokusmodus</button>
+                
+                <div class="text-center mt-4">
+                    <button type="submit" class="btn btn-primary" id="save-focus-mode">
+                        <span class="spinner-border spinner-border-sm d-none" role="status"></span>
+                        Lagre fokusmodus
+                    </button>
                     <a href="{{ url_for('dashboard') }}" class="btn btn-outline-secondary">Tilbake</a>
                 </div>
             </form>
         </div>
     </div>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Handle focus mode card selection
+    const focusModeCards = document.querySelectorAll('.focus-mode-card');
+    const radioButtons = document.querySelectorAll('input[name="focus_mode"]');
+    
+    // Update card appearance when radio button changes
+    radioButtons.forEach(radio => {
+        radio.addEventListener('change', function() {
+            // Remove active class from all cards
+            focusModeCards.forEach(card => {
+                card.classList.remove('border-primary', 'bg-light');
+            });
+            
+            // Add active class to selected card
+            if (this.checked) {
+                const selectedCard = document.querySelector(`[data-mode="${this.value}"]`);
+                if (selectedCard) {
+                    selectedCard.classList.add('border-primary', 'bg-light');
+                }
+            }
+        });
+    });
+    
+    // Handle form submission
+    const form = document.getElementById('focus-mode-form');
+    const saveButton = document.getElementById('save-focus-mode');
+    
+    form.addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const formData = new FormData(form);
+        const spinner = saveButton.querySelector('.spinner-border');
+        
+        // Show loading state
+        saveButton.disabled = true;
+        spinner.classList.remove('d-none');
+        
+        fetch(form.action, {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Show success message
+                const alertDiv = document.createElement('div');
+                alertDiv.className = 'alert alert-success alert-dismissible fade show';
+                alertDiv.innerHTML = `
+                    ${data.message}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                `;
+                form.insertBefore(alertDiv, form.firstChild);
+                
+                // Auto-dismiss after 3 seconds
+                setTimeout(() => {
+                    alertDiv.remove();
+                }, 3000);
+            } else {
+                throw new Error(data.message || 'Feil ved lagring');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            const alertDiv = document.createElement('div');
+            alertDiv.className = 'alert alert-danger alert-dismissible fade show';
+            alertDiv.innerHTML = `
+                Feil ved lagring av fokusmodus: ${error.message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+            form.insertBefore(alertDiv, form.firstChild);
+        })
+        .finally(() => {
+            // Hide loading state
+            saveButton.disabled = false;
+            spinner.classList.add('d-none');
+        });
+    });
+    
+    // Handle sound testing
+    const testSoundButtons = document.querySelectorAll('.test-sound');
+    testSoundButtons.forEach(button => {
+        button.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            const soundFile = this.getAttribute('data-sound');
+            testNotificationSound(soundFile);
+        });
+    });
+    
+    function testNotificationSound(soundFile) {
+        try {
+            // Mark that the user has interacted for mobile playback
+            window.userInteracted = true;
+            const audio = new Audio(`/static/sounds/${soundFile}`);
+            audio.volume = 0.5;
+            audio.play().then(() => {
+                showToastNotification('Lyd avspilt! 🎵', 'success');
+            }).catch(error => {
+                console.error('Kunne ikke spille lyd:', error);
+                showToastNotification('Kunne ikke spille lyd: ' + error.message, 'error');
+            });
+        } catch (error) {
+            console.error('Error creating audio:', error);
+            showToastNotification('Feil ved testing av lyd.', 'error');
+        }
+    }
+});
+</script>
 {% endblock %}
 </body>
 </html>
