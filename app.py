@@ -1598,70 +1598,37 @@ def focus_modes():
         
         logger.info(f"Current focus mode for user {current_user.email}: {current_focus_mode}")
         
-        # Get available focus modes with comprehensive fallback
-        try:
-            # Try to import the actual focus modes
-            focus_modes_dict = {}
-            
-            # Check if we can import FocusModeManager
-            try:
-                from focus_modes import FocusModeManager
-                # Get all available modes safely
-                if hasattr(FocusModeManager, 'AVAILABLE_MODES'):
-                    for mode_key, mode_obj in FocusModeManager.AVAILABLE_MODES.items():
-                        focus_modes_dict[mode_key] = {
-                            'name': getattr(mode_obj, 'name', mode_key.title()),
-                            'description': getattr(mode_obj, 'description', f'{mode_key.title()} mode')
-                        }
-                else:
-                    # Use get_all_modes method
-                    modes = FocusModeManager.get_all_modes()
-                    for mode_key, mode_obj in modes.items():
-                        focus_modes_dict[mode_key] = {
-                            'name': getattr(mode_obj, 'name', mode_key.title()),
-                            'description': getattr(mode_obj, 'description', f'{mode_key.title()} mode')
-                        }
-                
-                logger.debug(f"Available focus modes from FocusModeManager: {focus_modes_dict}")
-                
-            except Exception as import_error:
-                logger.warning(f"Could not import FocusModeManager: {import_error}")
-                raise ImportError("FocusModeManager not available")
-            
-        except (ImportError, Exception) as e:
-            logger.error(f"Error fetching focus modes: {e}")
-            # Comprehensive fallback focus modes
-            focus_modes_dict = {
-                'normal': {
-                    'name': 'Normal',
-                    'description': 'Standard modus for daglig bruk'
-                },
-                'silent': {
-                    'name': 'Stillemodus', 
-                    'description': 'Reduserte notifikasjoner, kun høy prioritet'
-                },
-                'adhd': {
-                    'name': 'ADHD-modus',
-                    'description': 'Økt fokus og struktur med ekstra påminnelser'
-                },
-                'elderly': {
-                    'name': 'Modus for eldre',
-                    'description': 'Større tekst og forenklet grensesnitt'
-                },
-                'work': {
-                    'name': 'Jobbmodus',
-                    'description': 'Fokus på jobb-relaterte påminnelser'
-                },
-                'study': {
-                    'name': 'Studiemodus',
-                    'description': 'Optimert for læring og deadlines'
-                },
-                'driving_school': {
-                    'name': 'Kjøreskolemodus',
-                    'description': 'Spesialtilpasset for kjøreskoler og instruktører'
-                }
+        # FIXED: Get available focus modes without duplication
+        focus_modes_dict = {
+            'normal': {
+                'name': 'Normal',
+                'description': 'Standard modus for daglig bruk'
+            },
+            'silent': {
+                'name': 'Stillemodus', 
+                'description': 'Reduserte notifikasjoner, kun høy prioritet'
+            },
+            'adhd': {
+                'name': 'ADHD-modus',
+                'description': 'Økt fokus og struktur med ekstra påminnelser'
+            },
+            'elderly': {
+                'name': 'Modus for eldre',
+                'description': 'Større tekst og forenklet grensesnitt'
+            },
+            'work': {
+                'name': 'Jobbmodus',
+                'description': 'Fokus på jobb-relaterte påminnelser'
+            },
+            'study': {
+                'name': 'Studiemodus',
+                'description': 'Optimert for læring og deadlines'
+            },
+            'driving_school': {
+                'name': 'Kjøreskolemodus',
+                'description': 'Spesialtilpasset for kjøreskoler og instruktører'
             }
-            logger.info("Using fallback focus modes")
+        }
         
         # Ensure the current focus mode exists in available modes
         if current_focus_mode not in focus_modes_dict:
