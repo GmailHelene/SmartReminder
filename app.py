@@ -10,6 +10,8 @@ from datetime import datetime, timedelta
 import json
 import os
 import logging
+import shutil
+import re
 from pathlib import Path
 import hashlib
 import uuid
@@ -352,7 +354,6 @@ class DataManager:
         try:
             # Opprett backup
             if filepath.exists():
-                import shutil
                 shutil.copy2(filepath, backup_path)
             
             # Lagre ny data
@@ -363,7 +364,6 @@ class DataManager:
             logger.error(f"Feil ved lagring av {filename}: {e}")
             # Gjenopprett fra backup
             if backup_path.exists():
-                import shutil
                 shutil.copy2(backup_path, filepath)
             raise
 

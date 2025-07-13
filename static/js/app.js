@@ -24,6 +24,34 @@ document.addEventListener('DOMContentLoaded', function() {
     }, { once: true });
 });
 
+// Check if user is authenticated
+async function checkUserAuthentication() {
+    try {
+        const response = await fetch('/api/reminder-count', {
+            method: 'GET',
+            credentials: 'same-origin',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        });
+        
+        if (response.status === 401 || response.status === 403) {
+            return false;
+        }
+        
+        if (response.ok) {
+            return true;
+        }
+        
+        // If we get here, assume authenticated but there might be other issues
+        return true;
+    } catch (error) {
+        console.error('Error checking authentication:', error);
+        // Assume authenticated if we can't check (network issues, etc.)
+        return true;
+    }
+}
+
 function initializeApp() {
     // Auto-focus first input on forms
     const firstInput = document.querySelector('input[type="text"], input[type="email"]');

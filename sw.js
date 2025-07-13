@@ -7,19 +7,28 @@ const CACHE_FILES = [
     '/',
     '/static/css/style.css',
     '/static/js/app.js',
-    '/static/js/driving_school_mode.js',
     '/static/sounds/alert.mp3',
     '/static/sounds/pristine.mp3',
     '/static/sounds/ding.mp3',
     '/static/sounds/chime.mp3',
-    OFFLINE_URL
+    '/offline'
 ];
 
 // Install Service Worker
 self.addEventListener('install', event => {
     event.waitUntil(
         caches.open(CACHE_NAME)
-            .then(cache => cache.addAll(CACHE_FILES))
+            .then(cache => {
+                // Cache files individually to handle failures gracefully
+                return Promise.allSettled(
+                    CACHE_FILES.map(url => {
+                        return cache.add(url).catch(error => {
+                            console.warn(`Failed to cache ${url}:`, error);
+                            return null;
+                        });
+                    })
+                );
+            })
             .then(() => self.skipWaiting())
     );
 });
