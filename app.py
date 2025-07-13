@@ -1706,14 +1706,14 @@ def set_instructor_status():
     # Varsle eier (eller alle instruktører unntatt deg selv)
     owner_email = user.get('owner')
     if owner_email and owner_email != current_user.email:
-        send_push_notification(
+        from notification_integration import send_notification
+        send_notification(
             owner_email,
-            title="Instruktørstatus oppdatert",
-            body=f"{current_user.email} satte status til '{status}'",
-            data={"type": "status_update", "user": current_user.email},
+            "Instruktørstatus oppdatert",
+            f"{current_user.email} satte status til '{status}'",
             data={"type": "instructor_status", "status": status, "by": current_user.email},
             dm=dm
-        )(f'Status oppdatert til {status}', 'success')
+        )
     flash(f'Status oppdatert til {status}', 'success')
     return redirect(url_for('dashboard'))
 @app.route('/send-quick-message', methods=['POST'])
@@ -1746,10 +1746,11 @@ def api_send_quick_reply():
     user = users.get(current_user.email, {})
     owner_email = user.get('owner')
     if owner_email and owner_email != current_user.email:
-        send_push_notification(
+        from notification_integration import send_notification
+        send_notification(
             owner_email,
-            title="Hurtigsvar fra elev",
-            body=reply,
+            "Hurtigsvar fra elev",
+            reply,
             data={"type": "quick_reply", "from": current_user.email, "reply": reply},
             dm=dm
         )
@@ -1765,10 +1766,11 @@ def notify_delay():
     user = users.get(current_user.email, {})
     owner_email = user.get('owner')
     if owner_email and owner_email != current_user.email:
-        send_push_notification(
+        from notification_integration import send_notification
+        send_notification(
             owner_email,
-            title="Forsinkelse varslet",
-            body=f"{current_user.email} er forsinket {minutes} min",
+            "Forsinkelse varslet",
+            f"{current_user.email} er forsinket {minutes} min",
             data={"type": "delay", "minutes": minutes, "by": current_user.email},
             dm=dm
         )
@@ -1792,10 +1794,11 @@ def log_lesson():
     user = users.get(current_user.email, {})
     owner_email = user.get('owner')
     if owner_email and owner_email != current_user.email:
-        send_push_notification(
+        from notification_integration import send_notification
+        send_notification(
             owner_email,
-            title="Kjøretime logget",
-            body=f"{current_user.email}: {note}",
+            "Kjøretime logget",
+            f"{current_user.email}: {note}",
             data={"type": "lesson_log", "by": current_user.email, "note": note},
             dm=dm
         )
