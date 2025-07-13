@@ -810,111 +810,371 @@ function showToastNotification(message, type = 'info', duration = 3000) {
   return toastId;
 }
 
-// Utility functions
-function showLoading(element) {
-    if (element) {
-        element.innerHTML = '<span class="loading"></span>';
-        element.disabled = true;
+// Global variables for sound system
+window.userInteracted = false;
+window.audioContext = null;
+
+// Track user interaction for mobile audio
+document.addEventListener('click', () => { window.userInteracted = true; }, { once: true });
+document.addEventListener('touchstart', () => { window.userInteracted = true; }, { once: true });
+
+// Enhanced sound playback with comprehensive fallbacks
+function playNotificationSound(soundName = 'pristine.mp3') {
+    console.log(`🔊 Attempting to play sound: ${soundName}`);
+    
+    if (!window.userInteracted) {
+        console.warn('⚠️ No user interaction detected, sound may not play on mobile');
     }
-}
-
-function hideLoading(element, originalText) {
-    if (element) {
-        element.innerHTML = originalText;
-        element.disabled = false;
-    }
-}
-
-function copyToClipboard(text) {
-    if (navigator.clipboard) {
-        navigator.clipboard.writeText(text).then(() => {
-            showToast('Kopiert til utklippstavle!', 'success');
-        });
-    } else {
-        // Fallback for older browsers
-        const textArea = document.createElement('textarea');
-        textArea.value = text;
-        document.body.appendChild(textArea);
-        textArea.select();
-        document.execCommand('copy');
-        document.body.removeChild(textArea);
-        showToast('Kopiert til utklippstavle!', 'success');
-    }
-}
-
-// Event listeners for online/offline
-window.addEventListener('online', updateConnectionStatus);
-window.addEventListener('offline', updateConnectionStatus);
-
-// Prevent zoom on mobile double-tap
-let lastTouchEnd = 0;
-document.addEventListener('touchend', function (event) {
-    const now = (new Date()).getTime();
-    if (now - lastTouchEnd <= 300) {
-        event.preventDefault();
-    }
-    lastTouchEnd = now;
-}, false);
-
-// Handle back button in PWA
-window.addEventListener('popstate', function(event) {
-    if (window.history.length === 1) {
-        // If this is the only page in history, don't allow back
-        window.history.pushState(null, null, window.location.href);
-    }
-});
-
-// Performance monitoring
-if ('performance' in window) {
-    window.addEventListener('load', () => {
-        const perfData = performance.getEntriesByType('navigation')[0];
-        if (perfData) {
-            console.log(`Page load time: ${perfData.loadEventEnd - perfData.loadEventStart}ms`);
-        }
-    });
-}
-
-// Check for any pending notification sounds
-function checkPendingSounds() {
-  if ('caches' in window) {
-    caches.open('sound-notifications').then(cache => {
-      cache.match('/pending-sounds').then(response => {
-        if (response) {
-          response.json().then(data => {
-            // Check if the sound notification is recent (last 5 minutes)
-            const now = Date.now();
-            const fiveMinutesAgo = now - (5 * 60 * 1000);
+    
+    try {
+        // Create audio with multiple format fallbacks
+        const audioFormats = [
+            `/static/sounds/${soundName}`,
+            `/static/sounds/${soundName.replace('.mp3', '.wav')}`,
+            `/static/sounds/${soundName.replace('.mp3', '.ogg')}`,
+            `/static/sounds/pristine.wav` // Ultimate fallback
+        ];
+        
+        let audioLoaded = false;
+        let attempts = 0;
+        
+        function tryNextFormat() {
+            if (attempts >= audioFormats.length || audioLoaded) return;
             
-            if (data.timestamp > fiveMinutesAgo) {
-              console.log('Found pending sound notification:', data);
-              playNotificationSound(data.sound);
+            const audioPath = audioFormats[attempts];
+            console.log(`🎵 Trying audio format ${attempts + 1}/${audioFormats.length}: ${audioPath}`);
+            
+            const audio = new Audio();
+            audio.volume = 0.7;
+            audio.preload = 'auto';
+            
+            // Set up success handler
+            const playAudio = () => {
+                if (!audioLoaded) {
+                    audioLoaded = true;
+                    console.log(`✅ Audio loaded successfully: ${audioPath}`);
+                    
+                    audio.play().then(() => {
+                        console.log('✅ Audio played successfully');
+                        showNotificationFeedback('🔊 Lyd avspilt', 'success');
+                    }).catch(error => {
+                        console.error(`❌ Audio play failed: ${error}`);
+                        tryFallbackNotification();
+                    });
+                }
+            };
+            
+            // Event listeners
+            audio.addEventListener('canplaythrough', playAudio, { once: true });
+            audio.addEventListener('loadeddata', playAudio, { once: true });
+            
+            audio.addEventListener('error', (error) => {
+                console.warn(`⚠️ Audio load failed for ${audioPath}:`, error);
+                attempts++;
+                if (attempts < audioFormats.length) {
+                    setTimeout(tryNextFormat, 100);
+                } else {
+                    console.error('❌ All audio formats failed');
+                    tryFallbackNotification();
+                }
+            });
+            
+            // Set source and try to load
+            audio.src = audioPath;
+            audio.load();
+            
+            // Timeout fallback
+            setTimeout(() => {
+                if (!audioLoaded) {
+                    attempts++;
+                    if (attempts < audioFormats.length) {
+                        tryNextFormat();
+                    }
+                }
+            }, 2000);
+        }
+        
+        // Start trying formats
+        tryNextFormat();
+        
+    } catch (error) {
+        console.error('❌ Critical audio error:', error);
+        tryFallbackNotification();
+    }
+}
+
+// Fallback notification methods
+function tryFallbackNotification() {
+    console.log('🔄 Trying fallback notification methods...');
+    
+    // Try browser notification sound
+    if ('Notification' in window && Notification.permission === 'granted') {
+        try {
+            const notification = new Notification('', {
+                body: '',
+                silent: false,
+                tag: 'sound-fallback',
+                icon: '/static/images/icon-96x96.png'
+            });
+            
+            setTimeout(() => notification.close(), 100);
+            console.log('✅ System notification triggered');
+            showNotificationFeedback('🔔 Systemlyd avspilt', 'info');
+            return true;
+        } catch (error) {
+            console.warn('⚠️ System notification failed:', error);
+        }
+    }
+    
+    // Try vibration on mobile
+    if ('vibrate' in navigator) {
+        try {
+            navigator.vibrate([200, 100, 200, 100, 400]);
+            console.log('✅ Vibration triggered');
+            showNotificationFeedback('📳 Vibrasjon aktivert', 'info');
+            return true;
+        } catch (error) {
+            console.warn('⚠️ Vibration failed:', error);
+        }
+    }
+    
+    // Visual feedback only
+    showNotificationFeedback('🔔 Notifikasjon mottatt (lyd ikke tilgjengelig)', 'warning');
+    return false;
+}
+
+// Enhanced notification feedback
+function showNotificationFeedback(message, type = 'info') {
+    // Remove existing notifications
+    const existing = document.querySelectorAll('.audio-feedback');
+    existing.forEach(el => el.remove());
+    
+    const notification = document.createElement('div');
+    notification.className = `audio-feedback alert alert-${type} position-fixed`;
+    notification.style.cssText = `
+        top: 20px;
+        right: 20px;
+        z-index: 9999;
+        max-width: 300px;
+        animation: slideInRight 0.3s ease-out;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+    `;
+    notification.innerHTML = `
+        <div class="d-flex align-items-center">
+            <span>${message}</span>
+            <button type="button" class="btn-close ms-auto" onclick="this.parentElement.parentElement.remove()"></button>
+        </div>
+    `;
+    
+    document.body.appendChild(notification);
+    
+    // Auto-remove after 3 seconds
+    setTimeout(() => {
+        if (notification.parentElement) {
+            notification.remove();
+        }
+    }, 3000);
+}
+
+// Test sound function with better feedback
+function testSound(soundFile) {
+    console.log(`🧪 Testing sound: ${soundFile}`);
+    
+    // Mark user interaction
+    window.userInteracted = true;
+    
+    showNotificationFeedback(`🎵 Tester lyd: ${soundFile}`, 'info');
+    
+    try {
+        playNotificationSound(soundFile);
+    } catch (error) {
+        console.error('❌ Test sound failed:', error);
+        showNotificationFeedback(`❌ Kunne ikke teste ${soundFile}`, 'error');
+    }
+}
+
+// Enhanced service worker message handling
+if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.addEventListener('message', event => {
+        console.log('📨 Message from service worker:', event.data);
+        
+        if (event.data && event.data.type === 'PLAY_NOTIFICATION_SOUND') {
+            const soundFile = event.data.sound || 'pristine.mp3';
+            console.log(`🔊 Service worker requested sound: ${soundFile}`);
+            
+            // Check notification permission first
+            if (Notification.permission !== 'granted') {
+                console.warn('⚠️ Notification permission not granted, requesting...');
+                requestNotificationPermission().then(permission => {
+                    if (permission === 'granted') {
+                        playNotificationSound(soundFile);
+                    }
+                });
+            } else {
+                playNotificationSound(soundFile);
             }
-            
-            // Clear the pending sound
-            cache.delete('/pending-sounds');
-          });
         }
-      });
     });
-  }
 }
 
-// Check for pending sounds on load
-window.addEventListener('load', () => {
-  setTimeout(checkPendingSounds, 1000);
+// Enhanced notification permission handling
+function requestNotificationPermission() {
+    console.log('🔔 Requesting notification permission...');
+    
+    if (!('Notification' in window)) {
+        console.error('❌ This browser does not support notifications');
+        showNotificationFeedback('❌ Nettleseren støtter ikke notifikasjoner', 'error');
+        return Promise.resolve('denied');
+    }
+    
+    if (Notification.permission === 'granted') {
+        console.log('✅ Notification permission already granted');
+        return Promise.resolve('granted');
+    }
+    
+    if (Notification.permission === 'denied') {
+        console.warn('⚠️ Notification permission denied');
+        showNotificationFeedback('⚠️ Notifikasjoner er blokkert. Aktiver dem i nettleserinnstillingene.', 'warning');
+        return Promise.resolve('denied');
+    }
+    
+    // Request permission
+    return Notification.requestPermission().then(permission => {
+        console.log(`🔔 Notification permission result: ${permission}`);
+        
+        if (permission === 'granted') {
+            showNotificationFeedback('✅ Notifikasjoner aktivert!', 'success');
+        } else {
+            showNotificationFeedback('❌ Notifikasjoner avvist', 'error');
+        }
+        
+        return permission;
+    }).catch(error => {
+        console.error('❌ Error requesting notification permission:', error);
+        showNotificationFeedback('❌ Feil ved forespørsel om notifikasjoner', 'error');
+        return 'denied';
+    });
+}
+
+// Enhanced push notification setup
+async function setupPushNotifications() {
+    console.log('🔔 Setting up push notifications...');
+    
+    try {
+        // Check if service worker is supported
+        if (!('serviceWorker' in navigator)) {
+            throw new Error('Service Worker not supported');
+        }
+        
+        // Check if push messaging is supported
+        if (!('PushManager' in window)) {
+            throw new Error('Push messaging not supported');
+        }
+        
+        // Request notification permission
+        const permission = await requestNotificationPermission();
+        if (permission !== 'granted') {
+            throw new Error('Notification permission not granted');
+        }
+        
+        // Register service worker
+        const registration = await navigator.serviceWorker.register('/sw.js', {
+            scope: '/'
+        });
+        console.log('✅ Service Worker registered');
+        
+        // Wait for service worker to be ready
+        await navigator.serviceWorker.ready;
+        console.log('✅ Service Worker ready');
+        
+        // Get VAPID public key
+        const vapidResponse = await fetch('/api/vapid-public-key');
+        if (!vapidResponse.ok) {
+            throw new Error('Failed to get VAPID public key');
+        }
+        const vapidData = await vapidResponse.json();
+        
+        // Subscribe to push notifications
+        const subscription = await registration.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: vapidData.public_key
+        });
+        
+        // Send subscription to server
+        const subscribeResponse = await fetch('/api/subscribe-push', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(subscription)
+        });
+        
+        if (!subscribeResponse.ok) {
+            throw new Error('Failed to subscribe to push notifications');
+        }
+        
+        console.log('✅ Push notifications setup complete');
+        return true;
+        
+    } catch (error) {
+        console.error('❌ Push notification setup failed:', error);
+        
+        // Show user-friendly error message
+        let errorMessage = 'Kunne ikke sette opp push-notifikasjoner';
+        if (error.message.includes('permission')) {
+            errorMessage = 'Notifikasjonstillatelse ikke gitt. Aktiver dem i nettleserinnstillingene.';
+        } else if (error.message.includes('not supported')) {
+            errorMessage = 'Nettleseren støtter ikke push-notifikasjoner';
+        }
+        
+        showNotificationFeedback(`❌ ${errorMessage}`, 'error');
+        return false;
+    }
+}
+
+// Initialize everything when DOM is loaded
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('🚀 App.js DOM loaded, initializing...');
+    
+    // Set up push notifications after a delay
+    setTimeout(() => {
+        setupPushNotifications();
+    }, 2000);
+    
+    // Add CSS for animations
+    const style = document.createElement('style');
+    style.textContent = `
+        @keyframes slideInRight {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        @keyframes slideOutRight {
+            from { transform: translateX(0); opacity: 1; }
+            to { transform: translateX(100%); opacity: 0; }
+        }
+    `;
+    document.head.appendChild(style);
 });
 
-// Notify service worker that this client is ready to receive messages
-if (navigator.serviceWorker.controller) {
-  navigator.serviceWorker.controller.postMessage({
-    type: 'CLIENT_READY',
-    timestamp: Date.now()
-  });
+// Add a function to test all sounds
+function testAllSounds() {
+    const sounds = ['pristine.mp3', 'alert.mp3', 'ding.mp3', 'chime.mp3'];
+    let index = 0;
+    
+    function testNext() {
+        if (index < sounds.length) {
+            testSound(sounds[index]);
+            index++;
+            setTimeout(testNext, 3000); // Wait 3 seconds between tests
+        }
+    }
+    
+    testNext();
 }
 
-// Mobile notification improvements
-function isMobileDevice() {
-    return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
-           ('ontouchstart' in window) || 
-           (navigator.maxTouchPoints > 0);
-}
+// Make functions globally available
+window.playNotificationSound = playNotificationSound;
+window.testSound = testSound;
+window.testAllSounds = testAllSounds;
+window.requestNotificationPermission = requestNotificationPermission;
+window.setupPushNotifications = setupPushNotifications;

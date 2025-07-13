@@ -1522,68 +1522,161 @@ def offline():
 @app.route('/focus-modes', methods=['GET', 'POST'])
 @login_required
 def focus_modes():
-    """Focus modes page"""
+    """Focus modes page with comprehensive error handling"""
     try:
-        logger.info("Focus modes route accessed")
+        logger.info(f"Focus modes route accessed by user: {current_user.email}")
+        
         if request.method == 'POST':
             # Handle focus mode update
             focus_mode = request.form.get('focus_mode', 'normal')
             logger.info(f"Updating focus mode to: {focus_mode}")
             
+            # Validate focus mode
+            valid_modes = ['normal', 'silent', 'adhd', 'elderly', 'work', 'study', 'driving_school']
+            if focus_mode not in valid_modes:
+                logger.warning(f"Invalid focus mode received: {focus_mode}")
+                flash('Ugyldig fokusmodus valgt', 'error')
+                return redirect(url_for('focus_modes'))
+            
             # Update user's focus mode
             users = dm.load_data('users')
-            logger.debug(f"Loaded users data: {users}")
-            for user_data in users.values():
-                if user_data['email'] == current_user.email:
+            if not isinstance(users, dict):
+                users = {}
+            
+            logger.debug(f"Loaded users data: {len(users)} users")
+            
+            # Find user and update focus mode
+            user_updated = False
+            for user_id, user_data in users.items():
+                if user_data.get('email') == current_user.email:
                     user_data['focus_mode'] = focus_mode
+                    user_data['focus_mode_updated'] = datetime.now().isoformat()
+                    user_updated = True
                     logger.info(f"Focus mode updated for user: {current_user.email}")
                     break
-            dm.save_data('users', users)
-            logger.info("Users data saved successfully")
             
-            flash('Fokusmodus oppdatert!', 'success')
+            if not user_updated:
+                # User not found, create entry
+                logger.warning(f"User {current_user.email} not found in users data, creating entry")
+                new_user_id = str(uuid.uuid4())
+                users[new_user_id] = {
+                    'email': current_user.email,
+                    'username': current_user.email,
+                    'focus_mode': focus_mode,
+                    'focus_mode_updated': datetime.now().isoformat(),
+                    'created': datetime.now().isoformat()
+                }
+                user_updated = True
+                logger.info(f"Created new user entry for: {current_user.email}")
+            
+            if user_updated:
+                try:
+                    dm.save_data('users', users)
+                    logger.info("Users data saved successfully")
+                    flash(f'Fokusmodus oppdatert til "{focus_mode}"!', 'success')
+                except Exception as save_error:
+                    logger.error(f"Failed to save users data: {save_error}")
+                    flash('Feil ved lagring av fokusmodus', 'error')
+            else:
+                logger.error("Failed to update user focus mode")
+                flash('Kunne ikke oppdatere fokusmodus', 'error')
+            
             return redirect(url_for('focus_modes'))
         
+        # GET request - show focus modes page
         # Get current user's focus mode
         users = dm.load_data('users')
+        if not isinstance(users, dict):
+            users = {}
+        
         current_focus_mode = 'normal'
-        for user_data in users.values():
-            if user_data['email'] == current_user.email:
+        
+        for user_id, user_data in users.items():
+            if user_data.get('email') == current_user.email:
                 current_focus_mode = user_data.get('focus_mode', 'normal')
                 break
+        
         logger.info(f"Current focus mode for user {current_user.email}: {current_focus_mode}")
         
-        # Get available focus modes
+        # Get available focus modes with comprehensive fallback
         try:
-            focus_modes_dict = FocusModeManager.get_all_modes()
-            logger.debug(f"Available focus modes: {focus_modes_dict}")
-        except Exception as e:
+            # Try to import the actual focus modes
+            focus_modes_dict = {}
+            
+            # Check if we can import FocusModeManager
+            try:
+                from focus_modes import FocusModeManager
+                # Get all available modes safely
+                if hasattr(FocusModeManager, 'AVAILABLE_MODES'):
+                    for mode_key, mode_obj in FocusModeManager.AVAILABLE_MODES.items():
+                        focus_modes_dict[mode_key] = {
+                            'name': getattr(mode_obj, 'name', mode_key.title()),
+                            'description': getattr(mode_obj, 'description', f'{mode_key.title()} mode')
+                        }
+                else:
+                    # Use get_all_modes method
+                    modes = FocusModeManager.get_all_modes()
+                    for mode_key, mode_obj in modes.items():
+                        focus_modes_dict[mode_key] = {
+                            'name': getattr(mode_obj, 'name', mode_key.title()),
+                            'description': getattr(mode_obj, 'description', f'{mode_key.title()} mode')
+                        }
+                
+                logger.debug(f"Available focus modes from FocusModeManager: {focus_modes_dict}")
+                
+            except Exception as import_error:
+                logger.warning(f"Could not import FocusModeManager: {import_error}")
+                raise ImportError("FocusModeManager not available")
+            
+        except (ImportError, Exception) as e:
             logger.error(f"Error fetching focus modes: {e}")
+            # Comprehensive fallback focus modes
             focus_modes_dict = {
-                'normal': type('obj', (object,), {
+                'normal': {
                     'name': 'Normal',
                     'description': 'Standard modus for daglig bruk'
-                }),
-                'silent': type('obj', (object,), {
+                },
+                'silent': {
                     'name': 'Stillemodus', 
-                    'description': 'Reduserte notifikasjoner'
-                }),
-                'adhd': type('obj', (object,), {
+                    'description': 'Reduserte notifikasjoner, kun høy prioritet'
+                },
+                'adhd': {
                     'name': 'ADHD-modus',
-                    'description': 'Økt fokus og struktur'
-                }),
-                'elderly': type('obj', (object,), {
+                    'description': 'Økt fokus og struktur med ekstra påminnelser'
+                },
+                'elderly': {
                     'name': 'Modus for eldre',
-                    'description': 'Forenklet grensesnitt'
-                })
+                    'description': 'Større tekst og forenklet grensesnitt'
+                },
+                'work': {
+                    'name': 'Jobbmodus',
+                    'description': 'Fokus på jobb-relaterte påminnelser'
+                },
+                'study': {
+                    'name': 'Studiemodus',
+                    'description': 'Optimert for læring og deadlines'
+                },
+                'driving_school': {
+                    'name': 'Kjøreskolemodus',
+                    'description': 'Spesialtilpasset for kjøreskoler og instruktører'
+                }
             }
+            logger.info("Using fallback focus modes")
+        
+        # Ensure the current focus mode exists in available modes
+        if current_focus_mode not in focus_modes_dict:
+            logger.warning(f"Current focus mode '{current_focus_mode}' not in available modes, defaulting to 'normal'")
+            current_focus_mode = 'normal'
+        
+        logger.info(f"Rendering focus modes page with {len(focus_modes_dict)} modes")
         
         return render_template('focus_modes.html', 
                              current_focus_mode=current_focus_mode,
                              focus_modes=focus_modes_dict)
+                             
     except Exception as e:
-        logger.error(f"Internal error in focus_modes route: {e}")
-        flash('En intern feil oppstod. Vennligst prøv igjen senere.', 'error')
+        logger.error(f"Critical error in focus_modes route: {e}", exc_info=True)
+        flash('En intern feil oppstod ved lasting av fokusmoduser. Prøv igjen senere.', 'error')
         return redirect(url_for('dashboard'))
 
 @app.route('/api/calendar-events')
@@ -1747,59 +1840,6 @@ def send_quick_message():
     template = request.form.get('template')
     # Send til alle instruktører (unntatt deg selv)
     users = dm.load_data('users', {})
-    recipients = [u['email'] for u in users.values() if u.get('role') == 'instructor' and u['email'] != current_user.email]
-    for email in recipients:
-        # Use the integrated notification system for sending quick messages
-        try:
-            send_notification(
-                email,
-                "Hurtigbeskjed fra kjøreskole",
-                template,
-                data={"type": "quick_message", "from": current_user.email, "message": template},
-                dm=dm
-            )
-        except Exception as e:
-            logger.error(f"Error sending quick message notification to {email}: {e}")
-    flash(f'Hurtigbeskjed sendt: {template}', 'info')
-    return redirect(url_for('dashboard'))
-@app.route('/api/send-quick-reply', methods=['POST'])
-@login_required
-def api_send_quick_reply():
-    reply = request.json.get('reply')
-    # Varsle eier eller instruktør
-    users = dm.load_data('users', {})
-    user = users.get(current_user.email, {})
-    owner_email = user.get('owner')
-    if owner_email and owner_email != current_user.email:
-        from notification_integration import send_notification
-        send_notification(
-            owner_email,
-            "Hurtigsvar fra elev",
-            reply,
-            data={"type": "quick_reply", "from": current_user.email, "reply": reply},
-            dm=dm
-        )
-    return jsonify({'success': True})
-
-@app.route('/api/send-delay', methods=['POST'])
-@login_required
-def api_send_delay():
-    minutes = request.form.get('minutes')
-    # Varsle eier (eller instruktør)
-    users = dm.load_data('users', {})
-    user = users.get(current_user.email, {})
-    owner_email = user.get('owner')
-    if owner_email and owner_email != current_user.email:
-        from notification_integration import send_notification
-        send_notification(
-            owner_email,
-            "Forsinkelse varslet",
-            f"{current_user.email} er forsinket {minutes} min",
-            data={"type": "delay", "minutes": minutes, "by": current_user.email},
-            dm=dm
-        )
-    flash(f'Forsinkelse sendt: {minutes} min', 'warning')
-    return redirect(url_for('dashboard'))
 @app.route('/log-lesson', methods=['POST'])
 @login_required
 def log_lesson():

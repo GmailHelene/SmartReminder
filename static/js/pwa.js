@@ -1,225 +1,212 @@
-// Enhanced PWA Installation and Updates
-// Global variable for PWA install prompt
+console.log('🚀 PWA.js loading...');
+
+// Global variables for PWA functionality
 window.deferredPrompt = null;
-let isInstalled = false;
+window.isStandalone = false;
+window.installPromptShown = false;
 
-// Enhanced mobile detection
-function isMobileDevice() {
-    return /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-}
-
-function isIOSDevice() {
-    return /iPad|iPhone|iPod/.test(navigator.userAgent);
-}
-
-function isStandaloneMode() {
-    return window.matchMedia && window.matchMedia('(display-mode: standalone)').matches;
-}
-
-// Enhanced beforeinstallprompt handling
-window.addEventListener('beforeinstallprompt', (e) => {
-    console.log('🚀 PWA install prompt ready');
-    // Prevent Chrome 67 and earlier from automatically showing the prompt
-    e.preventDefault();
-    // Stash the event so it can be triggered later
-    window.deferredPrompt = e;
-    // Show enhanced install button
-    showInstallButton();
-});
-
-// Enhanced app installed event
-window.addEventListener('appinstalled', () => {
-    console.log('✅ PWA was installed successfully');
-    hideInstallButton();
-    isInstalled = true;
+// Check if app is already installed
+function checkInstallationStatus() {
+    // Check if running in standalone mode
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches || 
+                        window.navigator.standalone === true;
     
-    // Show success message
-    showToast('✅ App installert! Du kan nå bruke den fra hjemskjermen.', 'success', 6000);
+    window.isStandalone = isStandalone;
     
-    // Request notification permission after install
-    setTimeout(() => {
-        if ('Notification' in window && Notification.permission === 'default') {
-            requestNotificationPermissionForPWA();
-        }
-    }, 2000);
-});
-
-// Enhanced Service Worker Registration
-if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-        console.log('🔧 Registering Service Worker...');
-        
-        navigator.serviceWorker.register('/sw.js', { 
-            scope: '/' 
-        }).then((registration) => {
-            console.log('✅ Service Worker registered successfully:', registration.scope);
-            
-            // Enhanced update detection
-            registration.addEventListener('updatefound', () => {
-                console.log('🔄 Service Worker update found');
-                const newWorker = registration.installing;
-                
-                newWorker.addEventListener('statechange', () => {
-                    if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                        console.log('📦 New Service Worker installed, showing update notification');
-                        showUpdateAvailable();
-                    }
-                });
-            });
-            
-            // Check for updates periodically
-            setInterval(() => {
-                console.log('🔍 Checking for Service Worker updates...');
-                registration.update();
-            }, 30000); // Check every 30 seconds
-            
-        }).catch((registrationError) => {
-            console.error('❌ Service Worker registration failed:', registrationError);
-        });
+    console.log('📱 Installation status:', {
+        isStandalone: isStandalone,
+        userAgent: navigator.userAgent,
+        platform: navigator.platform
     });
+    
+    return isStandalone;
 }
 
-// Enhanced install button functions
-function showInstallButton() {
-    const installBtn = document.getElementById('installBtn');
-    if (installBtn) {
-        installBtn.style.display = 'block';
-        installBtn.classList.add('pwa-install-banner');
-        
-        // Enhanced button styling for mobile
-        if (isMobileDevice()) {
-            installBtn.style.cssText += `
-                position: fixed;
-                bottom: 20px;
-                left: 50%;
-                transform: translateX(-50%);
-                z-index: 9998;
-                padding: 12px 24px;
-                border-radius: 25px;
-                box-shadow: 0 4px 15px rgba(0,0,0,0.3);
-                animation: slideUp 0.3s ease-out;
-            `;
-        }
-    }
+// Show install prompt
+function showInstallPrompt() {
+    if (window.installPromptShown) return;
     
-    // Create install button if it doesn't exist
-    if (!installBtn) {
-        createInstallButton();
-    }
-}
-
-function createInstallButton() {
-    const button = document.createElement('button');
-    button.id = 'installBtn';
-    button.className = 'btn btn-primary pwa-install-btn';
-    button.innerHTML = isIOSDevice() ? 
-        '<i class="fas fa-plus-circle"></i> Installer app' : 
-        '<i class="fas fa-download"></i> Installer app';
+    console.log('📱 Showing install prompt...');
     
-    // Mobile-optimized styling
-    if (isMobileDevice()) {
-        button.style.cssText = `
-            position: fixed;
-            bottom: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            z-index: 9998;
-            padding: 12px 24px;
-            border-radius: 25px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
-            font-size: 16px;
-            font-weight: bold;
-            min-width: 200px;
-            animation: slideUp 0.3s ease-out;
-        `;
-    }
-    
-    // Set click handler
-    button.onclick = installApp;
-    
-    // Add to page
-    document.body.appendChild(button);
-    
-    // Add animation styles
-    const style = document.createElement('style');
-    style.textContent = `
-        @keyframes slideUp {
-            from {
-                transform: translateX(-50%) translateY(100px);
-                opacity: 0;
-            }
-            to {
-                transform: translateX(-50%) translateY(0);
-                opacity: 1;
-            }
-        }
-    `;
-    document.head.appendChild(style);
-}
-
-function hideInstallButton() {
-    const installBtn = document.getElementById('installBtn');
-    if (installBtn) {
-        installBtn.style.display = 'none';
-        installBtn.remove();
-    }
-}
-
-// Enhanced install app function
-function installApp() {
-    console.log('🚀 User initiated app installation');
-    
-    if (isIOSDevice()) {
-        // Show iOS installation instructions
-        showIOSInstallInstructions();
-    } else if (window.deferredPrompt) {
-        // Android/Chrome installation
-        handleAndroidInstall();
-    } else {
-        // Fallback for other browsers
-        showToast('Installasjon støttes ikke i denne nettleseren', 'warning');
-    }
-}
-
-// Enhanced iOS install instructions
-function showIOSInstallInstructions() {
-    const instructions = `
-        <div class="text-center">
-            <h5><i class="fab fa-apple"></i> Installer SmartReminder på iOS</h5>
-            <div class="install-steps mt-3">
-                <p class="mb-2">1. Trykk på <i class="fas fa-share" style="color: #007AFF;"></i> (Del) nederst på skjermen</p>
-                <p class="mb-2">2. Velg <strong>"Legg til på hjemskjerm"</strong></p>
-                <p class="mb-2">3. Trykk <strong>"Legg til"</strong> øverst til høyre</p>
-                <p class="text-muted small">Appen vil da være tilgjengelig fra hjemskjermen din!</p>
+    const installBanner = document.createElement('div');
+    installBanner.id = 'pwa-install-banner';
+    installBanner.innerHTML = `
+        <div class="alert alert-info alert-dismissible fade show position-fixed" style="top: 10px; left: 10px; right: 10px; z-index: 9999; max-width: 400px; margin: 0 auto;">
+            <div class="d-flex align-items-center">
+                <i class="fas fa-mobile-alt me-2"></i>
+                <div class="flex-grow-1">
+                    <strong>Installer appen!</strong><br>
+                    <small>Legg til SmartReminder på hjemskjermen for raskere tilgang</small>
+                </div>
+                <button type="button" class="btn btn-sm btn-primary me-2" onclick="installPWA()">
+                    Installer
+                </button>
+                <button type="button" class="btn-close" onclick="hideInstallPrompt()"></button>
             </div>
         </div>
     `;
     
-    showToast(instructions, 'info', 15000);
+    document.body.appendChild(installBanner);
+    window.installPromptShown = true;
+    
+    // Auto-hide after 15 seconds
+    setTimeout(() => {
+        hideInstallPrompt();
+    }, 15000);
 }
 
-// Enhanced Android install handling
-function handleAndroidInstall() {
-    console.log('📱 Handling Android installation');
-    
-    window.deferredPrompt.prompt();
-    window.deferredPrompt.userChoice.then((choiceResult) => {
-        if (choiceResult.outcome === 'accepted') {
-            console.log('✅ User accepted the install prompt');
-            hideInstallButton();
-            showToast('📱 App installeres...', 'success', 3000);
-            
-            // Request notification permission after install
-            setTimeout(() => {
-                requestNotificationPermissionForPWA();
-            }, 2000);
-        } else {
-            console.log('❌ User dismissed the install prompt');
-            showToast('Du kan installere appen senere fra nettlesermenyen', 'info', 5000);
-        }
-        window.deferredPrompt = null;
-    });
+// Hide install prompt
+function hideInstallPrompt() {
+    const banner = document.getElementById('pwa-install-banner');
+    if (banner) {
+        banner.remove();
+    }
 }
+
+// Install PWA
+window.installPWA = function() {
+    console.log('📱 Install PWA clicked');
+    
+    if (window.deferredPrompt) {
+        console.log('📱 Using deferred prompt');
+        window.deferredPrompt.prompt();
+        
+        window.deferredPrompt.userChoice.then((choiceResult) => {
+            console.log('📱 User choice:', choiceResult.outcome);
+            if (choiceResult.outcome === 'accepted') {
+                console.log('✅ User accepted PWA installation');
+            } else {
+                console.log('❌ User declined PWA installation');
+            }
+            window.deferredPrompt = null;
+            hideInstallPrompt();
+        });
+    } else {
+        // Fallback for browsers that don't support beforeinstallprompt
+        console.log('📱 No deferred prompt, showing manual instructions');
+        showManualInstallInstructions();
+    }
+};
+
+// Show manual install instructions
+function showManualInstallInstructions() {
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+    const isAndroid = /Android/.test(navigator.userAgent);
+    
+    let instructions = '';
+    
+    if (isIOS) {
+        instructions = `
+            <div class="alert alert-info">
+                <h6><i class="fab fa-apple me-2"></i>Installer på iOS:</h6>
+                <ol class="mb-0 small">
+                    <li>Trykk på del-knappen <i class="fas fa-share"></i> nederst</li>
+                    <li>Velg "Legg til på hjemskjerm"</li>
+                    <li>Trykk "Legg til"</li>
+                </ol>
+            </div>
+        `;
+    } else if (isAndroid) {
+        instructions = `
+            <div class="alert alert-info">
+                <h6><i class="fab fa-android me-2"></i>Installer på Android:</h6>
+                <ol class="mb-0 small">
+                    <li>Trykk på meny-knappen <i class="fas fa-ellipsis-v"></i> øverst</li>
+                    <li>Velg "Legg til på startskjermen" eller "Installer app"</li>
+                    <li>Bekreft installasjonen</li>
+                </ol>
+            </div>
+        `;
+    } else {
+        instructions = `
+            <div class="alert alert-info">
+                <h6><i class="fas fa-desktop me-2"></i>Installer på desktop:</h6>
+                <p class="mb-0 small">Se etter installer-ikonet <i class="fas fa-plus"></i> i adresselinjen</p>
+            </div>
+        `;
+    }
+    
+    const modal = document.createElement('div');
+    modal.innerHTML = `
+        <div class="modal fade show" style="display: block; background: rgba(0,0,0,0.5);" tabindex="-1">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Installer SmartReminder</h5>
+                        <button type="button" class="btn-close" onclick="this.closest('.modal').remove()"></button>
+                    </div>
+                    <div class="modal-body">
+                        ${instructions}
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" onclick="this.closest('.modal').remove()">Lukk</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+    hideInstallPrompt();
+}
+
+// Listen for beforeinstallprompt event
+window.addEventListener('beforeinstallprompt', (e) => {
+    console.log('📱 beforeinstallprompt event fired');
+    
+    // Prevent the mini-infobar from appearing on mobile
+    e.preventDefault();
+    
+    // Store the event so it can be triggered later
+    window.deferredPrompt = e;
+    
+    // Show custom install prompt after a delay
+    setTimeout(() => {
+        if (!window.isStandalone && !window.installPromptShown) {
+            showInstallPrompt();
+        }
+    }, 3000);
+});
+
+// Listen for app installed event
+window.addEventListener('appinstalled', (e) => {
+    console.log('✅ PWA was installed successfully');
+    window.deferredPrompt = null;
+    window.isStandalone = true;
+    hideInstallPrompt();
+    
+    // Show success message
+    if (typeof showToastNotification === 'function') {
+        showToastNotification('📱 App installert! Du kan nå åpne SmartReminder fra hjemskjermen.', 'success');
+    }
+});
+
+// Initialize PWA functionality
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('🚀 Initializing PWA functionality...');
+    
+    // Check installation status
+    const isInstalled = checkInstallationStatus();
+    
+    if (isInstalled) {
+        console.log('✅ App is already installed');
+        hideInstallPrompt();
+    } else {
+        console.log('📱 App not installed, will show prompt when appropriate');
+        
+        // For iOS Safari, show prompt immediately since beforeinstallprompt doesn't fire
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+        if (isIOS) {
+            setTimeout(() => {
+                if (!window.installPromptShown) {
+                    showInstallPrompt();
+                }
+            }, 5000);
+        }
+    }
+});
+
+console.log('✅ PWA.js loaded successfully');
 
 // Update available notification
 function showUpdateAvailable() {
@@ -394,6 +381,19 @@ function requestNotificationPermissionForPWA() {
     setTimeout(() => {
         Notification.requestPermission().then(permission => {
             if (permission === 'granted') {
+                showToast('Varslinger aktivert! 🔔', 'success');
+                initializePushNotifications();
+            } else {
+                showToast('Varslinger er deaktivert. Du kan aktivere dem i nettleserinnstillingene.', 'warning', 8000);
+            }
+        });
+    }, 2000);
+}
+
+// Auto-request notification permission after install
+window.addEventListener('appinstalled', () => {
+    setTimeout(requestNotificationPermission, 3000);
+});
                 showToast('Varslinger aktivert! 🔔', 'success');
                 initializePushNotifications();
             } else {

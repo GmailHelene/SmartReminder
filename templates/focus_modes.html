@@ -7,175 +7,198 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
 </head>
 <body>
-{% extends 'base.html' %}
+{% extends "base.html" %}
+
+{% block title %}Fokusmoduser - {{ super() }}{% endblock %}
 
 {% block content %}
 <div class="container mt-4">
-    <div class="row">
-        <div class="col-md-8 offset-md-2">
-            <h2>🎯 Fokusmoduser</h2>
-            <p class="text-muted">Velg en fokusmodus som passer din arbeidsstil</p>
-            
-            <!-- Success/Error Messages -->
-            {% if message %}
-                <div class="alert alert-{{ 'success' if success else 'danger' }} alert-dismissible fade show" role="alert">
-                    {{ message }}
-                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0">
+                        <i class="fas fa-brain me-2"></i>
+                        Fokusmoduser
+                    </h4>
                 </div>
-            {% endif %}
-            
-            <form method="POST" action="{{ url_for('focus_modes') }}" id="focus-mode-form">
-                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                <div class="row">
-                    {% for mode_key, mode in focus_modes.items() %}
-                    <div class="col-md-6 mb-3">
-                        <div class="card focus-mode-card {% if mode_key == current_focus_mode %}border-primary bg-light{% endif %}" 
-                             data-mode="{{ mode_key }}">
-                            <div class="card-body">
-                                <div class="form-check">
-                                    <input class="form-check-input" type="radio" 
-                                           name="focus_mode" value="{{ mode_key }}" 
-                                           id="mode_{{ mode_key }}"
-                                           {% if mode_key == current_focus_mode %}checked{% endif %}>
-                                    <label class="form-check-label w-100" for="mode_{{ mode_key }}">
-                                        <h5 class="card-title">{{ mode.name }}</h5>
-                                        <p class="card-text text-muted">{{ mode.description }}</p>
-                                        
-                                        <!-- Sound Test Button -->
-                                        {% if mode.settings.get('notifications', {}).get('sound_enabled', True) %}
-                                        <button type="button" class="btn btn-sm btn-outline-primary test-sound" 
-                                                data-sound="{{ mode.settings.get('notifications', {}).get('sound', 'pristine.mp3') }}">
-                                            🔊 Test lyd
-                                        </button>
-                                        {% endif %}
-                                    </label>
+                <div class="card-body">
+                    <p class="text-muted mb-4">
+                        Velg en fokusmodus som passer dine behov. Hver modus tilpasser grensesnittet og notifikasjonsinnstillingene.
+                    </p>
+                    
+                    <form method="POST" action="{{ url_for('focus_modes') }}">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        
+                        <div class="row">
+                            {% for mode_key, mode_data in focus_modes.items() %}
+                            <div class="col-md-6 mb-4">
+                                <div class="card h-100 {% if mode_key == current_focus_mode %}border-primary{% endif %}">
+                                    <div class="card-body">
+                                        <div class="form-check">
+                                            <input class="form-check-input" 
+                                                   type="radio" 
+                                                   name="focus_mode" 
+                                                   id="mode_{{ mode_key }}" 
+                                                   value="{{ mode_key }}"
+                                                   {% if mode_key == current_focus_mode %}checked{% endif %}>
+                                            <label class="form-check-label w-100" for="mode_{{ mode_key }}">
+                                                <h5 class="card-title">
+                                                    {% if mode_key == 'normal' %}🏠
+                                                    {% elif mode_key == 'silent' %}🔇
+                                                    {% elif mode_key == 'adhd' %}🎯
+                                                    {% elif mode_key == 'elderly' %}👵
+                                                    {% elif mode_key == 'work' %}💼
+                                                    {% elif mode_key == 'study' %}📚
+                                                    {% elif mode_key == 'driving_school' %}🚗
+                                                    {% else %}⚙️
+                                                    {% endif %}
+                                                    {{ mode_data.name }}
+                                                </h5>
+                                                <p class="card-text text-muted">
+                                                    {{ mode_data.description }}
+                                                </p>
+                                                {% if mode_key == current_focus_mode %}
+                                                <span class="badge bg-primary">Aktiv</span>
+                                                {% endif %}
+                                            </label>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
+                            {% endfor %}
                         </div>
-                    </div>
-                    {% endfor %}
+                        
+                        <div class="d-grid gap-2 mt-4">
+                            <button type="submit" class="btn btn-primary btn-lg">
+                                <i class="fas fa-save me-2"></i>
+                                Lagre fokusmodus
+                            </button>
+                        </div>
+                    </form>
                 </div>
-                
-                <div class="text-center mt-4">
-                    <button type="submit" class="btn btn-primary" id="save-focus-mode">
-                        <span class="spinner-border spinner-border-sm d-none" role="status"></span>
-                        Lagre fokusmodus
-                    </button>
-                    <a href="{{ url_for('dashboard') }}" class="btn btn-outline-secondary">Tilbake</a>
-                </div>
-            </form>
+            </div>
+            
+            <div class="text-center mt-4">
+                <a href="{{ url_for('dashboard') }}" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left me-2"></i>
+                    Tilbake til dashboard
+                </a>
+            </div>
         </div>
     </div>
 </div>
+{% endblock %}
 
+{% block scripts %}
+{{ super() }}
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    // Handle focus mode card selection
-    const focusModeCards = document.querySelectorAll('.focus-mode-card');
-    const radioButtons = document.querySelectorAll('input[name="focus_mode"]');
-    
-    // Update card appearance when radio button changes
-    radioButtons.forEach(radio => {
-        radio.addEventListener('change', function() {
-            // Remove active class from all cards
-            focusModeCards.forEach(card => {
-                card.classList.remove('border-primary', 'bg-light');
-            });
-            
-            // Add active class to selected card
-            if (this.checked) {
-                const selectedCard = document.querySelector(`[data-mode="${this.value}"]`);
-                if (selectedCard) {
-                    selectedCard.classList.add('border-primary', 'bg-light');
-                }
-            }
-        });
+// Auto-save focus mode on change
+document.querySelectorAll('input[name="focus_mode"]').forEach(radio => {
+    radio.addEventListener('change', function() {
+        const submitBtn = document.querySelector('button[type="submit"]');
+        if (submitBtn) {
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Lagrer...';
+            submitBtn.disabled = true;
+        }
+        
+        setTimeout(() => {
+            this.form.submit();
+        }, 500);
     });
-    
-    // Handle form submission
-    const form = document.getElementById('focus-mode-form');
-    const saveButton = document.getElementById('save-focus-mode');
-    
-    form.addEventListener('submit', function(e) {
-        e.preventDefault();
+});
+</script>
+{% endblock %}
+</body>
+</html>
+            </div>
+            
+            <div class="text-center mt-4">
+                <a href="{{ url_for('dashboard') }}" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left me-2"></i>
+                    Tilbake til dashboard
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+// Auto-save focus mode on change with proper error handling
+document.querySelectorAll('input[name="focus_mode"]').forEach(radio => {
+    radio.addEventListener('change', function() {
+        console.log('Focus mode changed to:', this.value);
         
-        const formData = new FormData(form);
-        const spinner = saveButton.querySelector('.spinner-border');
+        const submitBtn = document.querySelector('button[type="submit"]');
+        const form = this.form;
         
-        // Show loading state
-        saveButton.disabled = true;
-        spinner.classList.remove('d-none');
+        if (submitBtn) {
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Lagrer...';
+            submitBtn.disabled = true;
+        }
         
-        fetch(form.action, {
-            method: 'POST',
-            body: formData
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                // Show success message
-                const alertDiv = document.createElement('div');
-                alertDiv.className = 'alert alert-success alert-dismissible fade show';
-                alertDiv.innerHTML = `
-                    ${data.message}
-                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                `;
-                form.insertBefore(alertDiv, form.firstChild);
+        // Submit form after short delay
+        setTimeout(() => {
+            try {
+                form.submit();
+            } catch (error) {
+                console.error('Error submitting form:', error);
                 
-                // Auto-dismiss after 3 seconds
-                setTimeout(() => {
-                    alertDiv.remove();
-                }, 3000);
-            } else {
-                throw new Error(data.message || 'Feil ved lagring');
+                // Restore button state on error
+                if (submitBtn) {
+                    submitBtn.innerHTML = '<i class="fas fa-save me-2"></i>Lagre fokusmodus';
+                    submitBtn.disabled = false;
+                }
+                
+                // Show error message
+                alert('Feil ved lagring av fokusmodus. Prøv igjen.');
             }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            const alertDiv = document.createElement('div');
-            alertDiv.className = 'alert alert-danger alert-dismissible fade show';
-            alertDiv.innerHTML = `
-                Feil ved lagring av fokusmodus: ${error.message}
-                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-            `;
-            form.insertBefore(alertDiv, form.firstChild);
-        })
-        .finally(() => {
-            // Hide loading state
-            saveButton.disabled = false;
-            spinner.classList.add('d-none');
-        });
+        }, 500);
     });
+});
+
+// Test sound functionality for focus modes
+function testFocusSound(soundFile) {
+    console.log('Testing focus mode sound:', soundFile);
     
-    // Handle sound testing
-    const testSoundButtons = document.querySelectorAll('.test-sound');
-    testSoundButtons.forEach(button => {
-        button.addEventListener('click', function(e) {
-            e.preventDefault();
-            e.stopPropagation();
-            
-            const soundFile = this.getAttribute('data-sound');
-            testNotificationSound(soundFile);
-        });
-    });
-    
-    function testNotificationSound(soundFile) {
-        try {
-            // Mark that the user has interacted for mobile playback
-            window.userInteracted = true;
-            const audio = new Audio(`/static/sounds/${soundFile}`);
-            audio.volume = 0.5;
-            audio.play().then(() => {
-                showToastNotification('Lyd avspilt! 🎵', 'success');
-            }).catch(error => {
-                console.error('Kunne ikke spille lyd:', error);
+    try {
+        // Mark user interaction
+        window.userInteracted = true;
+        
+        const audio = new Audio(`/static/sounds/${soundFile}`);
+        audio.volume = 0.5;
+        
+        audio.play().then(() => {
+            console.log('Focus mode sound played successfully');
+            if (typeof showToastNotification === 'function') {
+                showToastNotification('🎵 Lyd avspilt for fokusmodus!', 'success');
+            }
+        }).catch(error => {
+            console.error('Could not play focus mode sound:', error);
+            if (typeof showToastNotification === 'function') {
                 showToastNotification('Kunne ikke spille lyd: ' + error.message, 'error');
-            });
-        } catch (error) {
-            console.error('Error creating audio:', error);
+            }
+        });
+    } catch (error) {
+        console.error('Error creating audio for focus mode:', error);
+        if (typeof showToastNotification === 'function') {
             showToastNotification('Feil ved testing av lyd.', 'error');
         }
     }
+}
+
+// Add click handlers for focus mode cards to also trigger change
+document.querySelectorAll('.card .form-check-label').forEach(label => {
+    label.addEventListener('click', function() {
+        const radio = document.getElementById(this.getAttribute('for'));
+        if (radio && !radio.checked) {
+            radio.checked = true;
+            radio.dispatchEvent(new Event('change'));
+        }
+    });
 });
 </script>
 {% endblock %}

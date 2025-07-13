@@ -1,134 +1,90 @@
 <!DOCTYPE html>
-<html lang="nb">
+<html lang="nb-NO">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>{% block title %}SmartReminder{% endblock %}</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Smart påminnelser med deling, notifikasjoner og kalender">
+    <title>{% block title %}SmartReminder Pro{% endblock %}</title>
     
     <!-- PWA Meta Tags -->
-    <meta name="description" content="Smart påminnelser med deling, notifikasjoner og kalender">
     <meta name="theme-color" content="#007bff">
-    <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="apple-mobile-web-app-title" content="SmartReminder">
-    <meta name="msapplication-TileColor" content="#007bff">
-    <meta name="msapplication-tap-highlight" content="no">
     
-    <!-- Enhanced PWA Support -->
-    <meta name="format-detection" content="telephone=no">
-    <meta name="application-name" content="SmartReminder">
-    <meta name="apple-touch-fullscreen" content="yes">
-    <meta name="apple-mobile-web-app-orientation" content="portrait">
+    <!-- PWA Icons -->
+    <link rel="icon" type="image/png" sizes="32x32" href="/static/images/icon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/static/images/icon-16x16.png">
+    <link rel="apple-touch-icon" href="/static/images/icon-192x192.png">
     
     <!-- PWA Manifest -->
-    <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
-    
-    <!-- Enhanced PWA Icons -->
-    <link rel="icon" type="image/png" sizes="16x16" href="{{ url_for('static', filename='images/favicon-16x16.png') }}">
-    <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='images/favicon-32x32.png') }}">
-    <link rel="icon" type="image/png" sizes="72x72" href="{{ url_for('static', filename='images/icon-72x72.png') }}">
-    <link rel="icon" type="image/png" sizes="96x96" href="{{ url_for('static', filename='images/icon-96x96.png') }}">
-    <link rel="icon" type="image/png" sizes="128x128" href="{{ url_for('static', filename='images/icon-128x128.png') }}">
-    <link rel="icon" type="image/png" sizes="144x144" href="{{ url_for('static', filename='images/icon-144x144.png') }}">
-    <link rel="icon" type="image/png" sizes="152x152" href="{{ url_for('static', filename='images/icon-152x152.png') }}">
-    <link rel="icon" type="image/png" sizes="192x192" href="{{ url_for('static', filename='images/icon-192x192.png') }}">
-    <link rel="icon" type="image/png" sizes="384x384" href="{{ url_for('static', filename='images/icon-384x384.png') }}">
-    <link rel="icon" type="image/png" sizes="512x512" href="{{ url_for('static', filename='images/icon-512x512.png') }}">
-    
-    <!-- Apple Touch Icons -->
-    <link rel="apple-touch-icon" sizes="180x180" href="{{ url_for('static', filename='images/icon-180x180.png') }}">
-    <link rel="apple-touch-icon" sizes="152x152" href="{{ url_for('static', filename='images/icon-152x152.png') }}">
-    <link rel="apple-touch-icon" sizes="144x144" href="{{ url_for('static', filename='images/icon-144x144.png') }}">
-    <link rel="apple-touch-icon" sizes="120x120" href="{{ url_for('static', filename='images/icon-128x128.png') }}">
-    <link rel="apple-touch-icon" sizes="114x114" href="{{ url_for('static', filename='images/icon-128x128.png') }}">
-    <link rel="apple-touch-icon" sizes="76x76" href="{{ url_for('static', filename='images/icon-72x72.png') }}">
-    <link rel="apple-touch-icon" sizes="72x72" href="{{ url_for('static', filename='images/icon-72x72.png') }}">
-    <link rel="apple-touch-icon" sizes="60x60" href="{{ url_for('static', filename='images/icon-72x72.png') }}">
-    <link rel="apple-touch-icon" sizes="57x57" href="{{ url_for('static', filename='images/icon-72x72.png') }}">
-    
-    <!-- Microsoft Tiles -->
-    <meta name="msapplication-square70x70logo" content="{{ url_for('static', filename='images/icon-72x72.png') }}">
-    <meta name="msapplication-square150x150logo" content="{{ url_for('static', filename='images/icon-152x152.png') }}">
-    <meta name="msapplication-square310x310logo" content="{{ url_for('static', filename='images/icon-384x384.png') }}">
-    
-    <!-- Favicon -->
-    <link rel="shortcut icon" href="{{ url_for('static', filename='images/favicon.ico') }}">
+    <link rel="manifest" href="/static/manifest.json">
     
     <!-- Bootstrap CSS -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     
     <!-- Custom CSS -->
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <style>
+        .pwa-install-banner {
+            position: fixed;
+            top: 10px;
+            left: 10px;
+            right: 10px;
+            z-index: 9999;
+            max-width: 400px;
+            margin: 0 auto;
+            animation: slideInDown 0.5s ease-out;
+        }
+        
+        @keyframes slideInDown {
+            from { transform: translateY(-100%); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        
+        .mobile-optimized {
+            -webkit-user-select: none;
+            -webkit-touch-callout: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+        
+        @media (max-width: 768px) {
+            .container-fluid { padding: 0.5rem; }
+            .card { margin-bottom: 1rem; }
+            .btn { min-height: 44px; }
+        }
+    </style>
     
     {% block head %}{% endblock %}
 </head>
-<body>
-    <!-- PWA Install Button -->
-    <button id="installBtn" class="btn btn-primary pwa-install-banner d-none" 
-            style="position: fixed; top: 10px; right: 10px; z-index: 1000; border-radius: 25px;">
-        <i class="fas fa-download"></i> Installer app
-    </button>
-
-    {% if current_user.is_authenticated %}
+<body class="mobile-optimized">
     <!-- Navigation -->
-    <nav class="navbar navbar-expand-lg navbar-dark bg-primary sticky-top">
-        <div class="container">
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <div class="container-fluid">
             <a class="navbar-brand" href="{{ url_for('dashboard') }}">
-                <i class="fas fa-bell"></i> SmartReminder
+                <i class="fas fa-bell me-2"></i>SmartReminder
             </a>
             
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-                <span class="navbar-toggler-icon"></span>
-            </button>
-            
-            <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav me-auto">
-                    <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('dashboard') }}">
-                            <i class="fas fa-home"></i> Dashboard
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="{{ safe_url_for('noteboards') }}">
-                            <i class="fas fa-clipboard"></i> Tavler
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('focus_modes') }}">
-                            <i class="fas fa-brain"></i> Fokus
-                        </a>
-                    </li>
-                </ul>
-                
-                <ul class="navbar-nav">
-                    <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
-                            <i class="fas fa-user"></i> {{ current_user.username }}
-                        </a>
-                        <ul class="dropdown-menu">
-                            {% if current_user.email == 'helene721@gmail.com' %}
-                            <li><a class="dropdown-item" href="{{ url_for('email_settings') }}">
-                                <i class="fas fa-envelope"></i> E-post innstillinger
-                            </a></li>
-                            <li><hr class="dropdown-divider"></li>
-                            {% endif %}
-                            <li><a class="dropdown-item" href="{{ url_for('logout') }}">
-                                <i class="fas fa-sign-out-alt"></i> Logg ut
-                            </a></li>
-                        </ul>
-                    </li>
-                </ul>
+            {% if current_user.is_authenticated %}
+            <div class="navbar-nav ms-auto">
+                <a class="nav-link" href="{{ url_for('focus_modes') }}">
+                    <i class="fas fa-brain"></i> <span class="d-none d-md-inline">Fokus</span>
+                </a>
+                <a class="nav-link" href="{{ url_for('noteboards') }}">
+                    <i class="fas fa-sticky-note"></i> <span class="d-none d-md-inline">Tavler</span>
+                </a>
+                <a class="nav-link" href="{{ url_for('logout') }}">
+                    <i class="fas fa-sign-out-alt"></i> <span class="d-none d-md-inline">Logg ut</span>
+                </a>
             </div>
+            {% endif %}
         </div>
     </nav>
-    {% endif %}
-
+    
     <!-- Flash Messages -->
     {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
-            <div class="container mt-3">
+            <div class="container-fluid mt-2">
                 {% for category, message in messages %}
                     <div class="alert alert-{{ 'danger' if category == 'error' else category }} alert-dismissible fade show" role="alert">
                         {{ message }}
@@ -138,54 +94,19 @@
             </div>
         {% endif %}
     {% endwith %}
-
+    
     <!-- Main Content -->
-    <main class="container mt-4 mb-5">
+    <main class="container-fluid py-3">
         {% block content %}{% endblock %}
     </main>
-
-    <!-- Footer -->
-    {% if current_user.is_authenticated %}
-    <footer class="bg-light py-3 mt-5">
-        <div class="container text-center">
-            <small class="text-muted">
-                SmartReminder © 2024 | 
-                <span id="connectionStatus" class="badge bg-success">
-                    <i class="fas fa-wifi"></i> Online
-                </span>
-            </small>
-        </div>
-    </footer>
-    {% endif %}
-
+    
     <!-- Bootstrap JS -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     
-    <!-- Service Worker Registration -->
-    <script>
-        // Register service worker for notifications
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('/sw.js', { scope: '/' })
-                    .then(registration => {
-                        console.log('Service Worker registered successfully:', registration.scope);
-                    })
-                    .catch(error => {
-                        console.error('Service Worker registration failed:', error);
-                    });
-            });
-        }
-    </script>
+    <!-- PWA Scripts -->
+    <script src="/static/js/pwa.js"></script>
+    <script src="/static/js/app.js"></script>
     
-    <!-- PWA JavaScript -->
-    <script src="{{ url_for('static', filename='js/pwa.js') }}"></script>
-    
-    <!-- Custom JavaScript -->
-    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
-    
-    <!-- Notification Client -->
-    <script src="{{ url_for('static', filename='js/notification_client.js') }}"></script>
-
     {% block scripts %}{% endblock %}
 </body>
 </html>
