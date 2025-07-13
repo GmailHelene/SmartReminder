@@ -1667,7 +1667,7 @@ def send_test_notification_with_sound():
             "sound": sound
         }
         
-        success = send_notification(tion(
+        success = send_notification(
             current_user.email,
             "Test notifikasjon",
             f"Dette er en test-notifikasjon med lyd: {sound}",
@@ -1690,7 +1690,6 @@ def get_vapid_public_key():
     """Get VAPID public key for push notifications"""
     try:
         from notification_integration import get_vapid_public_key as get_key
-from notification_integration import send_notification
         return jsonify({'public_key': get_key()})
     except ImportError:
         # Return a placeholder if notification system is not available, 500
@@ -1705,7 +1704,7 @@ def set_instructor_status():
     users[current_user.email] = user
     dm.save_data('users', users)
     # Varsle eier (eller alle instruktører unntatt deg selv)
-    owner_email = user.get('owner')!= current_user.email:
+    owner_email = user.get('owner')
     if owner_email and owner_email != current_user.email:
         send_push_notification(
             owner_email,
@@ -1743,18 +1742,18 @@ def send_quick_message():
 def api_send_quick_reply():
     reply = request.json.get('reply')
     # Varsle eier (eller instruktør)
-    users = dm.load_data('users').email, {})
+    users = dm.load_data('users', {})
     user = users.get(current_user.email, {})
-    owner_email = user.get('owner')!= current_user.email:
+    owner_email = user.get('owner')
     if owner_email and owner_email != current_user.email:
         send_push_notification(
             owner_email,
             title="Hurtigsvar fra elev",
             body=reply,
             data={"type": "quick_reply", "from": current_user.email, "reply": reply},
-            data={"type": "quick_reply", "from": current_user.email, "reply": reply},
             dm=dm
-        )n jsonify({'success': True, 'message': f'Reply sent: {reply}'})
+        )
+        return jsonify({'success': True, 'message': f'Reply sent: {reply}'})
     return jsonify({'success': True, 'message': f'Reply sent: {reply}'})
 @app.route('/notify-delay', methods=['POST'])
 @app.route('/notify-delay', methods=['POST'])
