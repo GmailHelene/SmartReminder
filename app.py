@@ -1690,14 +1690,14 @@ def get_vapid_public_key():
     """Get VAPID public key for push notifications"""
     try:
         from notification_integration import get_vapid_public_key as get_key
+from notification_integration import send_notification
         return jsonify({'public_key': get_key()})
     except ImportError:
         # Return a placeholder if notification system is not available, 500
         return jsonify({'error': 'Push notifications not configured'}), 500
 @app.route('/set-instructor-status', methods=['POST'])
-@app.route('/set-instructor-status', methods=['POST'])
-@login_requiredtor_status():
-def set_instructor_status():t('status')
+@login_required
+def set_instructor_status():
     status = request.form.get('status')
     users = dm.load_data('users', {})
     user = users.get(current_user.email, {})
@@ -1718,27 +1718,29 @@ def set_instructor_status():t('status')
     flash(f'Status oppdatert til {status}', 'success')
     return redirect(url_for('dashboard'))
 @app.route('/send-quick-message', methods=['POST'])
-@app.route('/send-quick-message', methods=['POST'])
-@login_requiredmessage():
-def send_quick_message():rm.get('template')
+@login_required
+def send_quick_message():
     template = request.form.get('template')
     # Send til alle instruktører (unntatt deg selv)
     users = dm.load_data('users', {})
     recipients = [u['email'] for u in users.values() if u.get('role') == 'instructor' and u['email'] != current_user.email]
     for email in recipients:
-        send_push_notification(
-            email,"Hurtigbeskjed fra kjøreskole",
-            title="Hurtigbeskjed fra kjøreskole",
-            body=template,"quick_message", "from": current_user.email, "message": template},
+        # Use the integrated notification system for sending quick messages
+        try:
+            send_notification(
+            email,
+            "Hurtigbeskjed fra kjøreskole",
+            template,
             data={"type": "quick_message", "from": current_user.email, "message": template},
             dm=dm
-        )(f'Hurtigbeskjed sendt: {template}', 'info')
+            )
+        except Exception as e:
+            logger.error(f"Error sending quick message notification to {email}: {e}")
     flash(f'Hurtigbeskjed sendt: {template}', 'info')
     return redirect(url_for('dashboard'))
 @app.route('/api/send-quick-reply', methods=['POST'])
-@app.route('/api/send-quick-reply', methods=['POST'])
-@login_requiredick_reply():
-def api_send_quick_reply():t('reply')
+@login_required
+def api_send_quick_reply():
     reply = request.json.get('reply')
     # Varsle eier (eller instruktør)
     users = dm.load_data('users').email, {})
@@ -1746,59 +1748,63 @@ def api_send_quick_reply():t('reply')
     owner_email = user.get('owner')!= current_user.email:
     if owner_email and owner_email != current_user.email:
         send_push_notification(
-            owner_email,gsvar fra elev",
+            owner_email,
             title="Hurtigsvar fra elev",
-            body=reply,": "quick_reply", "from": current_user.email, "reply": reply},
+            body=reply,
+            data={"type": "quick_reply", "from": current_user.email, "reply": reply},
             data={"type": "quick_reply", "from": current_user.email, "reply": reply},
             dm=dm
         )n jsonify({'success': True, 'message': f'Reply sent: {reply}'})
     return jsonify({'success': True, 'message': f'Reply sent: {reply}'})
 @app.route('/notify-delay', methods=['POST'])
 @app.route('/notify-delay', methods=['POST'])
-@login_requiredy():
-def notify_delay():st.form.get('minutes')
+@login_required
+def notify_delay():
     minutes = request.form.get('minutes')
     # Varsle eier (eller instruktør)
-    users = dm.load_data('users').email, {})
+    users = dm.load_data('users', {})
     user = users.get(current_user.email, {})
-    owner_email = user.get('owner')!= current_user.email:
+    owner_email = user.get('owner')
     if owner_email and owner_email != current_user.email:
         send_push_notification(
-            owner_email,nkelse varslet",
-            title="Forsinkelse varslet",er forsinket {minutes} min",
-            body=f"{current_user.email} er forsinket {minutes} min",_user.email},
+            owner_email,
+            title="Forsinkelse varslet",
+            body=f"{current_user.email} er forsinket {minutes} min",
             data={"type": "delay", "minutes": minutes, "by": current_user.email},
             dm=dm
-        )(f'Forsinkelse sendt: {minutes} min', 'warning')
+        )
     flash(f'Forsinkelse sendt: {minutes} min', 'warning')
     return redirect(url_for('dashboard'))
 @app.route('/log-lesson', methods=['POST'])
-@app.route('/log-lesson', methods=['POST'])
-@login_required):
-def log_lesson():t.form.get('note')
-    note = request.form.get('note')e per user)
-    # Append to lesson log (could be per user) []
-    lesson_log = dm.load_data('lesson_log') or [], 'timestamp': datetime.now().strftime('%d.%m.%Y %H:%M'), 'note': note})
-    lesson_log.append({'user': current_user.email, 'timestamp': datetime.now().strftime('%d.%m.%Y %H:%M'), 'note': note})
+@login_required
+def log_lesson():
+    note = request.form.get('note')
+    # Append to lesson log
+    lesson_log = dm.load_data('lesson_log', [])
+    lesson_log.append({
+        'user': current_user.email,
+        'timestamp': datetime.now().strftime('%d.%m.%Y %H:%M'),
+        'note': note
+    })
     dm.save_data('lesson_log', lesson_log)
+    
     # Varsle eier (eller instruktør)
-    users = dm.load_data('users').email, {})
+    users = dm.load_data('users', {})
     user = users.get(current_user.email, {})
-    owner_email = user.get('owner')!= current_user.email:
+    owner_email = user.get('owner')
     if owner_email and owner_email != current_user.email:
         send_push_notification(
-            owner_email,time logget",
-            title="Kjøretime logget",l}: {note}",
-            body=f"{current_user.email}: {note}",rent_user.email, "note": note},
+            owner_email,
+            title="Kjøretime logget",
+            body=f"{current_user.email}: {note}",
             data={"type": "lesson_log", "by": current_user.email, "note": note},
             dm=dm
-        )('Kjøretime logget!', 'success')
+        )
     flash('Kjøretime logget!', 'success')
     return redirect(url_for('dashboard'))
 @app.route('/sound-test')
-@app.route('/sound-test')
-def sound_test():for sound playback"""
-    """Test page for sound playback""".html')
+def sound_test():
+    """Test page for sound playback"""
     return render_template('sound_test.html')
 @app.route('/sw-test')
 def sw_test():
