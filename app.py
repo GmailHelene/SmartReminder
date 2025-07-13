@@ -1,4 +1,4 @@
-import Flask, render_template, request, redirect, url_for, flash, jsonify, session, abort, send_from_directory
+from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, session, abort, send_from_directory
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
 from flask_mail import Mail, Message
 from flask_wtf import FlaskForm
