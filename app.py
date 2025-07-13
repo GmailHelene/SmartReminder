@@ -1690,7 +1690,7 @@ def get_vapid_public_key():
     """Get VAPID public key for push notifications"""
     try:
         from notification_integration import get_vapid_public_key as get_key
-        return jsonify({'public_key': get_key()})C_KEY})
+        return jsonify({'public_key': get_key()})
     except ImportError:
         # Return a placeholder if notification system is not available, 500
         return jsonify({'error': 'Push notifications not configured'}), 500
@@ -1699,18 +1699,19 @@ def get_vapid_public_key():
 @login_requiredtor_status():
 def set_instructor_status():t('status')
     status = request.form.get('status')
-    users = dm.load_data('users').email, {})
+    users = dm.load_data('users', {})
     user = users.get(current_user.email, {})
-    user['status'] = statusl] = user
+    user['status'] = status
     users[current_user.email] = user
-    dm.save_data('users', users)struktører unntatt deg selv)
+    dm.save_data('users', users)
     # Varsle eier (eller alle instruktører unntatt deg selv)
     owner_email = user.get('owner')!= current_user.email:
     if owner_email and owner_email != current_user.email:
         send_push_notification(
-            owner_email,uktørstatus oppdatert",
-            title="Instruktørstatus oppdatert",tatus til '{status}'",
-            body=f"{current_user.email} satte status til '{status}'",: current_user.email},
+            owner_email,
+            title="Instruktørstatus oppdatert",
+            body=f"{current_user.email} satte status til '{status}'",
+            data={"type": "status_update", "user": current_user.email},
             data={"type": "instructor_status", "status": status, "by": current_user.email},
             dm=dm
         )(f'Status oppdatert til {status}', 'success')
@@ -1720,11 +1721,11 @@ def set_instructor_status():t('status')
 @app.route('/send-quick-message', methods=['POST'])
 @login_requiredmessage():
 def send_quick_message():rm.get('template')
-    template = request.form.get('template')eg selv)
+    template = request.form.get('template')
     # Send til alle instruktører (unntatt deg selv)
-    users = dm.load_data('users')u in users.values() if u.get('role') == 'instructor' and u['email'] != current_user.email]
+    users = dm.load_data('users', {})
     recipients = [u['email'] for u in users.values() if u.get('role') == 'instructor' and u['email'] != current_user.email]
-    for email in recipients:on(
+    for email in recipients:
         send_push_notification(
             email,"Hurtigbeskjed fra kjøreskole",
             title="Hurtigbeskjed fra kjøreskole",
