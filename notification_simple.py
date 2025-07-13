@@ -27,6 +27,15 @@ def create_notification(user_email, title, message, options=None):
         user_data = users.get(user_email, {})
         options['sound'] = user_data.get('notification_sound', 'pristine.mp3')
     
+    # Ensure sound playback adheres to browser restrictions
+    if 'sound' in options:
+        options['sound'] = f"User interaction required to play: {options['sound']}"
+    else:
+        options['sound'] = "User interaction required to play: pristine.mp3"
+
+    # Log notification creation
+    logger.info(f"Notification created for {user_email} with sound: {options['sound']}")
+
     # Create notification object
     notification = {
         'id': str(uuid.uuid4()),

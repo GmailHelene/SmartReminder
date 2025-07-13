@@ -1510,56 +1510,61 @@ def offline():
 @login_required
 def focus_modes():
     """Focus modes page"""
-    if request.method == 'POST':
-        # Handle focus mode update
-        focus_mode = request.form.get('focus_mode', 'normal')
+    try:
+        if request.method == 'POST':
+            # Handle focus mode update
+            focus_mode = request.form.get('focus_mode', 'normal')
+            
+            # Update user's focus mode
+            users = dm.load_data('users')
+            for user_data in users.values():
+                if user_data['email'] == current_user.email:
+                    user_data['focus_mode'] = focus_mode
+                    break
+            dm.save_data('users', users)
+            
+            flash('Fokusmodus oppdatert!', 'success')
+            return redirect(url_for('focus_modes'))
         
-        # Update user's focus mode
+        # Get current user's focus mode
         users = dm.load_data('users')
+        current_focus_mode = 'normal'
         for user_data in users.values():
             if user_data['email'] == current_user.email:
-                user_data['focus_mode'] = focus_mode
+                current_focus_mode = user_data.get('focus_mode', 'normal')
                 break
-        dm.save_data('users', users)
         
-        flash('Fokusmodus oppdatert!', 'success')
-        return redirect(url_for('focus_modes'))
-    
-    # Get current user's focus mode
-    users = dm.load_data('users')
-    current_focus_mode = 'normal'
-    for user_data in users.values():
-        if user_data['email'] == current_user.email:
-            current_focus_mode = user_data.get('focus_mode', 'normal')
-            break
-    
-    # Get available focus modes
-    try:
-        focus_modes_dict = FocusModeManager.get_all_modes()
-    except:
-        # Fallback if FocusModeManager doesn't work
-        focus_modes_dict = {
-            'normal': type('obj', (object,), {
-                'name': 'Normal',
-                'description': 'Standard modus for daglig bruk'
-            }),
-            'silent': type('obj', (object,), {
-                'name': 'Stillemodus', 
-                'description': 'Reduserte notifikasjoner'
-            }),
-            'adhd': type('obj', (object,), {
-                'name': 'ADHD-modus',
-                'description': 'Økt fokus og struktur'
-            }),
-            'elderly': type('obj', (object,), {
-                'name': 'Modus for eldre',
-                'description': 'Forenklet grensesnitt'
-            })
-        }
-    
-    return render_template('focus_modes.html', 
-                         current_focus_mode=current_focus_mode,
-                         focus_modes=focus_modes_dict)
+        # Get available focus modes
+        try:
+            focus_modes_dict = FocusModeManager.get_all_modes()
+        except Exception as e:
+            logger.error(f"Error fetching focus modes: {e}")
+            focus_modes_dict = {
+                'normal': type('obj', (object,), {
+                    'name': 'Normal',
+                    'description': 'Standard modus for daglig bruk'
+                }),
+                'silent': type('obj', (object,), {
+                    'name': 'Stillemodus', 
+                    'description': 'Reduserte notifikasjoner'
+                }),
+                'adhd': type('obj', (object,), {
+                    'name': 'ADHD-modus',
+                    'description': 'Økt fokus og struktur'
+                }),
+                'elderly': type('obj', (object,), {
+                    'name': 'Modus for eldre',
+                    'description': 'Forenklet grensesnitt'
+                })
+            }
+        
+        return render_template('focus_modes.html', 
+                             current_focus_mode=current_focus_mode,
+                             focus_modes=focus_modes_dict)
+    except Exception as e:
+        logger.error(f"Internal error in focus_modes route: {e}")
+        flash('En intern feil oppstod. Vennligst prøv igjen senere.', 'error')
+        return redirect(url_for('dashboard'))
 
 @app.route('/api/calendar-events')
 @login_required
