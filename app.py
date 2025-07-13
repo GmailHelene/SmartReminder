@@ -43,9 +43,22 @@ except ImportError:
         @staticmethod
         def get_all_modes():
             return {
-                'normal': type('obj', (object,), {'name': 'Normal', 'description': 'Standard mode'}),
-                'focus': type('obj', (object,), {'name': 'Focus', 'description': 'High focus mode'}),
-                'break': type('obj', (object,), {'name': 'Break', 'description': 'Break time mode'})
+                'normal': type('obj', (object,), {
+                    'name': 'Normal', 
+                    'description': 'Standard modus for daglig bruk'
+                }),
+                'silent': type('obj', (object,), {
+                    'name': 'Stillemodus', 
+                    'description': 'Reduserte notifikasjoner'
+                }),
+                'adhd': type('obj', (object,), {
+                    'name': 'ADHD-modus',
+                    'description': 'Økt fokus og struktur'
+                }),
+                'elderly': type('obj', (object,), {
+                    'name': 'Modus for eldre',
+                    'description': 'Forenklet grensesnitt'
+                })
             }
         
         @staticmethod
