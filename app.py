@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, session, abort, send_from_directory
+import Flask, render_template, request, redirect, url_for, flash, jsonify, session, abort, send_from_directory
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
 from flask_mail import Mail, Message
 from flask_wtf import FlaskForm
@@ -1511,17 +1511,22 @@ def offline():
 def focus_modes():
     """Focus modes page"""
     try:
+        logger.info("Focus modes route accessed")
         if request.method == 'POST':
             # Handle focus mode update
             focus_mode = request.form.get('focus_mode', 'normal')
+            logger.info(f"Updating focus mode to: {focus_mode}")
             
             # Update user's focus mode
             users = dm.load_data('users')
+            logger.debug(f"Loaded users data: {users}")
             for user_data in users.values():
                 if user_data['email'] == current_user.email:
                     user_data['focus_mode'] = focus_mode
+                    logger.info(f"Focus mode updated for user: {current_user.email}")
                     break
             dm.save_data('users', users)
+            logger.info("Users data saved successfully")
             
             flash('Fokusmodus oppdatert!', 'success')
             return redirect(url_for('focus_modes'))
@@ -1533,10 +1538,12 @@ def focus_modes():
             if user_data['email'] == current_user.email:
                 current_focus_mode = user_data.get('focus_mode', 'normal')
                 break
+        logger.info(f"Current focus mode for user {current_user.email}: {current_focus_mode}")
         
         # Get available focus modes
         try:
             focus_modes_dict = FocusModeManager.get_all_modes()
+            logger.debug(f"Available focus modes: {focus_modes_dict}")
         except Exception as e:
             logger.error(f"Error fetching focus modes: {e}")
             focus_modes_dict = {
@@ -1732,11 +1739,11 @@ def send_quick_message():
         # Use the integrated notification system for sending quick messages
         try:
             send_notification(
-            email,
-            "Hurtigbeskjed fra kjøreskole",
-            template,
-            data={"type": "quick_message", "from": current_user.email, "message": template},
-            dm=dm
+                email,
+                "Hurtigbeskjed fra kjøreskole",
+                template,
+                data={"type": "quick_message", "from": current_user.email, "message": template},
+                dm=dm
             )
         except Exception as e:
             logger.error(f"Error sending quick message notification to {email}: {e}")
@@ -1746,7 +1753,7 @@ def send_quick_message():
 @login_required
 def api_send_quick_reply():
     reply = request.json.get('reply')
-    # Varsle eier (eller instruktør)
+    # Varsle eier eller instruktør
     users = dm.load_data('users', {})
     user = users.get(current_user.email, {})
     owner_email = user.get('owner')
@@ -1759,12 +1766,11 @@ def api_send_quick_reply():
             data={"type": "quick_reply", "from": current_user.email, "reply": reply},
             dm=dm
         )
-        return jsonify({'success': True, 'message': f'Reply sent: {reply}'})
-    return jsonify({'success': True, 'message': f'Reply sent: {reply}'})
-@app.route('/notify-delay', methods=['POST'])
-@app.route('/notify-delay', methods=['POST'])
+    return jsonify({'success': True})
+
+@app.route('/api/send-delay', methods=['POST'])
 @login_required
-def notify_delay():
+def api_send_delay():
     minutes = request.form.get('minutes')
     # Varsle eier (eller instruktør)
     users = dm.load_data('users', {})

@@ -248,7 +248,13 @@ class FocusModeManager:
         """Check if sound is enabled in current mode"""
         current_mode = self.get_current_mode_object()
         return current_mode.settings.get('notifications', {}).get('sound_enabled', True)
-    def get_mode_settings(cls, mode_name):
-        """Get settings for a specific mode"""
-        mode = cls.get_mode_by_name(mode_name)
-        return mode.settings
+    
+    @classmethod
+    def get_all_modes(cls):
+        """Return all available focus modes"""
+        return {key: mode.settings for key, mode in cls.AVAILABLE_MODES.items()}
+
+    # Ensure settings are properly defined for all modes
+    for mode_key, mode in AVAILABLE_MODES.items():
+        if not hasattr(mode, 'settings'):
+            mode.settings = {'notifications': {'sound_enabled': True, 'sound': 'pristine.mp3'}}
