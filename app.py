@@ -1658,7 +1658,7 @@ def send_test_notification_with_sound():
             from notification_integration import send_notification
         except ImportError:
             logger.warning("Notification system not available")
-            return jsonify({'success': False, 'error': 'Notifications not configured'})ed'})
+            return jsonify({'success': False, 'error': 'Notifications not configured'})
         
         # Create notification data with sound
         notification_data = {
