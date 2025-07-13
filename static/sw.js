@@ -59,30 +59,47 @@ self.addEventListener('push', event => {
         }
     };
 
-    // Show notification and play sound
+    // Show notification and play sound using client message passing
     event.waitUntil(
         Promise.all([
             self.registration.showNotification(data.title, options),
-            playNotificationSound(data.sound || 'pristine.mp3')
+            sendSoundMessageToClients(data.sound || 'pristine.mp3')
         ])
     );
 });
 
-// Play notification sound
-async function playNotificationSound(soundName) {
+// Play notification sound by sending message to all clients
+async function sendSoundMessageToClients(soundName) {
     try {
-        const soundUrl = `/static/sounds/${soundName}`;
-        const audioContext = new (self.AudioContext || self.webkitAudioContext)();
-        const response = await fetch(soundUrl);
-        const arrayBuffer = await response.arrayBuffer();
-        const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+        // Get all clients
+        const clients = await self.clients.matchAll({
+            includeUncontrolled: true,
+            type: 'window'
+        });
         
-        const source = audioContext.createBufferSource();
-        source.buffer = audioBuffer;
-        source.connect(audioContext.destination);
-        source.start(0);
+        // Check if we have any clients
+        if (clients.length > 0) {
+            console.log(`Sending PLAY_NOTIFICATION_SOUND message to ${clients.length} clients`);
+            
+            // Send message to all clients
+            clients.forEach(client => {
+                client.postMessage({
+                    type: 'PLAY_NOTIFICATION_SOUND',
+                    sound: soundName
+                });
+            });
+            
+            return true;
+        } else {
+            console.log('No clients available, storing sound for later playback');
+            // Since service workers can't directly access localStorage, this is a placeholder.
+            // The actual implementation would use IndexedDB, but for testing purposes
+            // we'll rely on the app.js checkPendingSounds function.
+            return false;
+        }
     } catch (error) {
-        console.error('Error playing sound:', error);
+        console.error('Error sending sound message to clients:', error);
+        return false;
     }
 }
 

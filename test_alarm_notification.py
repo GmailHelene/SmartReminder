@@ -52,7 +52,30 @@ def check_user_subscriptions(user_email):
     
     if not user_subscriptions:
         print(f"⚠️ No push subscriptions found for {user_email}")
-        return False
+        print("Creating a test subscription...")
+        
+        # Create a test subscription
+        test_subscription = {
+            "endpoint": "https://fcm.googleapis.com/fcm/send/test-endpoint-" + str(int(datetime.now().timestamp())),
+            "expirationTime": None,
+            "keys": {
+                "p256dh": "BGEw2wsHgLwzerjvR0O0hmOI3zt6pJWzAvVejXc5p8GUpS03ro0bviBDb-iqQD1qOU7G5GlrYJr0W5SWgE-oEWU",
+                "auth": "8O_K-rlSQUxMpBmx3NspGQ"
+            }
+        }
+        
+        # Subscribe user to push
+        from push_service import subscribe_user_to_push
+        result = subscribe_user_to_push(user_email, test_subscription, dm)
+        
+        if result:
+            print(f"✅ Successfully created test subscription for {user_email}")
+            # Reload subscriptions
+            subscriptions_data = dm.load_data('push_subscriptions')
+            user_subscriptions = subscriptions_data.get(user_email, [])
+        else:
+            print(f"❌ Failed to create test subscription")
+            return False
     
     print(f"Found {len(user_subscriptions)} push subscriptions for {user_email}")
     

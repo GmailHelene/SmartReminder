@@ -444,21 +444,21 @@ def check_reminders_for_notifications():
             # Extract sound setting from reminder
             sound = reminder.get('sound', 'pristine.mp3')
             
-            # Import push_service function for direct notification
+            # Import notification integration for both WebPush and browser notifications
             try:
-                from push_service import send_reminder_notification as send_push_reminder
-                # Try to send push notification first (more immediate)
-                push_sent = send_push_reminder(
+                from notification_integration import send_reminder_notification as send_integrated_reminder
+                # Try to send notification using integrated system (WebPush + browser fallback)
+                notification_sent = send_integrated_reminder(
                     recipient_email, 
                     reminder['title'], 
                     reminder['datetime'], 
                     sound=sound,
                     dm=dm
                 )
-                logger.info(f"Push notification {'sent' if push_sent else 'failed'} for {reminder['id']}")
-            except Exception as push_err:
-                logger.error(f"Error sending push notification: {push_err}")
-                push_sent = False
+                logger.info(f"Notification {'sent' if notification_sent else 'failed'} for {reminder['id']}")
+            except Exception as notification_err:
+                logger.error(f"Error sending notification: {notification_err}")
+                notification_sent = False
                 
             # Also send email notification as backup
             if send_reminder_notification(reminder, recipient_email):

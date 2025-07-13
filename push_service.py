@@ -11,9 +11,9 @@ from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
-# VAPID keys for push notifications (placeholder - should be replaced with real keys)
-VAPID_PRIVATE_KEY = "your-vapid-private-key-here"
-VAPID_PUBLIC_KEY = "BPKg5QjGtlY8n9VJ9VdWUFfaG8FKzX2sQ3ZmFUPvYGJ0qRdKF3XGzjFXQR2vX8qT1FPZU1Ywwx2x3Y4Z5A6B7C8D"
+# VAPID keys for push notifications (for testing purposes)
+VAPID_PRIVATE_KEY = "MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQgs99m3VMXTxMCG0dfvaswODu6XwOj9s6-aaQQJIoykvOhRANCAASOFGNmnWQ2cBiZCbrl5S4zr0kGTzr4MOO-7G_6O5Gn7aVYffgypiMnpvxi8F4OSvpa-Dl8QhtO1JU5vxyHSdky"
+VAPID_PUBLIC_KEY = "BI4UY2adZDZwGJkJuuXlLjOvSQZPOvgw477sb_o7kaftpVh9-DKmIyem_GLwXg5K-lr4OXxCG07UlTm_HIdJ2TI"
 VAPID_CLAIMS = {"sub": "mailto:admin@smartreminder.com"}
 
 def send_push_notification(user_email, title, body, data=None, dm=None):

@@ -1,0 +1,8 @@
+{
+  "endpoint": "https://fcm.googleapis.com/fcm/send/test-endpoint-1752370678",
+  "expirationTime": null,
+  "keys": {
+    "p256dh": "BPK-0FY2VgqSYagYl25a16lxCINyJSvi-Qjkt8x0ueYMX6fj0mwY-PPp9eQjSNulrnyIB9ypXZFfO6t5Gdr3ej",
+    "auth": "fmmV4Gh2u68qWbbt8hg-_A"
+  }
+}
