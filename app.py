@@ -430,24 +430,48 @@ def check_reminders_for_notifications():
         notification_time = now + timedelta(minutes=app.config['NOTIFICATION_ADVANCE_MINUTES'])
         
         # Sjekk alle påminnelser
-        reminders = dm.load_data('reminders')
-        shared_reminders = dm.load_data('shared_reminders')
-        notifications = dm.load_data('notifications')
+        reminders = dm.load_data('reminders', [])
+        shared_reminders = dm.load_data('shared_reminders', [])
+        notifications = dm.load_data('notifications', [])
         
-        sent_notifications = {n['reminder_id'] for n in notifications}
+        # Ensure reminders are lists and contain dictionaries
+        if not isinstance(reminders, list):
+            reminders = []
+        if not isinstance(shared_reminders, list):
+            shared_reminders = []
+        if not isinstance(notifications, list):
+            notifications = []
+        
+        sent_notifications = set()
+        for n in notifications:
+            if isinstance(n, dict) and 'reminder_id' in n:
+                sent_notifications.add(n['reminder_id'])
         
         all_reminders = []
         
         # Forbered mine påminnelser
         for reminder in reminders:
-            if not reminder['completed'] and reminder['id'] not in sent_notifications:
-                reminder_dt = datetime.fromisoformat(reminder['datetime'].replace(' ', 'T'))
-                if now <= reminder_dt <= notification_time:
-                    # Notify the reminder owner
-                    all_reminders.append((reminder, reminder['user_id']))
-                    
-                    # Also notify anyone in shared_with list (if it's a list and not empty)
-                    shared_with = reminder.get('shared_with', [])
+            if not isinstance(reminder, dict):
+                continue
+                
+            if (reminder.get('completed', False) == False and 
+                reminder.get('id') not in sent_notifications):
+                
+                try:
+                    reminder_dt = datetime.fromisoformat(reminder['datetime'].replace(' ', 'T'))
+                    if now <= reminder_dt <= notification_time:
+                        # Notify the reminder owner
+                        all_reminders.append((reminder, reminder.get('user_id', '')))
+                        
+                        # Also notify anyone in shared_with list (if it's a list and not empty)
+                        shared_with = reminder.get('shared_with', [])
+                        if isinstance(shared_with, list):
+                            for recipient_email in shared_with:
+                                if recipient_email and recipient_email != reminder.get('user_id', ''):
+                                    all_reminders.append((reminder, recipient_email))
+                except (ValueError, KeyError, TypeError) as e:
+                    logger.error(f"Error processing reminder {reminder}: {e}")
+                    continue
                     if isinstance(shared_with, list):
                         for recipient_email in shared_with:
                             if recipient_email and recipient_email != reminder['user_id']:
@@ -455,12 +479,22 @@ def check_reminders_for_notifications():
         
         # Forbered delte påminnelser
         for reminder in shared_reminders:
-            if not reminder['completed'] and reminder['id'] not in sent_notifications:
-                reminder_dt = datetime.fromisoformat(reminder['datetime'].replace(' ', 'T'))
-                if now <= reminder_dt <= notification_time:
-                    # For shared reminders, shared_with is a single email string
-                    recipient_email = reminder['shared_with']
-                    all_reminders.append((reminder, recipient_email))
+            if not isinstance(reminder, dict):
+                continue
+                
+            if (reminder.get('completed', False) == False and 
+                reminder.get('id') not in sent_notifications):
+                
+                try:
+                    reminder_dt = datetime.fromisoformat(reminder['datetime'].replace(' ', 'T'))
+                    if now <= reminder_dt <= notification_time:
+                        # For shared reminders, shared_with is a single email string
+                        recipient_email = reminder.get('shared_with', '')
+                        if recipient_email:
+                            all_reminders.append((reminder, recipient_email))
+                except (ValueError, KeyError, TypeError) as e:
+                    logger.error(f"Error processing shared reminder {reminder}: {e}")
+                    continue
         
         # Send notifikasjoner
         for reminder, recipient_email in all_reminders:
@@ -1721,7 +1755,7 @@ def api_calendar_events():
 
 # Push notification routes
 @app.route('/api/subscribe-push', methods=['POST'])
-@login_required
+@csrf.exempt
 def subscribe_push_notifications():
     """Subscribe user to push notifications"""
     try:
@@ -1753,10 +1787,14 @@ def subscribe_push_notifications():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.route('/api/send-test-notification', methods=['POST'])
-@login_required
+@csrf.exempt
 def send_test_notification_with_sound():
     """Send test push notification with sound"""
     try:
+        # Check if user is logged in first
+        if not hasattr(current_user, 'email') or not current_user.email:
+            return jsonify({'success': False, 'error': 'Authentication required'}), 401
+            
         data = request.get_json() or {}
         sound = data.get('sound', 'pristine.mp3')
         
@@ -1765,7 +1803,7 @@ def send_test_notification_with_sound():
             from notification_integration import send_notification
         except ImportError:
             logger.warning("Notification system not available")
-            return jsonify({'success': False, 'error': 'Notifications not configured'})
+            return jsonify({'success': False, 'error': 'Notifications not configured'}), 500
         
         # Create notification data with sound
         notification_data = {
@@ -1793,14 +1831,23 @@ def send_test_notification_with_sound():
 
 # VAPID public key endpoint for push notifications
 @app.route('/api/vapid-public-key')
+@csrf.exempt
 def get_vapid_public_key():
     """Get VAPID public key for push notifications"""
     try:
         from notification_integration import get_vapid_public_key as get_key
-        return jsonify({'public_key': get_key()})
+        public_key = get_key()
+        if public_key:
+            return jsonify({'public_key': public_key})
+        else:
+            return jsonify({'error': 'VAPID public key not available'}), 500
     except ImportError:
-        # Return a placeholder if notification system is not available, 500
+        # Return a placeholder if notification system is not available
         return jsonify({'error': 'Push notifications not configured'}), 500
+    except Exception as e:
+        logger.error(f"Error getting VAPID public key: {e}")
+        return jsonify({'error': 'Failed to get VAPID public key'}), 500
+
 @app.route('/set-instructor-status', methods=['POST'])
 @login_required
 def set_instructor_status():

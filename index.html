@@ -4,11 +4,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>SmartReminder Pro</title>
-    <link rel="manifest" href="manifest.json">
+    <link rel="manifest" href="/static/manifest.json">
     <meta name="theme-color" content="#2E86AB">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="apple-mobile-web-app-title" content="SmartReminder">
+    
+    <!-- External CSS -->
+    <link rel="stylesheet" href="/static/css/style.css">
     
     <style>
         :root {
@@ -520,6 +523,16 @@
                 <button class="btn btn-primary" onclick="addReminder()">
                     🚀 Legg til påminnelse
                 </button>
+                
+                <!-- Push notification setup button -->
+                <div id="notificationSetup" style="margin-top: 16px; display: none;">
+                    <button class="btn btn-secondary" onclick="enablePushNotifications()" style="background: #17a2b8; color: white;">
+                        🔔 Aktiver push-varslinger (valgfritt)
+                    </button>
+                    <small style="display: block; margin-top: 8px; color: #666; font-size: 12px;">
+                        Push-varslinger lar deg få påminnelser selv når appen er lukket
+                    </small>
+                </div>
             </div>
             
             <div class="reminders-section">
@@ -567,6 +580,11 @@
             setDefaultDateTime();
             loadReminders();
             updateStats();
+            
+            // Show notification setup button if notifications are supported but not enabled
+            if ('Notification' in window && 'serviceWorker' in navigator && Notification.permission !== 'granted') {
+                document.getElementById('notificationSetup').style.display = 'block';
+            }
             
             // Add touch feedback
             document.addEventListener('touchstart', function(e) {
@@ -841,6 +859,52 @@
             document.getElementById('confirmModal').style.display = 'none';
         }
         
+        // Enable push notifications when user clicks the button
+        async function enablePushNotifications() {
+            try {
+                // Request notification permission
+                const permission = await Notification.requestPermission();
+                if (permission === 'granted') {
+                    showToast('✅ Varslinger aktivert!', 'success');
+                    document.getElementById('notificationSetup').style.display = 'none';
+                    
+                    // Setup push notifications if external app.js is loaded
+                    if (window.setupPushNotifications) {
+                        await window.setupPushNotifications();
+                    } else {
+                        console.log('ℹ️ External push notification setup not available');
+                    }
+                } else {
+                    showToast('ℹ️ Varslinger ikke aktivert - appen fungerer normalt uten', 'info');
+                }
+            } catch (error) {
+                console.error('Error requesting notification permission:', error);
+                showToast('ℹ️ Kunne ikke aktivere varslinger - appen fungerer normalt uten', 'info');
+            }
+        }
+        
+        // Enable push notifications when user clicks the button
+        async function enablePushNotifications() {
+            try {
+                // Request notification permission
+                const permission = await Notification.requestPermission();
+                if (permission === 'granted') {
+                    showToast('✅ Varslinger aktivert!', 'success');
+                    document.getElementById('notificationSetup').style.display = 'none';
+                    
+                    // Setup push notifications if external app.js is loaded
+                    if (window.setupPushNotifications) {
+                        window.setupPushNotifications();
+                    }
+                } else {
+                    showToast('ℹ️ Varslinger ikke aktivert - appen fungerer normalt uten', 'info');
+                }
+            } catch (error) {
+                console.error('Error requesting notification permission:', error);
+                showToast('ℹ️ Kunne ikke aktivere varslinger - appen fungerer normalt uten', 'info');
+            }
+        }
+        
         // Keyboard shortcuts
         document.addEventListener('keydown', function(e) {
             if (e.ctrlKey || e.metaKey) {
@@ -860,5 +924,10 @@
         // PWA functionality - handled in pwa.js
         // No duplicate beforeinstallprompt handler
     </script>
+    
+    <!-- External JavaScript Files -->
+    <script src="/static/js/app.js"></script>
+    <script src="/static/js/pwa.js"></script>
+    <script src="/static/js/notification_client.js"></script>
 </body>
 </html>

@@ -11,9 +11,9 @@ from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
-# VAPID keys for push notifications (for testing purposes)
-VAPID_PRIVATE_KEY = "MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQgs99m3VMXTxMCG0dfvaswODu6XwOj9s6-aaQQJIoykvOhRANCAASOFGNmnWQ2cBiZCbrl5S4zr0kGTzr4MOO-7G_6O5Gn7aVYffgypiMnpvxi8F4OSvpa-Dl8QhtO1JU5vxyHSdky"
-VAPID_PUBLIC_KEY = "BI4UY2adZDZwGJkJuuXlLjOvSQZPOvgw477sb_o7kaftpVh9-DKmIyem_GLwXg5K-lr4OXxCG07UlTm_HIdJ2TI"
+# VAPID keys for push notifications (newly generated)
+VAPID_PRIVATE_KEY = "ZHDglxicXIIz4g-V71A5ImYnCLs09wfkrMNXo0eBMks"
+VAPID_PUBLIC_KEY = "BB6570vt9Z-TU_ZlqnbzfYGIljYDFYYwq3SPpDApf3Fy6dLmwu0RIP2lbj1fR2_D32g0r5276rYy2QYBBU_piEQ"
 VAPID_CLAIMS = {"sub": "mailto:admin@smartreminder.com"}
 
 def send_push_notification(user_email, title, body, data=None, dm=None):
@@ -274,3 +274,7 @@ def send_password_reset_confirmation(user_email, dm=None):
     }
     
     return send_push_notification(user_email, title, body, notification_data, dm)
+
+def get_vapid_public_key():
+    """Return the VAPID public key for push notifications"""
+    return VAPID_PUBLIC_KEY

@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>VAPID Key Test</title>
+</head>
+<body>
+    <h1>VAPID Key Test</h1>
+    <button onclick="testVapidKey()">Test VAPID Key Conversion</button>
+    <div id="output"></div>
+    
+    <script>
+        function urlBase64ToUint8Array(base64String) {
+            const padding = '='.repeat((4 - base64String.length % 4) % 4);
+            const base64 = (base64String + padding)
+                .replace(/\-/g, '+')
+                .replace(/_/g, '/');
+            
+            const rawData = window.atob(base64);
+            const outputArray = new Uint8Array(rawData.length);
+            
+            for (let i = 0; i < rawData.length; ++i) {
+                outputArray[i] = rawData.charCodeAt(i);
+            }
+            return outputArray;
+        }
+        
+        async function testVapidKey() {
+            const output = document.getElementById('output');
+            output.innerHTML = '<p>Testing VAPID key...</p>';
+            
+            try {
+                // Get VAPID key from server
+                const response = await fetch('/api/vapid-public-key');
+                const data = await response.json();
+                
+                output.innerHTML += `<p>Server response: ${JSON.stringify(data)}</p>`;
+                output.innerHTML += `<p>Public key: ${data.public_key}</p>`;
+                output.innerHTML += `<p>Key length: ${data.public_key.length}</p>`;
+                
+                // Test conversion
+                const convertedKey = urlBase64ToUint8Array(data.public_key);
+                output.innerHTML += `<p>Converted key length: ${convertedKey.length}</p>`;
+                output.innerHTML += `<p>First few bytes: ${Array.from(convertedKey.slice(0, 8)).map(b => '0x' + b.toString(16)).join(', ')}</p>`;
+                
+                // Check if it's a valid uncompressed public key
+                if (convertedKey.length === 65 && convertedKey[0] === 4) {
+                    output.innerHTML += `<p style="color: green;">✅ Valid uncompressed public key format</p>`;
+                } else {
+                    output.innerHTML += `<p style="color: red;">❌ Invalid public key format (expected 65 bytes starting with 0x04)</p>`;
+                }
+                
+                // Test if we can create a subscription with this key
+                if ('serviceWorker' in navigator && 'PushManager' in window) {
+                    try {
+                        const registration = await navigator.serviceWorker.register('/sw.js');
+                        await navigator.serviceWorker.ready;
+                        
+                        const subscription = await registration.pushManager.subscribe({
+                            userVisibleOnly: true,
+                            applicationServerKey: convertedKey
+                        });
+                        
+                        output.innerHTML += `<p style="color: green;">✅ Successfully created push subscription</p>`;
+                        output.innerHTML += `<p>Subscription endpoint: ${subscription.endpoint.substring(0, 50)}...</p>`;
+                        
+                        // Unsubscribe to clean up
+                        await subscription.unsubscribe();
+                        
+                    } catch (subscribeError) {
+                        output.innerHTML += `<p style="color: red;">❌ Push subscription failed: ${subscribeError.message}</p>`;
+                    }
+                } else {
+                    output.innerHTML += `<p style="color: orange;">⚠️ Push messaging not supported in this browser</p>`;
+                }
+                
+            } catch (error) {
+                output.innerHTML += `<p style="color: red;">❌ Error: ${error.message}</p>`;
+            }
+        }
+    </script>
+</body>
+</html>

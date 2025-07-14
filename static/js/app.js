@@ -1158,10 +1158,20 @@ async function setupPushNotifications() {
         }
         const vapidData = await vapidResponse.json();
         
+        // Validate VAPID key
+        if (!vapidData.public_key || vapidData.public_key.length < 64) {
+            throw new Error('Invalid VAPID public key received from server');
+        }
+        
+        // Convert VAPID key to proper format
+        console.log('🔑 Converting VAPID key:', vapidData.public_key.substring(0, 20) + '...');
+        const applicationServerKey = urlBase64ToUint8Array(vapidData.public_key);
+        console.log('🔑 Converted key length:', applicationServerKey.length);
+        
         // Subscribe to push notifications
         const subscription = await registration.pushManager.subscribe({
             userVisibleOnly: true,
-            applicationServerKey: vapidData.public_key
+            applicationServerKey: applicationServerKey
         });
         
         // Send subscription to server
@@ -1185,13 +1195,21 @@ async function setupPushNotifications() {
         
         // Show user-friendly error message
         let errorMessage = 'Kunne ikke sette opp push-notifikasjoner';
-        if (error.message.includes('permission')) {
+        if (error.message.includes('permission') || error.message.includes('denied')) {
             errorMessage = 'Varslinger er valgfritt - appen fungerer uten dem også!';
         } else if (error.message.includes('not supported')) {
             errorMessage = 'Nettleseren støtter ikke push-notifikasjoner (ikke nødvendig)';
+        } else if (error.message.includes('InvalidAccessError') || error.message.includes('applicationServerKey')) {
+            errorMessage = 'Push-varslinger er midlertidig utilgjengelige, men appen fungerer normalt';
+        } else if (error.message.includes('Failed to get VAPID')) {
+            errorMessage = 'Varslinger er ikke konfigurert på serveren (valgfritt)';
         }
         
-        showNotificationFeedback(`💡 ${errorMessage}`, 'info');
+        // Don't show this error too frequently
+        if (!window.lastNotificationError || Date.now() - window.lastNotificationError > 30000) {
+            showNotificationFeedback(`💡 ${errorMessage}`, 'info');
+            window.lastNotificationError = Date.now();
+        }
         return false;
     }
 }
@@ -1200,9 +1218,12 @@ async function setupPushNotifications() {
 document.addEventListener('DOMContentLoaded', function() {
     console.log('🚀 App.js DOM loaded, initializing...');
     
-    // Only setup push notifications if user hasn't denied permission
-    if (Notification.permission !== 'denied') {
+    // Only setup push notifications if user has explicitly granted permission
+    if (Notification.permission === 'granted') {
+        console.log('🔔 User has granted notification permission, setting up push notifications...');
         setupPushNotifications();
+    } else {
+        console.log('ℹ️ Push notifications not set up - user must grant permission first');
     }
     
     // Add CSS for animations
