@@ -327,7 +327,7 @@ class DataManager:
                     except Exception as e:
                         logger.error(f"Feil ved migrering av users: {e}")
 
-    def load_data(self, filename):
+    def load_data(self, filename, default=None):
         """Last inn data fra JSON-fil med error handling"""
         filepath = self.data_dir / f"{filename}.json"
         try:
@@ -344,6 +344,8 @@ class DataManager:
                 return data
         except (FileNotFoundError, json.JSONDecodeError) as e:
             logger.error(f"Feil ved lasting av {filename}: {e}")
+            if default is not None:
+                return default
             return {} if filename == 'users' else []
 
     def save_data(self, filename, data):
