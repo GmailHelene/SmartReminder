@@ -807,87 +807,14 @@ def dashboard():
     my_reminders.sort(key=lambda x: x['datetime'])
     shared_with_me.sort(key=lambda x: x['datetime'])
     
-    # Statistikk (safely handle missing completed field)
-    total_my = len([r for r in reminders if r.get('user_id') == current_user.email])
-    completed_my = len([r for r in reminders if r.get('user_id') == current_user.email and r.get('completed', False)])
-    completion_rate = (completed_my / total_my * 100) if total_my > 0 else 0
-    
-    # Tilgjengelige brukere for deling
-    available_users = [user_data['email'] for user_data in users.values() 
-                      if user_data['email'] != current_user.email]
-    
-    # Get boards count
-    try:
-        boards = noteboard_manager.get_user_boards(current_user.email)
-        boards_count = len(boards)
-    except:
-        boards_count = 0
-    
-    # Former
-    form = ReminderForm()
-    
-    # Prepare events for calendar (JSON format)
-    events_json = []
-    
-    # Add my reminders
-    for reminder in my_reminders:
-        color = '#dc3545' if reminder['priority'] == 'Høy' else '#fd7e14' if reminder['priority'] == 'Medium' else '#198754'
-        events_json.append({
-            'id': reminder['id'],
-            'title': reminder['title'],
-            'start': reminder['datetime'],
-            'backgroundColor': color,
-            'borderColor': color,
-            'extendedProps': {
-                'description': reminder.get('description', ''),
-                'category': reminder.get('category', ''),
-                'priority': reminder.get('priority', ''),
-                'type': 'my'
-            }
-        })
-    
-    # Add shared reminders
-    for reminder in shared_with_me:
-        events_json.append({
-            'id': f"shared_{reminder['id']}",
-            'title': f"{reminder['title']} ({reminder.get('shared_by', 'Ukjent')})",
-            'start': reminder['datetime'],
-            'backgroundColor': '#6f42c1',
-            'borderColor': '#6f42c1',
-            'extendedProps': {
-                'description': reminder.get('description', ''),
-                'category': reminder.get('category', ''),
-                'priority': reminder.get('priority', ''),
-                'sharedBy': reminder.get('shared_by', ''),
-                'type': 'shared'
-            }
-        })
-    
-    # Get current user's focus mode
-    current_focus_mode = 'normal'
-    if isinstance(users, dict):
-        for user_id, user_data in users.items():
-            if user_data.get('email') == current_user.email:
-                current_focus_mode = user_data.get('focus_mode', 'normal')
-                break
-    
-    import json
+    # Hent brukerens fokus-modus
+    user = User.get_by_email(current_user.email)
+    current_focus_mode = user.focus_mode if user else 'normal'
     
     return render_template('dashboard.html', 
-                         form=form,
-                         my_reminders=my_reminders,
-                         shared_reminders=shared_with_me,
-                         stats={
-                             'total': total_my,
-                             'completed': completed_my,
-                             'completion_rate': completion_rate,
-                             'shared_count': len(shared_with_me)
-                         },
-                         boards_count=boards_count,
-                         available_users=available_users,
-                         current_time=datetime.now(),
-                         current_focus_mode=current_focus_mode,
-                         events_json=json.dumps(events_json))
+                         my_reminders=my_reminders, 
+                         shared_with_me=shared_with_me,
+                         current_focus_mode=current_focus_mode)
 
 @app.route('/complete_reminder/<reminder_id>')
 @login_required
