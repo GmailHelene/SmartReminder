@@ -1873,3 +1873,33 @@ def favicon():
     except:
         # Return 404 if favicon not found
         abort(404)
+
+@app.route('/static/sounds/<filename>')
+def serve_sounds(filename):
+    """Serve sound files with proper headers for audio playback"""
+    try:
+        # Security check - only allow .mp3 files
+        if not filename.endswith('.mp3'):
+            abort(404)
+        
+        # Check if file exists
+        sound_path = Path('static/sounds') / filename
+        if not sound_path.exists():
+            # Create a basic sound file if it doesn't exist
+            logger.warning(f"Sound file {filename} not found, creating placeholder")
+            sound_path.parent.mkdir(parents=True, exist_ok=True)
+            # Create a minimal silence MP3 (just placeholder)
+            with open(sound_path, 'wb') as f:
+                f.write(b'')  # Empty file as placeholder
+            
+        response = send_from_directory('static/sounds', filename, mimetype='audio/mpeg')
+        # Add headers for better browser compatibility
+        response.headers['Accept-Ranges'] = 'bytes'
+        response.headers['Cache-Control'] = 'public, max-age=3600'
+        response.headers['Access-Control-Allow-Origin'] = '*'
+        return response
+    except Exception as e:
+        logger.error(f"Error serving sound file {filename}: {e}")
+        # Return a 200 with empty content instead of 404 to prevent JS errors
+        from flask import Response
+        return Response('', mimetype='audio/mpeg')

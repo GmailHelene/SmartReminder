@@ -85,7 +85,12 @@ function initializeFormValidation() {
 
 function initializeRealTimeUpdates() {
     // Update reminder counts every 30 seconds
-    setInterval(updateReminderCounts, 30000);
+    setInterval(() => {
+        fetch('/api/reminder-count')
+            .then(response => response.json())
+            .then(data => updateReminderCounts(data))
+            .catch(error => console.warn('Failed to update reminder counts:', error));
+    }, 30000);
 }
 
 // Enhanced PWA features initialization
@@ -172,12 +177,57 @@ function requestPushPermission() {
     console.log('🔔 User requesting push notification permission');
     
     if (!('Notification' in window)) {
-        showToastNotification('Varslinger støttes ikke av denne nettleseren', 'error');
+        showToastNotification('Varslinger støttes ikke av denne nettleseren', 'info');
         return;
     }
     
     if (Notification.permission === 'denied') {
-        showToastNotification('Varslinger er blokkert. Aktiver dem i nettleserinnstillingene.', 'warning', 8000);
+        // Show helpful instructions for enabling notifications
+        const helpText = `
+            <div style="text-align: left; font-size: 0.9em;">
+                <p><strong>💡 Slik aktiverer du varslinger (helt valgfritt):</strong></p>
+                <p><strong>Chrome/Edge:</strong> Klikk på låsikonet 🔒 ved adresselinjen → Tillat notifikasjoner</p>
+                <p><strong>Firefox:</strong> Klikk på skjoldikonet 🛡️ → Tillat notifikasjoner</p>
+                <p><strong>Safari:</strong> Safari → Innstillinger → Nettsteder → Notifikasjoner</p>
+                <p><strong>Mobil:</strong> Innstillinger → Nettleser → Nettsteder → Tillatelser</p>
+                <br>
+                <p><em>✨ Husk: Varslinger er kun for push-meldinger til mobilen. Appen fungerer perfekt uten dem!</em></p>
+            </div>
+        `;
+        
+        // Show help modal only once per session
+        if (!window.notificationHelpShown) {
+            window.notificationHelpShown = true;
+            
+            const helpModal = document.createElement('div');
+            helpModal.innerHTML = `
+                <div class="modal fade" id="notificationHelpModal" tabindex="-1">
+                    <div class="modal-dialog">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title">📱 Aktiver varslinger (valgfritt)</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                            </div>
+                            <div class="modal-body">${helpText}</div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Ikke nå</button>
+                                <button type="button" class="btn btn-primary" onclick="window.location.reload()">Prøv igjen</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(helpModal);
+            
+            const modal = new bootstrap.Modal(document.getElementById('notificationHelpModal'));
+            modal.show();
+            
+            // Remove modal after it's hidden
+            document.getElementById('notificationHelpModal').addEventListener('hidden.bs.modal', () => {
+                helpModal.remove();
+            });
+        }
+        
         return;
     }
     
@@ -191,7 +241,7 @@ function requestPushPermission() {
             subscribeToPushNotifications();
         } else {
             console.log('❌ Notification permission denied');
-            showToastNotification('Varslinger er nødvendig for å motta påminnelser', 'warning');
+            showToastNotification('💡 Appen fungerer perfekt uten varslinger også!', 'info');
         }
     });
 }
@@ -271,7 +321,7 @@ function requestNotificationPermissionWithFallback() {
     }
     
     if (Notification.permission === 'denied') {
-        showToastNotification('Varslinger er deaktivert. Aktiver dem i nettleserinnstillingene for å motta påminnelser.', 'warning', 8000);
+        showToastNotification('📱 Varslinger er valgfritt - appen fungerer uten dem også!', 'info', 5000);
         return Promise.resolve('denied');
     }
     
@@ -284,7 +334,7 @@ function requestNotificationPermissionWithFallback() {
                 initializePushNotifications();
             }
         } else {
-            showToastNotification('Varslinger er nødvendig for å motta påminnelser', 'warning');
+            showToastNotification('💡 Appen fungerer perfekt uten varslinger også!', 'info');
         }
         return permission;
     });
@@ -1040,7 +1090,7 @@ function requestNotificationPermission() {
     
     if (Notification.permission === 'denied') {
         console.warn('⚠️ Notification permission denied');
-        showNotificationFeedback('⚠️ Notifikasjoner er blokkert. Aktiver dem i nettleserinnstillingene.', 'warning');
+        showNotificationFeedback('📱 Varslinger er valgfritt - appen fungerer uten dem også!', 'info');
         return Promise.resolve('denied');
     }
     
@@ -1077,10 +1127,10 @@ async function setupPushNotifications() {
             throw new Error('Push messaging not supported');
         }
         
-        // Request notification permission
-        const permission = await requestNotificationPermission();
-        if (permission !== 'granted') {
-            throw new Error('Notification permission not granted');
+        // DONT request permission automatically - only if user clicks the button
+        if (Notification.permission !== 'granted') {
+            console.log('ℹ️ Notification permission not granted - user must click button');
+            return false;
         }
         
         // Register service worker
@@ -1128,12 +1178,12 @@ async function setupPushNotifications() {
         // Show user-friendly error message
         let errorMessage = 'Kunne ikke sette opp push-notifikasjoner';
         if (error.message.includes('permission')) {
-            errorMessage = 'Notifikasjonstillatelse ikke gitt. Aktiver dem i nettleserinnstillingene.';
+            errorMessage = 'Varslinger er valgfritt - appen fungerer uten dem også!';
         } else if (error.message.includes('not supported')) {
-            errorMessage = 'Nettleseren støtter ikke push-notifikasjoner';
+            errorMessage = 'Nettleseren støtter ikke push-notifikasjoner (ikke nødvendig)';
         }
         
-        showNotificationFeedback(`❌ ${errorMessage}`, 'error');
+        showNotificationFeedback(`💡 ${errorMessage}`, 'info');
         return false;
     }
 }
@@ -1142,10 +1192,10 @@ async function setupPushNotifications() {
 document.addEventListener('DOMContentLoaded', function() {
     console.log('🚀 App.js DOM loaded, initializing...');
     
-    // Set up push notifications after a delay
-    setTimeout(() => {
+    // Only setup push notifications if user hasn't denied permission
+    if (Notification.permission !== 'denied') {
         setupPushNotifications();
-    }, 2000);
+    }
     
     // Add CSS for animations
     const style = document.createElement('style');
