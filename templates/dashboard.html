@@ -12,14 +12,11 @@
                 <label class="input-group-text" for="focusModeSelect">Fokusmodus</label>
                 <select class="form-select" id="focusModeSelect" name="focus_mode">
                     <option value="normal" {% if current_focus_mode == 'normal' %}selected{% endif %}>Normal</option>
-                    <option value="focus" {% if current_focus_mode == 'focus' %}selected{% endif %}>Fokus</option>
-                    <option value="break" {% if current_focus_mode == 'break' %}selected{% endif %}>Pause</option>
                     <option value="silent" {% if current_focus_mode == 'silent' %}selected{% endif %}>Stillemodus</option>
                     <option value="adhd" {% if current_focus_mode == 'adhd' %}selected{% endif %}>ADHD-modus</option>
-                    <option value="driving_school" {% if current_focus_mode == 'driving_school' %}selected{% endif %}>Kjøreskolemodus</option>
-                    <option value="break" {% if current_focus_mode == 'break' %}selected{% endif %}>Pause</option>
-                    <option value="silent" {% if current_focus_mode == 'silent' %}selected{% endif %}>Stillemodus</option>
-                    <option value="adhd" {% if current_focus_mode == 'adhd' %}selected{% endif %}>ADHD-modus</option>
+                    <option value="elderly" {% if current_focus_mode == 'elderly' %}selected{% endif %}>Modus for eldre</option>
+                    <option value="work" {% if current_focus_mode == 'work' %}selected{% endif %}>Jobbmodus</option>
+                    <option value="study" {% if current_focus_mode == 'study' %}selected{% endif %}>Studiemodus</option>
                     <option value="driving_school" {% if current_focus_mode == 'driving_school' %}selected{% endif %}>Kjøreskolemodus</option>
                 </select>
                 <button class="btn btn-outline-primary" type="submit">Bytt</button>
@@ -91,15 +88,22 @@
         </a>
     </div>
     <div class="col-md-2 mb-3">
-        <a href="{{ url_for('sound_test') }}" class="text-decoration-none">
-            <div class="card bg-info text-white hover-shadow">
-                <div class="card-body text-center">
-                    <i class="fas fa-volume-up fa-2x mb-2"></i>
-                    <h3><i class="fas fa-bell"></i></h3>
-                    <small>Test varsellyder</small>
-                </div>
+        <div class="card bg-warning text-white hover-shadow" onclick="requestPushPermission()" style="cursor: pointer;">
+            <div class="card-body text-center">
+                <i class="fas fa-mobile-alt fa-2x mb-2"></i>
+                <h3><i class="fas fa-bell"></i></h3>
+                <small>Aktiver varsler</small>
             </div>
-        </a>
+        </div>
+    </div>
+    <div class="col-md-2 mb-3">
+        <div class="card bg-info text-white hover-shadow" onclick="testNotificationSound()" style="cursor: pointer;">
+            <div class="card-body text-center">
+                <i class="fas fa-volume-up fa-2x mb-2"></i>
+                <h3><i class="fas fa-bell"></i></h3>
+                <small>Test varsellyder</small>
+            </div>
+        </div>
     </div>
     {% endif %}
 </div>
@@ -747,9 +751,13 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 
-<!-- FullCalendar CSS & JS -->
-<link href='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.css' rel='stylesheet' />
-<script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.js'></script>
+<!-- FullCalendar CSS & JS (stable version) -->
+<link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.css" rel="stylesheet" 
+      crossorigin="anonymous" 
+      onerror="console.error('Failed to load FullCalendar CSS'); this.remove();">
+<script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.js" 
+        crossorigin="anonymous" 
+        onerror="console.error('Failed to load FullCalendar JS'); this.remove();"></script>
 
 <script>
 // Optimized calendar initialization - prevent hanging

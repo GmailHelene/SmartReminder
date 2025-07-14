@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, session, abort, send_from_directory
+from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, session, abort, send_from_directory, current_app
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
 from flask_mail import Mail, Message
 from flask_wtf import FlaskForm
@@ -863,6 +863,14 @@ def dashboard():
             }
         })
     
+    # Get current user's focus mode
+    current_focus_mode = 'normal'
+    if isinstance(users, dict):
+        for user_id, user_data in users.items():
+            if user_data.get('email') == current_user.email:
+                current_focus_mode = user_data.get('focus_mode', 'normal')
+                break
+    
     import json
     
     return render_template('dashboard.html', 
@@ -878,6 +886,7 @@ def dashboard():
                          boards_count=boards_count,
                          available_users=available_users,
                          current_time=datetime.now(),
+                         current_focus_mode=current_focus_mode,
                          events_json=json.dumps(events_json))
 
 @app.route('/complete_reminder/<reminder_id>')
