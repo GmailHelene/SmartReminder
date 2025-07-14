@@ -238,7 +238,7 @@ function requestPushPermission() {
             subscribeToPushNotifications();
         } else {
             console.log('❌ Notification permission denied');
-            showToastNotification('💡 Appen fungerer perfekt uten varslinger også!', 'info');
+            showToastNotification('Varslinger er blokkert. Aktiver dem i nettleserinnstillingene.', 'error');
         }
     });
 }

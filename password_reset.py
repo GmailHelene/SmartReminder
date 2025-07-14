@@ -23,7 +23,13 @@ def create_password_reset_request(user_email, dm=None):
     try:
         # Check if user exists
         users_data = dm.load_data('users')
-        if user_email not in users_data:
+        user_exists = False
+        for user_id, user_data in users_data.items():
+            if user_data.get('email') == user_email:
+                user_exists = True
+                break
+        
+        if not user_exists:
             logger.warning(f"Password reset requested for non-existent user: {user_email}")
             return False
         

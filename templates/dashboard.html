@@ -752,9 +752,15 @@ document.addEventListener('DOMContentLoaded', function() {
 <script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.js'></script>
 
 <script>
-// Simplified calendar initialization - no complex auth checking
+// Optimized calendar initialization - prevent hanging
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('🎯 Starting simplified calendar initialization...');
+    console.log('🎯 Starting optimized calendar initialization...');
+    
+    // Only initialize once
+    if (window.calendarInitialized) {
+        console.log('⚠️ Calendar already initialized, skipping...');
+        return;
+    }
     
     const calendarEl = document.getElementById('calendar');
     const loadingEl = document.getElementById('calendar-loading');
@@ -765,68 +771,54 @@ document.addEventListener('DOMContentLoaded', function() {
         return;
     }
     
+    // Mark as initialized to prevent multiple initializations
+    window.calendarInitialized = true;
     
-    // Show loading briefly then hide it automatically
+    // Show loading briefly
     if (loadingEl) {
-        loadingEl.innerHTML = '<div class="text-center"><div class="spinner-border text-primary" role="status"></div><p class="mt-2">Laster kalender...</p></div>';
         loadingEl.style.display = 'block';
-        // Will be hidden automatically after 500ms by the timeout at the end of the script
+        // Auto-hide after 2 seconds
+        setTimeout(() => {
+            loadingEl.style.display = 'none';
+        }, 2000);
     }
     
-    // Hide fallback initially  
-    if (fallbackEl) {
-        fallbackEl.style.display = 'none';
-    }
-    
-    // Initialize calendar with direct URL
+    // Initialize with minimal configuration to prevent hanging
     const calendar = new FullCalendar.Calendar(calendarEl, {
         initialView: 'dayGridMonth',
         height: window.innerWidth < 768 ? 400 : 600,
         
-        // Simple events loading
+        // Direct URL loading - simpler and more reliable
         events: '/api/calendar-events',
         
-        // Loading callback - DISABLED per user request
-        // loading: function(isLoading) {
-        //     console.log('📅 Calendar loading state:', isLoading);
-        //     if (loadingEl) {
-        //         loadingEl.style.display = isLoading ? 'block' : 'none';
-        //     }
-        // },
-        
-        // Event source error callback
-        eventSourceFailure: function(error) {
-            console.error('❌ Calendar event loading failed:', error);
-            if (fallbackEl) {
-                fallbackEl.innerHTML = `
-                    <div class="text-center p-4 mt-5">
-                        <i class="fas fa-exclamation-triangle fa-3x text-warning mb-3"></i>
-                        <h5 class="text-muted">Kunne ikke laste kalenderdata</h5>
-                        <p class="text-muted small">Sjekk at du er logget inn og prøv igjen.</p>
-                        <button onclick="location.reload()" class="btn btn-outline-primary btn-sm">
-                            <i class="fas fa-refresh"></i> Last på nytt
-                        </button>
-                    </div>
-                `;
-                fallbackEl.style.display = 'block';
+        // Minimal event handlers to prevent hanging
+        eventSources: [{
+            url: '/api/calendar-events',
+            failure: function() {
+                console.error('Failed to load calendar events');
+                if (fallbackEl) {
+                    fallbackEl.innerHTML = `
+                        <div class="text-center p-4">
+                            <i class="fas fa-exclamation-triangle fa-3x text-warning mb-3"></i>
+                            <h5>Kunne ikke laste kalender</h5>
+                            <p class="text-muted">Last siden på nytt for å prøve igjen.</p>
+                            <button onclick="location.reload()" class="btn btn-outline-primary">
+                                <i class="fas fa-refresh"></i> Last på nytt
+                            </button>
+                        </div>
+                    `;
+                    fallbackEl.style.display = 'block';
+                }
             }
-            if (loadingEl) {
-                loadingEl.style.display = 'none';
-            }
-        },
+        }],
         
-        // Basic responsive header
         headerToolbar: {
             left: window.innerWidth < 768 ? 'prev,next' : 'prev,next today',
             center: 'title',
             right: window.innerWidth < 768 ? 'dayGridMonth' : 'dayGridMonth,timeGridWeek,timeGridDay'
         },
         
-        // Enable interactions
-        selectable: true,
-        editable: true,
-        
-        // Event handlers
+        // Basic interactions
         dateClick: function(info) {
             console.log('📅 Date clicked:', info.dateStr);
             showQuickReminderModal(info.date, null, true);
@@ -838,320 +830,28 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
     
-    // Render calendar
-    console.log('🎨 Rendering calendar...');
-    calendar.render();
-    
-    // Store globally for other functions
-    window.calendar = calendar;
-    
-    // Force visibility for mobile
-    if (window.innerWidth < 768) {
-        setTimeout(() => {
-            console.log('📱 Applying mobile calendar fixes...');
-            calendarEl.style.minHeight = '400px';
-            calendarEl.style.background = 'white';
-            calendarEl.style.display = 'block';
-            calendarEl.style.visibility = 'visible';
-            calendar.updateSize();
-        }, 500);
-    }
-    
-    // Timeout fallback - DISABLED per user request
-    setTimeout(() => {
-        // Calendar loading timeout disabled
-    }, 10000);
-    
-    console.log('✅ Calendar initialization completed');
-});
-
-// Calendar initialization
-document.addEventListener('DOMContentLoaded', function() {
-    var calendarEl = document.getElementById('calendar');
-    
-    if (!calendarEl) {
-        console.error('Calendar element not found');
-        return;
-    }
-    
-    // Show loading indicator
-    const loadingEl = document.getElementById('calendar-loading');
-    if (loadingEl) {
-        loadingEl.style.display = 'block';
-    }
-    
-    // Check authentication before initializing calendar
-    checkUserAuthentication().then(isAuthenticated => {
-        if (!isAuthenticated) {
-            console.warn('User not authenticated, showing login message');
-            const fallbackEl = document.getElementById('calendar-fallback');
-            if (fallbackEl) {
-                fallbackEl.innerHTML = `
-                    <div class="text-center p-4">
-                        <i class="fas fa-lock fa-3x text-danger mb-3"></i>
-                        <h5>Du må logge inn</h5>
-                        <p class="text-muted">Kalenderen krever innlogging for å laste data.</p>
-                        <a href="/login" class="btn btn-primary">
-                            <i class="fas fa-sign-in-alt"></i> Logg inn
-                        </a>
-                    </div>
-                `;
-                fallbackEl.style.display = 'block';
-            }
-            if (loadingEl) loadingEl.style.display = 'none';
-            return;
-        }
-        
-        // User is authenticated, proceed with calendar initialization
-        initializeCalendar();
-    }).catch(error => {
-        console.error('Authentication check failed:', error);
-        // Proceed with calendar initialization anyway
-        initializeCalendar();
-    });
-});
-
-// Load calendar events from the server
-async function loadCalendarEvents() {
+    // Render with error handling
     try {
-        console.log('🔄 Loading calendar events...');
-        
-        // Use the events data passed from the server
-        let events;
-        try {
-            const eventsData = `{{ events_json|safe }}`;
-            events = JSON.parse(eventsData);
-        } catch (parseError) {
-            console.warn('Error parsing events data:', parseError);
-            events = [];
-        }
-        
-        if (!events || !Array.isArray(events)) {
-            console.warn('No events data available');
-            return [];
-        }
-        
-        console.log('✅ Loaded', events.length, 'events from server');
-        return events;
+        calendar.render();
+        window.calendar = calendar;
+        console.log('✅ Calendar rendered successfully');
     } catch (error) {
-        console.error('❌ Error loading calendar events:', error);
-        return [];
+        console.error('❌ Calendar render error:', error);
+        if (fallbackEl) {
+            fallbackEl.innerHTML = `
+                <div class="text-center p-4">
+                    <i class="fas fa-exclamation-triangle fa-3x text-danger mb-3"></i>
+                    <h5>Kalenderfeil</h5>
+                    <p class="text-muted">Kunne ikke vise kalenderen.</p>
+                </div>
+            `;
+            fallbackEl.style.display = 'block';
+        }
     }
-}
+});
 
-function initializeCalendar() {
-    const calendarEl = document.getElementById('calendar');
-    const loadingEl = document.getElementById('calendar-loading');
-    
-    // Prevent multiple calendar initialization
-    if (window.calendar) {
-        window.calendar.destroy();
-    }
-    
-    var calendar = new FullCalendar.Calendar(calendarEl, {
-        initialView: 'dayGridMonth',
-        height: window.innerWidth < 768 ? 400 : 600,
-        contentHeight: window.innerWidth < 768 ? 400 : 600,
-        aspectRatio: window.innerWidth < 768 ? 1.2 : 1.35,
-        events: function(info, successCallback, failureCallback) {
-            // Custom event loading with better error handling
-            loadCalendarEvents()
-                .then(events => {
-                    console.log('Events loaded successfully:', events.length);
-                    successCallback(events);
-                })
-                .catch(error => {
-                    console.error('Event loading failed:', error);
-                    failureCallback(error);
-                });
-        },
-        loading: function(isLoading) {
-            const loadingEl = document.getElementById('calendar-loading');
-            const fallbackEl = document.getElementById('calendar-fallback');
-            
-            if (loadingEl) {
-                loadingEl.style.display = isLoading ? 'block' : 'none';
-            }
-            
-            console.log('Calendar loading:', isLoading);
-            
-            // Mobile-specific loading timeout check
-            if (isLoading && window.innerWidth < 768) {
-                setTimeout(() => {
-                    if (loadingEl && loadingEl.style.display !== 'none') {
-                        console.warn('Calendar taking too long to load on mobile, showing fallback');
-                        loadingEl.style.display = 'none';
-                        if (fallbackEl) fallbackEl.style.display = 'block';
-                    }
-                }, 10000); // 10 second timeout
-            }
-        },
-        headerToolbar: {
-            left: window.innerWidth < 768 ? 'prev,next' : 'prev,next today',
-            center: 'title',
-            right: window.innerWidth < 768 ? 'dayGridMonth' : 'dayGridMonth,timeGridWeek,timeGridDay'
-        },
-        selectable: true,
-        editable: true,
-        droppable: true,
-        selectMirror: true,
-        dayMaxEvents: true,
-        weekends: true,
-        select: function(arg) {
-            // Opprett ny påminnelse ved å dra over flere dager/tid
-            showQuickReminderModal(arg.start, arg.end, arg.allDay);
-        },
-        dateClick: function(info) {
-            // Opprett ny påminnelse ved å klikke på en dag
-            showQuickReminderModal(info.date, null, info.allDay);
-        },
-        eventClick: function(info) {
-            // Vis event detaljer med deling-mulighet
-            showEventDetailsModal(info.event);
-        },
-        eventDrop: function(info) {
-            // Oppdater påminnelse når den flyttes
-            updateReminderDateTime(info.event.id, info.event.start);
-        },
-        eventResize: function(info) {
-            // Oppdater påminnelse når varigheten endres
-            updateReminderDateTime(info.event.id, info.event.start, info.event.end);
-        },
-        eventDidMount: function(info) {
-            // Add tooltip and context menu
-            info.el.setAttribute('title', info.event.extendedProps.description || '');
-             
-            // Legg til høyreklikk for deling
-            info.el.addEventListener('contextmenu', function(e) {
-                e.preventDefault();
-                showEventContextMenu(e, info.event);
-            });
-        }
-    });
-    
-    calendar.render();
-    window.calendar = calendar;
-    
-    // Enhanced mobile calendar debugging and fixes
-    const isMobile = window.innerWidth < 768;
-    console.log('Calendar initialized:', {
-        width: window.innerWidth,
-        height: window.innerHeight,
-        isMobile: isMobile,
-        calendarElement: calendarEl,
-        calendarHeight: calendar.getOption('height'),
-        calendarView: calendar.view.type
-    });
-    
-    // Force calendar to be visible on mobile with multiple render attempts
-    if (isMobile) {
-        console.log('Applying mobile calendar fixes...');
-        
-        // Immediate fixes
-        calendarEl.style.minHeight = '400px';
-        calendarEl.style.background = 'white';
-        calendarEl.style.display = 'block';
-        calendarEl.style.visibility = 'visible';
-        
-        // Multiple render attempts for mobile
-        setTimeout(() => {
-            console.log('Mobile calendar render attempt 1');
-            calendar.updateSize();
-            calendar.render();
-        }, 100);
-        
-        setTimeout(() => {
-            console.log('Mobile calendar render attempt 2');
-            calendar.updateSize();
-            
-            // Force show calendar if still not visible
-            const fcView = calendarEl.querySelector('.fc-view-harness');
-            if (fcView) {
-                fcView.style.background = 'white';
-                fcView.style.minHeight = '400px';
-                fcView.style.display = 'block';
-            }
-        }, 500);
-        
-        setTimeout(() => {
-            console.log('Mobile calendar render attempt 3');
-            
-            // Final check and force visibility
-            const fcElements = calendarEl.querySelectorAll('.fc, .fc-view-harness, .fc-scrollgrid');
-            fcElements.forEach(el => {
-                el.style.background = 'white';
-                el.style.display = 'block';
-                el.style.visibility = 'visible';
-            });
-            
-            calendar.updateSize();
-            
-            // Final visibility check - if calendar is still not properly visible, show fallback
-            setTimeout(() => {
-                const fcView = calendarEl.querySelector('.fc-view-harness');
-                const fcScrollGrid = calendarEl.querySelector('.fc-scrollgrid');
-                
-                if (!fcView || !fcScrollGrid || fcView.offsetHeight < 50) {
-                    console.warn('Calendar still not visible after all attempts, showing fallback');
-                    const fallbackEl = document.getElementById('calendar-fallback');
-                    if (fallbackEl) {
-                        calendarEl.style.display = 'none';
-                        fallbackEl.style.display = 'block';
-                    }
-                }
-            }, 500);
-        }, 1000);
-    }
-    
-    // Handle window resize for mobile responsiveness
-    let resizeTimer;
-    window.addEventListener('resize', function() {
-        clearTimeout(resizeTimer);
-        resizeTimer = setTimeout(function() {
-            if (calendar) {
-                // Update calendar options based on screen size
-                const isMobile = window.innerWidth < 768;
-                calendar.setOption('height', isMobile ? 400 : 600);
-                calendar.setOption('contentHeight', isMobile ? 400 : 600);
-                calendar.setOption('aspectRatio', isMobile ? 1.2 : 1.35);
-                calendar.setOption('headerToolbar', {
-                    left: isMobile ? 'prev,next' : 'prev,next today',
-                    center: 'title',
-                    right: isMobile ? 'dayGridMonth' : 'dayGridMonth,timeGridWeek,timeGridDay'
-                });
-                calendar.updateSize();
-            }
-        }, 250);
-    });
-    
-    // Force calendar to render properly on mobile
-    setTimeout(() => {
-        if (calendar && window.innerWidth < 768) {
-            calendar.updateSize();
-        }
-    }, 500);
-    
-    // Calendar view switcher
-    document.querySelectorAll('input[name="calendarView"]').forEach(radio => {
-        radio.addEventListener('change', function() {
-            if (this.id === 'monthView') {
-                calendar.changeView('dayGridMonth');
-            } else if (this.id === 'weekView') {
-                calendar.changeView('timeGridWeek');
-            } else if (this.id === 'dayView') {
-                calendar.changeView('timeGridDay');
-            }
-        });
-    });
-    
-    // Quick reminder form event listener (only add once)
-    const quickForm = document.getElementById('quickReminderForm');
-    if (quickForm && !quickForm.hasAttribute('data-listener-added')) {
-        quickForm.setAttribute('data-listener-added', 'true');
-        quickForm.addEventListener('submit', handleQuickReminderSubmit);
-    }
-}
-    
+
+
 // Show join board modal
 function showJoinBoardModal() {
     const modal = new bootstrap.Modal(document.getElementById('quickJoinBoardModal'));
