@@ -86,10 +86,7 @@ function initializeFormValidation() {
 function initializeRealTimeUpdates() {
     // Update reminder counts every 30 seconds
     setInterval(() => {
-        fetch('/api/reminder-count')
-            .then(response => response.json())
-            .then(data => updateReminderCounts(data))
-            .catch(error => console.warn('Failed to update reminder counts:', error));
+        fetchReminderCounts();
     }, 30000);
 }
 
@@ -684,21 +681,58 @@ function updateConnectionStatus() {
 }
 
 // Reminder counts
-function updateReminderCounts() {
-    fetch('/api/reminder-count')
-        .then(response => response.json())
+function updateReminderCounts(data) {
+    if (!data) {
+        console.warn('No data provided to updateReminderCounts');
+        return;
+    }
+    
+    try {
+        // Update counts in UI
+        const myCount = document.getElementById('my-count');
+        const sharedCount = document.getElementById('shared-count');
+        const completedCount = document.getElementById('completed-count');
+        const totalCount = document.getElementById('total-count');
+        
+        if (myCount) myCount.textContent = data.my_count || 0;
+        if (sharedCount) sharedCount.textContent = data.shared_count || 0;
+        if (completedCount) completedCount.textContent = data.completed_count || 0;
+        if (totalCount) totalCount.textContent = data.total_count || 0;
+        
+        console.log('📊 Reminder counts updated:', data);
+    } catch (error) {
+        console.error('Error updating reminder counts:', error);
+    }
+}
+
+// Fetch reminder counts from API
+function fetchReminderCounts() {
+    return fetch('/api/reminder-count', {
+        method: 'GET',
+        credentials: 'same-origin',
+        headers: {
+            'Content-Type': 'application/json',
+        }
+    })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            return response.json();
+        })
         .then(data => {
-            // Update counts in UI
-            const myCount = document.getElementById('my-count');
-            const sharedCount = document.getElementById('shared-count');
-            const completedCount = document.getElementById('completed-count');
-            
-            if (myCount) myCount.textContent = data.my_reminders;
-            if (sharedCount) sharedCount.textContent = data.shared_reminders;
-            if (completedCount) completedCount.textContent = data.completed;
+            updateReminderCounts(data);
+            return data;
         })
         .catch(error => {
-            console.log('Could not update counts:', error);
+            console.warn('Failed to fetch reminder counts:', error);
+            // Return empty data so UI doesn't break
+            return {
+                my_count: 0,
+                shared_count: 0,
+                completed_count: 0,
+                total_count: 0
+            };
         });
 }
 
@@ -771,35 +805,9 @@ function showNotification(message, type = 'info') {
 // Auto-refresh for reminders
 setInterval(() => {
   if (window.location.pathname === '/dashboard') {
-    fetch('/api/reminder-count')
-      .then(response => response.json())
-      .then(data => {
-        updateReminderCounts(data);
-      })
-      .catch(err => console.log('Feil ved oppdatering:', err));
+    fetchReminderCounts();
   }
 }, 60000); // Hver minutt
-
-function updateReminderCounts(data) {
-  // Check if data is valid
-  if (!data || typeof data !== 'object') {
-    console.warn('Invalid data passed to updateReminderCounts:', data);
-    return;
-  }
-  
-  const elements = {
-    'my-count': data.my_reminders || 0,
-    'shared-count': data.shared_reminders || 0,
-    'completed-count': data.completed || 0
-  };
-  
-  Object.entries(elements).forEach(([id, count]) => {
-    const element = document.getElementById(id);
-    if (element) {
-      element.textContent = count;
-    }
-  });
-}
 
 // Helper function to show toast notifications
 function showToastNotification(message, type = 'info', duration = 3000) {

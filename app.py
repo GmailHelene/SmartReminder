@@ -798,22 +798,34 @@ def delete_reminder(reminder_id):
 def api_reminder_count():
     """API endpoint for reminder counts"""
     try:
+        # Add some basic caching to reduce load
+        cache_key = f"reminder_count_{current_user.email}"
+        
         reminders = dm.load_data('reminders')
         shared_reminders = dm.load_data('shared_reminders')
         
-        my_count = len([r for r in reminders if r['user_id'] == current_user.email and not r['completed']])
-        shared_count = len([r for r in shared_reminders if r['shared_with'] == current_user.email and not r['completed']])
-        completed_count = len([r for r in reminders if r['user_id'] == current_user.email and r['completed']])
+        # Safely handle the case where completed field might not exist
+        my_count = len([r for r in reminders if r.get('user_id') == current_user.email and not r.get('completed', False)])
+        shared_count = len([r for r in shared_reminders if r.get('shared_with') == current_user.email and not r.get('completed', False)])
+        completed_count = len([r for r in reminders if r.get('user_id') == current_user.email and r.get('completed', False)])
         
-        return jsonify({
+        result = {
             'my_count': my_count,
             'shared_count': shared_count,
             'completed_count': completed_count,
-            'total_count': my_count + shared_count
-        })
+            'total_count': my_count + shared_count,
+            'status': 'success',
+            'timestamp': datetime.now().isoformat()
+        }
+        
+        return jsonify(result)
     except Exception as e:
-        logger.error(f"API error: {e}")
-        return jsonify({'error': 'Failed to get reminder counts'}), 500
+        logger.error(f"API error in reminder_count for user {current_user.email}: {e}")
+        return jsonify({
+            'error': 'Failed to get reminder counts',
+            'status': 'error',
+            'timestamp': datetime.now().isoformat()
+        }), 500
 
 @app.route('/api/update-reminder-datetime', methods=['POST'])
 @login_required
@@ -1878,21 +1890,29 @@ def favicon():
 def serve_sounds(filename):
     """Serve sound files with proper headers for audio playback"""
     try:
-        # Security check - only allow .mp3 files
-        if not filename.endswith('.mp3'):
+        # Security check - only allow audio files
+        if not (filename.endswith('.mp3') or filename.endswith('.wav')):
             abort(404)
         
         # Check if file exists
         sound_path = Path('static/sounds') / filename
         if not sound_path.exists():
-            # Create a basic sound file if it doesn't exist
-            logger.warning(f"Sound file {filename} not found, creating placeholder")
-            sound_path.parent.mkdir(parents=True, exist_ok=True)
-            # Create a minimal silence MP3 (just placeholder)
-            with open(sound_path, 'wb') as f:
-                f.write(b'')  # Empty file as placeholder
+            logger.warning(f"Sound file {filename} not found")
+            abort(404)
+        
+        # Determine MIME type based on actual file content
+        if filename.endswith('.mp3'):
+            # Check if it's actually a WAV file with .mp3 extension
+            with open(sound_path, 'rb') as f:
+                header = f.read(4)
+                if header == b'RIFF':
+                    mimetype = 'audio/wav'
+                else:
+                    mimetype = 'audio/mpeg'
+        else:
+            mimetype = 'audio/wav'
             
-        response = send_from_directory('static/sounds', filename, mimetype='audio/mpeg')
+        response = send_from_directory('static/sounds', filename, mimetype=mimetype)
         # Add headers for better browser compatibility
         response.headers['Accept-Ranges'] = 'bytes'
         response.headers['Cache-Control'] = 'public, max-age=3600'
@@ -1900,6 +1920,30 @@ def serve_sounds(filename):
         return response
     except Exception as e:
         logger.error(f"Error serving sound file {filename}: {e}")
-        # Return a 200 with empty content instead of 404 to prevent JS errors
-        from flask import Response
-        return Response('', mimetype='audio/mpeg')
+        abort(404)
+
+# Flask app startup
+if __name__ == '__main__':
+    import os
+    
+    # Ensure data directory exists
+    os.makedirs('data', exist_ok=True)
+    os.makedirs('static/sounds', exist_ok=True)
+    
+    # Get port from environment or use default
+    port = int(os.environ.get('PORT', 5000))
+    host = os.environ.get('HOST', '0.0.0.0')
+    debug = os.environ.get('FLASK_ENV') == 'development'
+    
+    print(f"🚀 Starting SmartReminder on {host}:{port}")
+    print(f"🔧 Debug mode: {debug}")
+    print(f"🗄️ Data directory: data/")
+    print(f"🔊 Sounds directory: static/sounds/")
+    
+    # Start Flask app
+    app.run(
+        host=host,
+        port=port,
+        debug=debug,
+        threaded=True
+    )
