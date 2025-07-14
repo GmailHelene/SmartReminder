@@ -569,11 +569,12 @@ class ReminderForm(FlaskForm):
 
 # 👤 User Class (forbedret)
 class User(UserMixin):
-    def __init__(self, user_id, username, email, password_hash=None):
+    def __init__(self, user_id, username, email, password_hash=None, focus_mode='normal'):
         self.id = user_id
         self.username = username
         self.email = email
         self.password_hash = password_hash
+        self.focus_mode = focus_mode
     
     def check_password(self, password):
         return check_password_hash(self.password_hash, password)
@@ -590,7 +591,8 @@ class User(UserMixin):
             users = users_dict
         if user_id in users:
             user_data = users[user_id]
-            return User(user_id, user_data['username'], user_data['email'], user_data.get('password_hash'))
+            return User(user_id, user_data['username'], user_data['email'], 
+                       user_data.get('password_hash'), user_data.get('focus_mode', 'normal'))
         return None
     
     @staticmethod
@@ -605,7 +607,8 @@ class User(UserMixin):
             users = users_dict
         for user_id, user_data in users.items():
             if user_data['email'] == email:
-                return User(user_id, user_data['username'], user_data['email'], user_data.get('password_hash'))
+                return User(user_id, user_data['username'], user_data['email'], 
+                           user_data.get('password_hash'), user_data.get('focus_mode', 'normal'))
         return None
 
 @login_manager.user_loader
@@ -682,7 +685,7 @@ def register():
         dm.save_data('users', users)
         
         # Logg inn bruker
-        user = User(user_id, form.username.data, form.username.data, password_hash)
+        user = User(user_id, form.username.data, form.username.data, password_hash, 'normal')
         login_user(user, remember=True)
         
         flash(f'Velkommen, {user.username}! Din konto er opprettet.', 'success')
