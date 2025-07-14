@@ -11,10 +11,18 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="apple-mobile-web-app-title" content="SmartReminder">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="application-name" content="SmartReminder">
+    <meta name="msapplication-TileColor" content="#007bff">
+    <meta name="msapplication-TileImage" content="/static/images/icon-144x144.png">
     
     <!-- PWA Icons -->
-    <link rel="icon" type="image/png" sizes="32x32" href="/static/images/icon-32x32.png">
-    <link rel="icon" type="image/png" sizes="16x16" href="/static/images/icon-16x16.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="/static/images/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/static/images/favicon-16x16.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="/static/images/icon-180x180.png">
+    <link rel="apple-touch-icon" sizes="152x152" href="/static/images/icon-152x152.png">
+    <link rel="apple-touch-icon" sizes="144x144" href="/static/images/icon-144x144.png">
+    <link rel="apple-touch-icon" sizes="120x120" href="/static/images/icon-128x128.png">
     <link rel="apple-touch-icon" href="/static/images/icon-192x192.png">
     
     <!-- PWA Manifest -->
@@ -43,6 +51,7 @@
         }
         
         .mobile-optimized {
+            user-select: none;
             -webkit-user-select: none;
             -webkit-touch-callout: none;
             -webkit-tap-highlight-color: transparent;
@@ -67,6 +76,11 @@
             
             {% if current_user.is_authenticated %}
             <div class="navbar-nav ms-auto">
+                <!-- PWA Install Button -->
+                <button class="btn btn-outline-light btn-sm me-2" id="pwa-install-btn" onclick="installPWA()" style="display: none;">
+                    <i class="fas fa-download"></i> <span class="d-none d-md-inline">Installer App</span>
+                </button>
+                
                 <a class="nav-link" href="{{ url_for('focus_modes') }}">
                     <i class="fas fa-brain"></i> <span class="d-none d-md-inline">Fokus</span>
                 </a>

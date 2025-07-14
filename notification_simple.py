@@ -7,7 +7,12 @@ import os
 import sys
 import uuid
 import json
+import logging
 from datetime import datetime
+
+# Set up logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # Add the parent directory to the Python path
 sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
@@ -29,12 +34,12 @@ def create_notification(user_email, title, message, options=None):
     
     # Ensure sound playback adheres to browser restrictions
     if 'sound' in options:
-        options['sound'] = f"User interaction required to play: {options['sound']}"
+        print(f"Sound notification: {options['sound']}")
     else:
-        options['sound'] = "User interaction required to play: pristine.mp3"
+        print("Sound notification: pristine.mp3")
 
     # Log notification creation
-    logger.info(f"Notification created for {user_email} with sound: {options['sound']}")
+    print(f"Notification created for {user_email} with sound: {options.get('sound', 'pristine.mp3')}")
 
     # Create notification object
     notification = {
@@ -53,7 +58,9 @@ def create_notification(user_email, title, message, options=None):
     }
     
     # Save to notifications data store
-    notifications = dm.load_data('notifications', {})
+    notifications = dm.load_data('notifications')
+    if not isinstance(notifications, dict):
+        notifications = {}
     if user_email not in notifications:
         notifications[user_email] = []
     
@@ -64,7 +71,9 @@ def create_notification(user_email, title, message, options=None):
 
 def get_user_notifications(user_email, unread_only=True):
     """Get notifications for a user"""
-    notifications = dm.load_data('notifications', {})
+    notifications = dm.load_data('notifications')
+    if not isinstance(notifications, dict):
+        notifications = {}
     user_notifications = notifications.get(user_email, [])
     
     if unread_only:
@@ -74,7 +83,9 @@ def get_user_notifications(user_email, unread_only=True):
 
 def mark_notification_read(user_email, notification_id):
     """Mark a notification as read"""
-    notifications = dm.load_data('notifications', {})
+    notifications = dm.load_data('notifications')
+    if not isinstance(notifications, dict):
+        notifications = {}
     user_notifications = notifications.get(user_email, [])
     
     for notification in user_notifications:
@@ -89,7 +100,9 @@ def mark_notification_read(user_email, notification_id):
 
 def mark_all_read(user_email):
     """Mark all notifications as read for a user"""
-    notifications = dm.load_data('notifications', {})
+    notifications = dm.load_data('notifications')
+    if not isinstance(notifications, dict):
+        notifications = {}
     user_notifications = notifications.get(user_email, [])
     
     for notification in user_notifications:
@@ -193,32 +206,22 @@ def send_password_reset_notification(user_email, reset_token):
     
     return create_notification(user_email, title, message, options)
 
-# Add Flask routes for the API
-@app.route('/api/notifications/check')
-def api_check_notifications():
-    """API route to check for new notifications"""
-    from flask import request, jsonify
-    
-    user_email = request.args.get('user_email')
-    if not user_email:
-        return jsonify({'error': 'User email required'}), 400
-    
-    unread_only = request.args.get('unread_only', 'true').lower() == 'true'
-    notifications = get_user_notifications(user_email, unread_only)
-    
-    return jsonify({'notifications': notifications})
+# Flask routes should be defined in the main app.py file, not here
+# These functions are available for import by app.py
 
-@app.route('/api/notifications/mark-read', methods=['POST'])
-def api_mark_notifications_read():
-    """API route to mark notifications as read"""
-    from flask import request, jsonify
-    
-    data = request.json
-    user_email = data.get('user_email')
-    notification_ids = data.get('ids', [])
+if __name__ == "__main__":
+    # Test the notification system
+    print("Testing notification system...")
+    # Test code here if needed
+
+# API functions that can be imported and used in app.py
+def api_mark_notifications_read_handler(request_data):
+    """Handler for marking notifications as read"""
+    user_email = request_data.get('user_email')
+    notification_ids = request_data.get('ids', [])
     
     if not user_email:
-        return jsonify({'error': 'User email required'}), 400
+        return {'error': 'User email required'}, 400
     
     if not notification_ids:
         # Mark all as read
@@ -228,19 +231,15 @@ def api_mark_notifications_read():
         for notification_id in notification_ids:
             mark_notification_read(user_email, notification_id)
     
-    return jsonify({'success': True})
+    return {'success': True}
 
-@app.route('/api/notifications/delete', methods=['POST'])
-def api_delete_notification():
-    """API route to delete notifications"""
-    from flask import request, jsonify
-    
-    data = request.json
-    user_email = data.get('user_email')
-    notification_id = data.get('id')
+def api_delete_notification_handler(request_data):
+    """Handler for deleting notifications"""
+    user_email = request_data.get('user_email')
+    notification_id = request_data.get('id')
     
     if not user_email:
-        return jsonify({'error': 'User email required'}), 400
+        return {'error': 'User email required'}, 400
     
     if not notification_id:
         # Delete all
@@ -249,7 +248,74 @@ def api_delete_notification():
         # Delete specific notification
         delete_notification(user_email, notification_id)
     
-    return jsonify({'success': True})
+    return {'success': True}
+
+def send_browser_notification(user_email, title, message, sound="pristine.mp3", **options):
+    """
+    Send a browser notification with sound support
+    This is a fallback function for testing browser notifications
+    """
+    try:
+        # Create notification using existing system
+        notification_id = create_notification(
+            user_email=user_email,
+            title=title,
+            message=message,
+            options={
+                'sound': sound,
+                'icon': options.get('icon', '/static/images/icon-192x192.png'),
+                'badge': options.get('badge', '/static/images/badge-96x96.png'),
+                'url': options.get('url', '/dashboard'),
+                'tag': options.get('tag', 'browser-notification'),
+                'data': options.get('data', {})
+            }
+        )
+        
+        # Log the notification attempt
+        print(f"Browser notification created for {user_email}: {title}")
+        print(f"Sound file: {sound}")
+        print(f"Notification ID: {notification_id}")
+        
+        # In a real implementation, this would trigger browser API
+        # For testing, we just return success
+        return True
+        
+    except Exception as e:
+        print(f"Error sending browser notification: {e}")
+        return False
+
+def send_reminder_notification(user_email, title, datetime_str, sound="pristine.mp3", dm=None):
+    """
+    Send a reminder notification with sound
+    Compatible with the main notification system
+    """
+    try:
+        message = f"Påminnelse for {datetime_str}"
+        
+        # Use the browser notification system
+        success = send_browser_notification(
+            user_email=user_email,
+            title=title,
+            message=message,
+            sound=sound,
+            tag='reminder-notification',
+            data={
+                'type': 'reminder',
+                'datetime': datetime_str,
+                'sound': sound
+            }
+        )
+        
+        if success:
+            print(f"✅ Reminder notification sent to {user_email} with sound {sound}")
+        else:
+            print(f"❌ Failed to send reminder notification to {user_email}")
+            
+        return success
+        
+    except Exception as e:
+        print(f"Error in send_reminder_notification: {e}")
+        return False
 
 # If this file is run directly, test the notification system
 if __name__ == "__main__":

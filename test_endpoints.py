@@ -58,6 +58,28 @@ try:
             print(f'Error: {e}')
             import traceback
             traceback.print_exc()
+        
+        # Test content of robots.txt
+        print('Testing /robots.txt content...')
+        try:
+            response = client.get('/robots.txt')
+            print(f'Status: {response.status_code}')
+            if response.status_code == 200:
+                content = response.data.decode()[:100]
+                print(f'Content preview: {content}')
+        except Exception as e:
+            print(f'Error: {e}')
+        
+        # Test favicon.ico
+        print('Testing /favicon.ico content...')
+        try:
+            response = client.get('/favicon.ico')
+            print(f'Status: {response.status_code}')
+            if response.status_code == 200:
+                print(f'Content-Type: {response.headers.get("Content-Type")}')
+                print(f'Content-Length: {len(response.data)} bytes')
+        except Exception as e:
+            print(f'Error: {e}')
 
 except Exception as e:
     print(f'Failed to load app: {e}')

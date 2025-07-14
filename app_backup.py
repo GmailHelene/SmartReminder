@@ -437,7 +437,9 @@ def check_reminders_for_notifications():
             if not reminder['completed'] and reminder['id'] not in sent_notifications:
                 reminder_dt = datetime.fromisoformat(reminder['datetime'].replace(' ', 'T'))
                 if now <= reminder_dt <= notification_time:
-                    all_reminders.append((reminder, reminder['shared_with']))
+                    # For shared reminders, shared_with is a single email string
+                    recipient_email = reminder['shared_with']
+                    all_reminders.append((reminder, recipient_email))
         
         # Send notifikasjoner
         for reminder, recipient_email in all_reminders:

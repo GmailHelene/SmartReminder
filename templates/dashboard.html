@@ -906,6 +906,34 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 });
 
+// Load calendar events from the server
+async function loadCalendarEvents() {
+    try {
+        console.log('🔄 Loading calendar events...');
+        
+        // Use the events data passed from the server
+        let events;
+        try {
+            const eventsData = `{{ events_json|safe }}`;
+            events = JSON.parse(eventsData);
+        } catch (parseError) {
+            console.warn('Error parsing events data:', parseError);
+            events = [];
+        }
+        
+        if (!events || !Array.isArray(events)) {
+            console.warn('No events data available');
+            return [];
+        }
+        
+        console.log('✅ Loaded', events.length, 'events from server');
+        return events;
+    } catch (error) {
+        console.error('❌ Error loading calendar events:', error);
+        return [];
+    }
+}
+
 function initializeCalendar() {
     const calendarEl = document.getElementById('calendar');
     const loadingEl = document.getElementById('calendar-loading');

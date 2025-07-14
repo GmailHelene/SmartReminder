@@ -1,9 +1,14 @@
 
 # Mock push_service.py for testing
-def send_push_notification(user_email, title, body, data=None, dm=None):
+import os
+from datetime import datetime
+
+def send_push_notification(user_email, title, body, data=None, sound=None, dm=None):
     print(f"MOCK: Would send notification to {user_email}: {title}")
     print(f"MOCK: Body: {body}")
     print(f"MOCK: Data: {data}")
+    if sound:
+        print(f"MOCK: Sound: {sound}")
     return True
 
 def send_reminder_notification(user_email, reminder_title, reminder_time, sound=None, dm=None):

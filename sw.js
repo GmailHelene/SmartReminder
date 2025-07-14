@@ -1,24 +1,32 @@
 // Service Worker for SmartReminder
-const CACHE_NAME = 'smartreminder-v1';
-const OFFLINE_URL = '/offline.html';
+const CACHE_NAME = 'smartreminder-v2';
+const OFFLINE_URL = '/offline';
 
 // Files to cache
 const CACHE_FILES = [
     '/',
+    '/dashboard',
     '/static/css/style.css',
     '/static/js/app.js',
+    '/static/js/pwa.js',
+    '/static/js/notification_client.js',
     '/static/sounds/alert.mp3',
     '/static/sounds/pristine.mp3',
     '/static/sounds/ding.mp3',
     '/static/sounds/chime.mp3',
+    '/static/images/icon-192x192.png',
+    '/static/images/icon-512x512.png',
+    '/static/manifest.json',
     '/offline'
 ];
 
 // Install Service Worker
 self.addEventListener('install', event => {
+    console.log('Service Worker installing...');
     event.waitUntil(
         caches.open(CACHE_NAME)
             .then(cache => {
+                console.log('Caching files...');
                 // Cache files individually to handle failures gracefully
                 return Promise.allSettled(
                     CACHE_FILES.map(url => {
@@ -29,21 +37,31 @@ self.addEventListener('install', event => {
                     })
                 );
             })
-            .then(() => self.skipWaiting())
+            .then(() => {
+                console.log('Service Worker installed successfully');
+                self.skipWaiting();
+            })
     );
 });
 
 // Activate new version
 self.addEventListener('activate', event => {
+    console.log('Service Worker activating...');
     event.waitUntil(
         caches.keys()
             .then(cacheNames => {
                 return Promise.all(
                     cacheNames.filter(name => name !== CACHE_NAME)
-                        .map(name => caches.delete(name))
+                        .map(name => {
+                            console.log('Deleting old cache:', name);
+                            return caches.delete(name);
+                        })
                 );
             })
-            .then(() => self.clients.claim())
+            .then(() => {
+                console.log('Service Worker activated');
+                self.clients.claim();
+            })
     );
 });
 

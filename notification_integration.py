@@ -144,6 +144,29 @@ def send_password_reset_notification(user_email, reset_token, dm=None):
     # Return True if at least one system was successful
     return any(result for system, result in results)
 
+def get_vapid_public_key():
+    """Get VAPID public key for push notifications"""
+    try:
+        # Try to get from environment or config
+        vapid_key = os.environ.get('VAPID_PUBLIC_KEY')
+        if vapid_key:
+            return vapid_key
+        
+        # Try to get from push service
+        if WEBPUSH_AVAILABLE:
+            try:
+                from push_service import get_vapid_public_key as get_key
+                return get_key()
+            except Exception as e:
+                logger.error(f"Error getting VAPID key from push service: {e}")
+        
+        # Return a default/placeholder key for development
+        return "BN4ZvYrQPF9U8J7F0G6TjW7vKKYZvW1fXZqQWZ9b0xRzQF1J8nOZ2vJF7W4UvY9X6sT8Q1fN3zQ0pR2wV4uY7g"
+        
+    except Exception as e:
+        logger.error(f"Error getting VAPID public key: {e}")
+        return None
+
 # If this file is run directly, test the integrated notification system
 if __name__ == "__main__":
     import argparse

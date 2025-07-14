@@ -731,10 +731,16 @@ setInterval(() => {
 }, 60000); // Hver minutt
 
 function updateReminderCounts(data) {
+  // Check if data is valid
+  if (!data || typeof data !== 'object') {
+    console.warn('Invalid data passed to updateReminderCounts:', data);
+    return;
+  }
+  
   const elements = {
-    'my-count': data.my_reminders,
-    'shared-count': data.shared_reminders,
-    'completed-count': data.completed
+    'my-count': data.my_reminders || 0,
+    'shared-count': data.shared_reminders || 0,
+    'completed-count': data.completed || 0
   };
   
   Object.entries(elements).forEach(([id, count]) => {

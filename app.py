@@ -443,14 +443,24 @@ def check_reminders_for_notifications():
             if not reminder['completed'] and reminder['id'] not in sent_notifications:
                 reminder_dt = datetime.fromisoformat(reminder['datetime'].replace(' ', 'T'))
                 if now <= reminder_dt <= notification_time:
+                    # Notify the reminder owner
                     all_reminders.append((reminder, reminder['user_id']))
+                    
+                    # Also notify anyone in shared_with list (if it's a list and not empty)
+                    shared_with = reminder.get('shared_with', [])
+                    if isinstance(shared_with, list):
+                        for recipient_email in shared_with:
+                            if recipient_email and recipient_email != reminder['user_id']:
+                                all_reminders.append((reminder, recipient_email))
         
         # Forbered delte påminnelser
         for reminder in shared_reminders:
             if not reminder['completed'] and reminder['id'] not in sent_notifications:
                 reminder_dt = datetime.fromisoformat(reminder['datetime'].replace(' ', 'T'))
                 if now <= reminder_dt <= notification_time:
-                    all_reminders.append((reminder, reminder['shared_with']))
+                    # For shared reminders, shared_with is a single email string
+                    recipient_email = reminder['shared_with']
+                    all_reminders.append((reminder, recipient_email))
         
         # Send notifikasjoner
         for reminder, recipient_email in all_reminders:
@@ -1843,3 +1853,23 @@ def sound_test():
 def sw_test():
     """Test page for service worker sound playback"""
     return send_from_directory('static', 'sw_sound_test.html')
+
+# Static file routes to fix 404 errors
+@app.route('/robots.txt')
+def robots_txt():
+    """Serve robots.txt file"""
+    try:
+        return send_from_directory('static', 'robots.txt', mimetype='text/plain')
+    except:
+        # Fallback with basic robots.txt content
+        from flask import Response
+        return Response("User-agent: *\nDisallow:", mimetype='text/plain')
+
+@app.route('/favicon.ico')
+def favicon():
+    """Serve favicon.ico file"""
+    try:
+        return send_from_directory('static/images', 'favicon.ico', mimetype='image/vnd.microsoft.icon')
+    except:
+        # Return 404 if favicon not found
+        abort(404)

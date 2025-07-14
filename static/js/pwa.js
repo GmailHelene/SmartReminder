@@ -19,6 +19,16 @@ function checkInstallationStatus() {
         platform: navigator.platform
     });
     
+    // Show/hide install button based on installation status
+    const installBtn = document.getElementById('pwa-install-btn');
+    if (installBtn) {
+        if (isStandalone) {
+            installBtn.style.display = 'none';
+        } else {
+            installBtn.style.display = 'inline-block';
+        }
+    }
+    
     return isStandalone;
 }
 
@@ -31,7 +41,7 @@ function showInstallPrompt() {
     const installBanner = document.createElement('div');
     installBanner.id = 'pwa-install-banner';
     installBanner.innerHTML = `
-        <div class="alert alert-info alert-dismissible fade show position-fixed" style="top: 10px; left: 10px; right: 10px; z-index: 9999; max-width: 400px; margin: 0 auto;">
+        <div class="alert alert-info alert-dismissible fade show position-fixed" style="top: 70px; left: 10px; right: 10px; z-index: 9999; max-width: 400px; margin: 0 auto;">
             <div class="d-flex align-items-center">
                 <i class="fas fa-mobile-alt me-2"></i>
                 <div class="flex-grow-1">
@@ -160,12 +170,18 @@ window.addEventListener('beforeinstallprompt', (e) => {
     // Store the event so it can be triggered later
     window.deferredPrompt = e;
     
+    // Show install button in navbar
+    const installBtn = document.getElementById('pwa-install-btn');
+    if (installBtn && !window.isStandalone) {
+        installBtn.style.display = 'inline-block';
+    }
+    
     // Show custom install prompt after a delay
     setTimeout(() => {
         if (!window.isStandalone && !window.installPromptShown) {
             showInstallPrompt();
         }
-    }, 3000);
+    }, 5000);
 });
 
 // Listen for app installed event
@@ -175,9 +191,17 @@ window.addEventListener('appinstalled', (e) => {
     window.isStandalone = true;
     hideInstallPrompt();
     
+    // Hide install button
+    const installBtn = document.getElementById('pwa-install-btn');
+    if (installBtn) {
+        installBtn.style.display = 'none';
+    }
+    
     // Show success message
     if (typeof showToastNotification === 'function') {
         showToastNotification('📱 App installert! Du kan nå åpne SmartReminder fra hjemskjermen.', 'success');
+    } else {
+        showToast('📱 App installert! Du kan nå åpne SmartReminder fra hjemskjermen.', 'success');
     }
 });
 
@@ -194,15 +218,26 @@ document.addEventListener('DOMContentLoaded', function() {
     } else {
         console.log('📱 App not installed, will show prompt when appropriate');
         
-        // For iOS Safari, show prompt immediately since beforeinstallprompt doesn't fire
+        // For iOS Safari, show install button immediately since beforeinstallprompt doesn't fire
         const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
         if (isIOS) {
+            const installBtn = document.getElementById('pwa-install-btn');
+            if (installBtn) {
+                installBtn.style.display = 'inline-block';
+            }
+            
             setTimeout(() => {
                 if (!window.installPromptShown) {
                     showInstallPrompt();
                 }
-            }, 5000);
+            }, 8000);
         }
+    }
+    
+    // Add event listener for install button
+    const installBtn = document.getElementById('pwa-install-btn');
+    if (installBtn) {
+        installBtn.addEventListener('click', installPWA);
     }
 });
 
@@ -390,17 +425,17 @@ function requestNotificationPermissionForPWA() {
     }, 2000);
 }
 
-// Auto-request notification permission after install
-window.addEventListener('appinstalled', () => {
-    setTimeout(requestNotificationPermission, 3000);
-});
-                showToast('Varslinger aktivert! 🔔', 'success');
-                initializePushNotifications();
-            } else {
-                showToast('Varslinger er deaktivert. Du kan aktivere dem i nettleserinnstillingene.', 'warning', 8000);
-            }
+// Initialize push notifications
+function initializePushNotifications() {
+    console.log('🔔 Initializing push notifications...');
+    // This is a placeholder - actual implementation depends on your push service
+    if ('serviceWorker' in navigator && 'PushManager' in window) {
+        navigator.serviceWorker.ready.then(registration => {
+            console.log('✅ Push notifications initialized');
+        }).catch(err => {
+            console.error('❌ Push notification initialization failed:', err);
         });
-    }, 2000);
+    }
 }
 
 // Auto-request notification permission after install
