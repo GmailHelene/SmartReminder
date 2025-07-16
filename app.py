@@ -814,10 +814,22 @@ def dashboard():
     user = User.get_by_email(current_user.email)
     current_focus_mode = user.focus_mode if user else 'normal'
     
+    # Beregn statistikk
+    completed_reminders = [r for r in reminders if r.get('user_id') == current_user.email and r.get('completed', False)]
+    total_reminders = len(my_reminders) + len(completed_reminders)
+    
+    stats = {
+        'total': len(my_reminders),
+        'completed': len(completed_reminders),
+        'shared_count': len(shared_with_me),
+        'completion_rate': (len(completed_reminders) / total_reminders * 100) if total_reminders > 0 else 0
+    }
+    
     return render_template('dashboard.html', 
                          my_reminders=my_reminders, 
                          shared_with_me=shared_with_me,
-                         current_focus_mode=current_focus_mode)
+                         current_focus_mode=current_focus_mode,
+                         stats=stats)
 
 @app.route('/complete_reminder/<reminder_id>')
 @login_required
