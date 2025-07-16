@@ -802,6 +802,9 @@ def dashboard():
     shared_reminders = dm.load_data('shared_reminders')
     users = dm.load_data('users')
     
+    # Opprett form for å legge til påminnelser
+    form = ReminderForm()
+    
     # Filtrer påminnelser (safely handle missing completed field)
     my_reminders = [r for r in reminders if r.get('user_id') == current_user.email and not r.get('completed', False)]
     shared_with_me = [r for r in shared_reminders if r.get('shared_with') == current_user.email and not r.get('completed', False)]
@@ -829,7 +832,8 @@ def dashboard():
                          my_reminders=my_reminders, 
                          shared_with_me=shared_with_me,
                          current_focus_mode=current_focus_mode,
-                         stats=stats)
+                         stats=stats,
+                         form=form)
 
 @app.route('/complete_reminder/<reminder_id>')
 @login_required
