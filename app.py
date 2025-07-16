@@ -1625,10 +1625,6 @@ def offline():
     """Offline page for PWA"""
     return render_template('offline.html')
 
-# Focus modes route
-@app.route('/focus-modes', methods=['GET', 'POST'])
-@login_required
-
 # --- Manglende notify_delay route for dashboard.html ---
 @app.route('/notify_delay', methods=['POST'])
 @login_required
@@ -1637,6 +1633,10 @@ def notify_delay():
     # Her kan du implementere logikk for å sende forsinkelsesvarsel hvis ønskelig
     flash('Forsinkelsesvarsel sendt (dummy endpoint)', 'info')
     return redirect(url_for('dashboard'))
+
+# Focus modes route
+@app.route('/focus-modes', methods=['GET', 'POST'])
+@login_required
 def focus_modes():
     """Focus modes page with comprehensive error handling"""
     try:
