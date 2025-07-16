@@ -1628,6 +1628,15 @@ def offline():
 # Focus modes route
 @app.route('/focus-modes', methods=['GET', 'POST'])
 @login_required
+
+# --- Manglende notify_delay route for dashboard.html ---
+@app.route('/notify_delay', methods=['POST'])
+@login_required
+def notify_delay():
+    """Dummy endpoint for delay notification (brukes av dashboard.html)"""
+    # Her kan du implementere logikk for å sende forsinkelsesvarsel hvis ønskelig
+    flash('Forsinkelsesvarsel sendt (dummy endpoint)', 'info')
+    return redirect(url_for('dashboard'))
 def focus_modes():
     """Focus modes page with comprehensive error handling"""
     try:
