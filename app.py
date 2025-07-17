@@ -1863,6 +1863,47 @@ def get_vapid_public_key():
         logger.error(f"Error getting VAPID public key: {e}")
         return jsonify({'error': 'Failed to get VAPID public key'}), 500
 
+@app.route('/api/push-subscription', methods=['POST'])
+@login_required
+@csrf.exempt
+def subscribe_push_notifications():
+    """Subscribe user to push notifications"""
+    try:
+        subscription_data = request.get_json()
+        
+        if not subscription_data or 'subscription' not in subscription_data:
+            return jsonify({'success': False, 'error': 'Invalid subscription data'}), 400
+        
+        subscription = subscription_data['subscription']
+        
+        # Store subscription in user data
+        subscriptions = dm.load_data('push_subscriptions', {})
+        user_email = current_user.email
+        
+        if user_email not in subscriptions:
+            subscriptions[user_email] = []
+        
+        # Check if subscription already exists
+        existing = False
+        for sub in subscriptions[user_email]:
+            if sub.get('endpoint') == subscription.get('endpoint'):
+                existing = True
+                break
+        
+        if not existing:
+            subscription['created_at'] = datetime.now().isoformat()
+            subscriptions[user_email].append(subscription)
+            dm.save_data('push_subscriptions', subscriptions)
+            logger.info(f"New push subscription added for {user_email}")
+        else:
+            logger.info(f"Push subscription already exists for {user_email}")
+        
+        return jsonify({'success': True, 'message': 'Push notifications enabled'})
+        
+    except Exception as e:
+        logger.error(f"Error subscribing to push notifications: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 @app.route('/set-instructor-status', methods=['POST'])
 @login_required
 def set_instructor_status():
