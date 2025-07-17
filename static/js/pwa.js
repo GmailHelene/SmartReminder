@@ -426,16 +426,82 @@ function requestNotificationPermissionForPWA() {
 }
 
 // Initialize push notifications
-function initializePushNotifications() {
+async function initializePushNotifications() {
     console.log('🔔 Initializing push notifications...');
-    // This is a placeholder - actual implementation depends on your push service
-    if ('serviceWorker' in navigator && 'PushManager' in window) {
-        navigator.serviceWorker.ready.then(registration => {
-            console.log('✅ Push notifications initialized');
-        }).catch(err => {
-            console.error('❌ Push notification initialization failed:', err);
-        });
+    
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+        console.error('❌ Push notifications not supported');
+        return false;
     }
+    
+    try {
+        // Wait for service worker to be ready
+        const registration = await navigator.serviceWorker.ready;
+        
+        // Get VAPID public key from server
+        const vapidResponse = await fetch('/api/vapid-public-key');
+        if (!vapidResponse.ok) {
+            throw new Error('Failed to get VAPID public key');
+        }
+        
+        const { public_key } = await vapidResponse.json();
+        
+        // Check if user is already subscribed
+        let subscription = await registration.pushManager.getSubscription();
+        
+        if (!subscription) {
+            // Subscribe to push notifications
+            subscription = await registration.pushManager.subscribe({
+                userVisibleOnly: true,
+                applicationServerKey: urlBase64ToUint8Array(public_key)
+            });
+            
+            console.log('🔔 New push subscription created');
+        } else {
+            console.log('🔔 Using existing push subscription');
+        }
+        
+        // Send subscription to server
+        const subscribeResponse = await fetch('/api/push-subscription', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('meta[name=csrf-token]')?.getAttribute('content') || ''
+            },
+            body: JSON.stringify({
+                subscription: subscription.toJSON()
+            })
+        });
+        
+        if (subscribeResponse.ok) {
+            console.log('✅ Push notifications initialized successfully');
+            showToast('Push-varsler aktivert! 📱', 'success');
+            return true;
+        } else {
+            console.error('❌ Failed to register push subscription');
+            return false;
+        }
+        
+    } catch (err) {
+        console.error('❌ Push notification initialization failed:', err);
+        return false;
+    }
+}
+
+// Convert VAPID key
+function urlBase64ToUint8Array(base64String) {
+    const padding = '='.repeat((4 - base64String.length % 4) % 4);
+    const base64 = (base64String + padding)
+        .replace(/\-/g, '+')
+        .replace(/_/g, '/');
+    
+    const rawData = window.atob(base64);
+    const outputArray = new Uint8Array(rawData.length);
+    
+    for (let i = 0; i < rawData.length; ++i) {
+        outputArray[i] = rawData.charCodeAt(i);
+    }
+    return outputArray;
 }
 
 // Auto-request notification permission after install

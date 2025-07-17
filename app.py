@@ -1837,9 +1837,31 @@ def api_calendar_events():
 def send_test_notification():
     """Send a test push notification to the current user"""
     try:
-        logger.info("Sending test notification...")
-        # Implementation would go here
-        return jsonify({'success': True, 'message': 'Test notification sent'})
+        logger.info(f"Sending test notification to {current_user.email}...")
+        
+        # Import push service
+        from push_service import send_push_notification
+        
+        # Send test notification
+        success = send_push_notification(
+            current_user.email,
+            "Test Notification",
+            "Dette er en test av push-varsler fra SmartReminder!",
+            data={
+                'url': '/dashboard',
+                'sound': 'pristine.mp3',
+                'priority': 'high'
+            },
+            dm=dm
+        )
+        
+        if success:
+            logger.info(f"Test notification sent successfully to {current_user.email}")
+            return jsonify({'success': True, 'message': 'Test notification sent successfully!'})
+        else:
+            logger.warning(f"Test notification failed for {current_user.email}")
+            return jsonify({'success': False, 'error': 'Failed to send test notification. Make sure you have enabled push notifications.'})
+            
     except Exception as e:
         logger.error(f"Error sending test notification: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
