@@ -299,10 +299,113 @@ function initializePushNotifications() {
     }
 }
 
+// Listen for messages from Service Worker (especially for sound playback)
+if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.addEventListener('message', event => {
+        console.log('📨 Received message from Service Worker:', event.data);
+        
+        if (event.data.type === 'PLAY_NOTIFICATION_SOUND') {
+            const soundName = event.data.sound || 'pristine.mp3';
+            console.log('🔊 Playing notification sound:', soundName);
+            playNotificationSound(soundName);
+        }
+    });
+}
+
+// Enhanced notification sound playback with mobile support
+function playNotificationSound(soundName = 'pristine.mp3') {
+    console.log('🔊 Attempting to play sound:', soundName);
+    
+    try {
+        // Create audio element
+        const audio = new Audio(`/static/sounds/${soundName}`);
+        audio.volume = 0.7;
+        
+        // Add enhanced mobile support
+        audio.setAttribute('preload', 'auto');
+        audio.setAttribute('crossorigin', 'anonymous');
+        
+        // Try to play immediately
+        const playPromise = audio.play();
+        
+        if (playPromise !== undefined) {
+            playPromise
+                .then(() => {
+                    console.log('✅ Sound played successfully:', soundName);
+                })
+                .catch(error => {
+                    console.warn('⚠️ Autoplay failed, showing manual play button:', error);
+                    showManualSoundPlayButton(soundName);
+                });
+        }
+        
+        // Fallback for older browsers
+        audio.addEventListener('canplaythrough', () => {
+            console.log('📱 Audio ready to play on mobile');
+        });
+        
+    } catch (error) {
+        console.error('❌ Error playing sound:', error);
+        showManualSoundPlayButton(soundName);
+    }
+}
+
+// Show manual sound play button for mobile devices with autoplay restrictions
+function showManualSoundPlayButton(soundName) {
+    // Remove any existing manual play button
+    const existingButton = document.getElementById('manual-sound-btn');
+    if (existingButton) {
+        existingButton.remove();
+    }
+    
+    // Create manual play button
+    const button = document.createElement('button');
+    button.id = 'manual-sound-btn';
+    button.className = 'btn btn-warning btn-sm position-fixed';
+    button.style.cssText = 'top: 20px; right: 20px; z-index: 9999; border-radius: 25px; box-shadow: 0 4px 8px rgba(0,0,0,0.3);';
+    button.innerHTML = '🔊 Trykk for lyd';
+    
+    // Click handler
+    button.addEventListener('click', () => {
+        const audio = new Audio(`/static/sounds/${soundName}`);
+        audio.volume = 0.7;
+        audio.play()
+            .then(() => {
+                console.log('✅ Manual sound play successful');
+                button.remove();
+                
+                // Show success feedback
+                showToastNotification('🔊 Lyd avspilt!', 'success');
+            })
+            .catch(error => {
+                console.error('❌ Manual sound play failed:', error);
+                showToastNotification('❌ Kunne ikke spille lyd', 'error');
+            });
+    });
+    
+    // Add to page
+    document.body.appendChild(button);
+    
+    // Auto-remove after 10 seconds
+    setTimeout(() => {
+        if (button.parentNode) {
+            button.remove();
+        }
+    }, 10000);
+}
+
+// Check for pending notifications that need sound (useful after page load)
+function checkPendingSounds() {
+    // This function can be called to check if there are any pending sounds to play
+    // For now, it's a placeholder for future enhancement
+    console.log('🔍 Checking for pending notification sounds...');
+}
+
 // Global functions for window
 window.requestPushPermission = requestPushPermission;
 window.testNotificationSound = testNotificationSound;
 window.playNotificationSound = playNotificationSound;
 window.showToastNotification = showToastNotification;
+window.checkPendingSounds = checkPendingSounds;
 
 console.log('✅ SmartReminder App JavaScript loaded successfully');

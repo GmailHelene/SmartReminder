@@ -304,12 +304,12 @@ class DataManager:
     
     def _ensure_data_files(self):
         """Sørg for at alle data-filer eksisterer"""
-        files = ['users', 'reminders', 'shared_reminders', 'notifications', 'email_log', 'shared_noteboards', 'password_reset_requests']
+        files = ['users', 'reminders', 'shared_reminders', 'notifications', 'email_log', 'shared_noteboards', 'password_reset_requests', 'push_subscriptions']
         for filename in files:
             filepath = self.data_dir / f"{filename}.json"
             if not filepath.exists():
-                # users skal være dict, resten liste eller dict
-                initial_data = {} if filename in ['users', 'password_reset_requests'] else ([] if filename in ['reminders', 'shared_reminders', 'notifications', 'email_log'] else {})
+                # users og push_subscriptions skal være dict, resten liste eller dict
+                initial_data = {} if filename in ['users', 'password_reset_requests', 'push_subscriptions'] else ([] if filename in ['reminders', 'shared_reminders', 'notifications', 'email_log'] else {})
                 self.save_data(filename, initial_data)
             else:
                 # MIGRERING: Konverter users fra liste til dict hvis nødvendig
@@ -428,113 +428,126 @@ def send_shared_reminder_notification(reminder, shared_by, recipient_email):
 def check_reminders_for_notifications():
     """Sjekk påminnelser og send notifikasjoner"""
     try:
-        now = datetime.now()
-        notification_time = now + timedelta(minutes=app.config['NOTIFICATION_ADVANCE_MINUTES'])
-        
-        # Sjekk alle påminnelser
-        reminders = dm.load_data('reminders', [])
-        shared_reminders = dm.load_data('shared_reminders', [])
-        notifications = dm.load_data('notifications', [])
-        
-        # Ensure reminders are lists and contain dictionaries
-        if not isinstance(reminders, list):
-            reminders = []
-        if not isinstance(shared_reminders, list):
-            shared_reminders = []
-        if not isinstance(notifications, list):
-            notifications = []
-        
-        sent_notifications = set()
-        for n in notifications:
-            if isinstance(n, dict) and 'reminder_id' in n:
-                sent_notifications.add(n['reminder_id'])
-        
-        all_reminders = []
-        
-        # Forbered mine påminnelser
-        for reminder in reminders:
-            if not isinstance(reminder, dict):
-                continue
-                
-            if (reminder.get('completed', False) == False and 
-                reminder.get('id') not in sent_notifications):
-                
-                try:
-                    reminder_dt = datetime.fromisoformat(reminder['datetime'].replace(' ', 'T'))
-                    if now <= reminder_dt <= notification_time:
-                        # Notify the reminder owner
-                        all_reminders.append((reminder, reminder.get('user_id', '')))
-                        
-                        # Also notify anyone in shared_with list (if it's a list and not empty)
-                        shared_with = reminder.get('shared_with', [])
-                        if isinstance(shared_with, list):
-                            for recipient_email in shared_with:
-                                if recipient_email and recipient_email != reminder.get('user_id', ''):
-                                    all_reminders.append((reminder, recipient_email))
-                except (ValueError, KeyError, TypeError) as e:
-                    logger.error(f"Error processing reminder {reminder}: {e}")
+        # Ensure we run within app context for all operations
+        with app.app_context():
+            now = datetime.now()
+            notification_time = now + timedelta(minutes=app.config['NOTIFICATION_ADVANCE_MINUTES'])
+            
+            # Sjekk alle påminnelser
+            reminders = dm.load_data('reminders', [])
+            shared_reminders = dm.load_data('shared_reminders', [])
+            notifications = dm.load_data('notifications', [])
+            
+            # Ensure reminders are lists and contain dictionaries
+            if not isinstance(reminders, list):
+                reminders = []
+            if not isinstance(shared_reminders, list):
+                shared_reminders = []
+            if not isinstance(notifications, list):
+                notifications = []
+            
+            sent_notifications = set()
+            for n in notifications:
+                if isinstance(n, dict) and 'reminder_id' in n:
+                    sent_notifications.add(n['reminder_id'])
+            
+            all_reminders = []
+            
+            # Forbered mine påminnelser
+            for reminder in reminders:
+                if not isinstance(reminder, dict):
                     continue
-                    if isinstance(shared_with, list):
-                        for recipient_email in shared_with:
-                            if recipient_email and recipient_email != reminder['user_id']:
+                    
+                if (reminder.get('completed', False) == False and 
+                    reminder.get('id') not in sent_notifications):
+                    
+                    try:
+                        reminder_dt = datetime.fromisoformat(reminder['datetime'].replace(' ', 'T'))
+                        if now <= reminder_dt <= notification_time:
+                            # Notify the reminder owner
+                            user_id = reminder.get('user_id', '')
+                            if user_id:
+                                all_reminders.append((reminder, user_id))
+                    except (ValueError, KeyError, TypeError) as e:
+                        logger.error(f"Error processing reminder {reminder}: {e}")
+                        continue
+            
+            # Forbered delte påminnelser
+            for reminder in shared_reminders:
+                if not isinstance(reminder, dict):
+                    continue
+                    
+                if (reminder.get('completed', False) == False and 
+                    reminder.get('id') not in sent_notifications):
+                    
+                    try:
+                        reminder_dt = datetime.fromisoformat(reminder['datetime'].replace(' ', 'T'))
+                        if now <= reminder_dt <= notification_time:
+                            # For shared reminders, shared_with is a single email string
+                            recipient_email = reminder.get('shared_with', '')
+                            if recipient_email:
                                 all_reminders.append((reminder, recipient_email))
-        
-        # Forbered delte påminnelser
-        for reminder in shared_reminders:
-            if not isinstance(reminder, dict):
-                continue
-                
-            if (reminder.get('completed', False) == False and 
-                reminder.get('id') not in sent_notifications):
-                
-                try:
-                    reminder_dt = datetime.fromisoformat(reminder['datetime'].replace(' ', 'T'))
-                    if now <= reminder_dt <= notification_time:
-                        # For shared reminders, shared_with is a single email string
-                        recipient_email = reminder.get('shared_with', '')
-                        if recipient_email:
-                            all_reminders.append((reminder, recipient_email))
-                except (ValueError, KeyError, TypeError) as e:
-                    logger.error(f"Error processing shared reminder {reminder}: {e}")
-                    continue
-        
-        # Send notifikasjoner
-        for reminder, recipient_email in all_reminders:
-            # Extract sound setting from reminder
-            sound = reminder.get('sound', 'pristine.mp3')
+                    except (ValueError, KeyError, TypeError) as e:
+                        logger.error(f"Error processing shared reminder {reminder}: {e}")
+                        continue
             
-            # Import push_service function for direct notification
-            try:
-                from push_service import send_reminder_notification as send_push_reminder
-                # Try to send push notification first (more immediate)
-                push_sent = send_push_reminder(
-                    recipient_email, 
-                    reminder['title'], 
-                    reminder['datetime'], 
-                    sound=sound,
-                    dm=dm
-                )
-                logger.info(f"Push notification {'sent' if push_sent else 'failed'} for {reminder['id']}")
-            except Exception as push_err:
-                logger.error(f"Error sending push notification: {push_err}")
+            # Send notifikasjoner (within app context)
+            for reminder, recipient_email in all_reminders:
+                # Extract sound setting from reminder
+                sound = reminder.get('sound', 'pristine.mp3')
+                
+                # Try to send push notification first
                 push_sent = False
+                try:
+                    # Create push subscriptions file if it doesn't exist
+                    import os
+                    os.makedirs('data', exist_ok=True)
+                    if not os.path.exists('data/push_subscriptions.json'):
+                        with open('data/push_subscriptions.json', 'w') as f:
+                            json.dump({}, f)
+                    
+                    # Import and use the push service 
+                    from push_service import send_reminder_notification as send_push_reminder
+                    push_sent = send_push_reminder(
+                        recipient_email, 
+                        reminder['title'], 
+                        reminder['datetime'], 
+                        sound=sound,
+                        dm=dm
+                    )
+                    logger.info(f"Push notification {'sent' if push_sent else 'failed'} for {reminder['id']}")
+                except Exception as push_err:
+                    logger.error(f"Error sending push notification to {recipient_email}: {push_err}")
+                    push_sent = False
+                    
+                # Send email notification as backup (within app context)
+                email_sent = False
+                try:
+                    email_sent = send_reminder_notification(reminder, recipient_email)
+                    if email_sent:
+                        logger.info(f"Email notification sent to {recipient_email} for reminder {reminder['id']}")
+                    else:
+                        logger.warning(f"Email notification failed for {recipient_email}")
+                except Exception as email_err:
+                    logger.error(f"Email service error for {recipient_email}: {email_err}")
+                    email_sent = False
                 
-            # Also send email notification as backup
-            if send_reminder_notification(reminder, recipient_email):
-                # Logg notifikasjon
-                notifications.append({
-                    'reminder_id': reminder['id'],
-                    'recipient': recipient_email,
-                    'sent_at': now.isoformat(),
-                    'type': 'reminder_notification',
-                    'push_sent': push_sent
-                })
-        
-        # Lagre oppdaterte notifikasjoner
-        if all_reminders:
-            dm.save_data('notifications', notifications)
-            logger.info(f"Sendt {len(all_reminders)} påminnelse-notifikasjoner")
+                # Logg notifikasjon hvis minst en metode fungerte
+                if push_sent or email_sent:
+                    notifications.append({
+                        'reminder_id': reminder['id'],
+                        'recipient': recipient_email,
+                        'sent_at': now.isoformat(),
+                        'type': 'reminder_notification',
+                        'push_sent': push_sent,
+                        'email_sent': email_sent
+                    })
             
+            # Lagre oppdaterte notifikasjoner
+            if all_reminders:
+                dm.save_data('notifications', notifications)
+                logger.info(f"Sendt {len(all_reminders)} påminnelse-notifikasjoner")
+                
     except Exception as e:
         logger.error(f"Feil ved sjekking av påminnelser: {e}")
 

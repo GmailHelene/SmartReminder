@@ -12,25 +12,41 @@ from datetime import datetime
 logger = logging.getLogger(__name__)
 
 # VAPID keys for push notifications (newly generated)
-VAPID_PRIVATE_KEY = "ZHDglxicXIIz4g-V71A5ImYnCLs09wfkrMNXo0eBMks"
-VAPID_PUBLIC_KEY = "BB6570vt9Z-TU_ZlqnbzfYGIljYDFYYwq3SPpDApf3Fy6dLmwu0RIP2lbj1fR2_D32g0r5276rYy2QYBBU_piEQ"
+VAPID_PRIVATE_KEY = "JXUuiYEy2DZEKAGzBcONdE66nBV2D5THNUaXoC2uU5w"
+VAPID_PUBLIC_KEY = "BAabd3LWGSSiENrLJiL8NvpIgDQTPxzngysuFEeYsM8CevuSfnPwUaaneXYtJ4r6508R7Nl6VUG_Dw9v3cYH-tY"
 VAPID_CLAIMS = {"sub": "mailto:admin@smartreminder.com"}
 
 def send_push_notification(user_email, title, body, data=None, dm=None):
     """Send push notification to user with enhanced mobile support"""
     if not dm:
+        logger.error("DataManager not provided to send_push_notification")
         return False
         
     try:
-        subscriptions_data = dm.load_data('push_subscriptions')
+        # Load push subscriptions, handle both dict and list formats
+        subscriptions_data = dm.load_data('push_subscriptions', {})
+        
+        # Handle the case where subscriptions_data might be a list instead of dict
+        if isinstance(subscriptions_data, list):
+            logger.warning("Push subscriptions data is in list format, converting to dict")
+            subscriptions_data = {}
+        elif not isinstance(subscriptions_data, dict):
+            logger.error("Push subscriptions data is not in expected format")
+            subscriptions_data = {}
+        
         user_subscriptions = subscriptions_data.get(user_email, [])
+        
+        # Ensure user_subscriptions is a list
+        if not isinstance(user_subscriptions, list):
+            logger.warning(f"User subscriptions for {user_email} is not a list, converting")
+            user_subscriptions = []
         
         if not user_subscriptions:
             logger.info(f"No push subscriptions found for user {user_email}")
             return False
         
         # Get user preferences for sound
-        users_data = dm.load_data('users')
+        users_data = dm.load_data('users', {})
         user_data = users_data.get(user_email, {})
         default_sound = user_data.get('notification_sound', 'pristine.mp3')
         
